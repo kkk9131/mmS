@@ -1,0 +1,12 @@
+# Issue Template Configuration
+blank_issues_enabled: false
+contact_links:
+  - name: 質問・ディスカッション
+    url: https://github.com/org/repo/discussions
+    about: 一般的な質問や議論はDiscussionsで行ってください
+  - name: セキュリティ脆弱性の報告
+    url: https://github.com/org/repo/security/policy
+    about: セキュリティに関する問題は専用の報告手順に従ってください
+  - name: ドキュメント
+    url: https://docs.example.com
+    about: 使用方法やFAQはドキュメントを参照してください

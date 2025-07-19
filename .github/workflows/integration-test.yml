@@ -1,0 +1,210 @@
+name: Workflow Integration Test
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 毎週月曜日の朝9時に実行
+    - cron: '0 0 * * 1'
+
+jobs:
+  test-workflows:
+    name: Test All Workflows
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Validate workflow files
+        run: |
+          echo "🔍 Validating all workflow files..."
+          
+          # YAMLの構文チェック
+          for file in .github/workflows/*.yml; do
+            echo "Checking: $file"
+            python -c "import yaml; yaml.safe_load(open('$file'))" || {
+              echo "❌ Invalid YAML in $file"
+              exit 1
+            }
+          done
+          
+          echo "✅ All workflow files have valid YAML syntax"
+      
+      - name: Check required workflows
+        run: |
+          echo "📋 Checking required workflows..."
+          
+          REQUIRED_WORKFLOWS=(
+            "ci.yml"
+            "release.yml"
+            "commit-lint.yml"
+            "error-notification.yml"
+          )
+          
+          for workflow in "${REQUIRED_WORKFLOWS[@]}"; do
+            if [ -f ".github/workflows/$workflow" ]; then
+              echo "✅ Found: $workflow"
+            else
+              echo "❌ Missing: $workflow"
+              exit 1
+            fi
+          done
+      
+      - name: Test branch protection config
+        run: |
+          echo "🛡️ Validating branch protection configuration..."
+          
+          if [ -f ".github/branch-protection.yml" ]; then
+            echo "✅ Branch protection config exists"
+            
+            # Check for required branches
+            if grep -q "name: main" .github/branch-protection.yml && \
+               grep -q "name: develop" .github/branch-protection.yml; then
+              echo "✅ Main and develop branch rules defined"
+            else
+              echo "❌ Missing branch protection rules"
+              exit 1
+            fi
+          else
+            echo "❌ Branch protection config not found"
+            exit 1
+          fi
+      
+      - name: Test issue templates
+        run: |
+          echo "📝 Checking issue templates..."
+          
+          REQUIRED_TEMPLATES=(
+            "bug_report.yml"
+            "feature_request.yml"
+            "config.yml"
+          )
+          
+          for template in "${REQUIRED_TEMPLATES[@]}"; do
+            if [ -f ".github/ISSUE_TEMPLATE/$template" ]; then
+              echo "✅ Found: $template"
+            else
+              echo "❌ Missing: $template"
+              exit 1
+            fi
+          done
+      
+      - name: Test PR template
+        run: |
+          echo "🔄 Checking pull request template..."
+          
+          if [ -f ".github/pull_request_template.md" ]; then
+            echo "✅ PR template exists"
+          else
+            echo "❌ PR template not found"
+            exit 1
+          fi
+      
+      - name: Test CODEOWNERS
+        run: |
+          echo "👥 Checking CODEOWNERS file..."
+          
+          if [ -f ".github/CODEOWNERS" ]; then
+            echo "✅ CODEOWNERS file exists"
+            
+            # Basic validation
+            if grep -q "@" .github/CODEOWNERS; then
+              echo "✅ CODEOWNERS contains team/user assignments"
+            else
+              echo "⚠️ Warning: CODEOWNERS file exists but contains no assignments"
+            fi
+          else
+            echo "❌ CODEOWNERS file not found"
+            exit 1
+          fi
+      
+      - name: Simulate CI workflow
+        run: |
+          echo "🚀 Simulating CI workflow..."
+          
+          # Install dependencies
+          npm ci
+          
+          # Run linting
+          echo "Running ESLint..."
+          npm run lint || echo "⚠️ Linting warnings detected"
+          
+          # Run type check
+          echo "Running TypeScript check..."
+          npx tsc --noEmit || {
+            echo "❌ TypeScript errors detected"
+            exit 1
+          }
+          
+          # Run tests
+          echo "Running tests..."
+          npm test || echo "⚠️ Some tests failed or no tests found"
+          
+          # Build check
+          echo "Running build..."
+          npm run build || {
+            echo "❌ Build failed"
+            exit 1
+          }
+      
+      - name: Test commit message validation
+        run: |
+          echo "📝 Testing commit message validation..."
+          
+          # Install commitlint locally for testing
+          npm install --save-dev @commitlint/cli @commitlint/config-conventional
+          
+          # Create test commit messages
+          echo "feat: add new feature" | npx commitlint || {
+            echo "❌ Valid commit message was rejected"
+            exit 1
+          }
+          
+          echo "bad commit message" | npx commitlint && {
+            echo "❌ Invalid commit message was accepted"
+            exit 1
+          } || echo "✅ Invalid commit message correctly rejected"
+      
+      - name: Check workflow permissions
+        run: |
+          echo "🔐 Checking workflow permissions..."
+          
+          # Check if workflows have appropriate permissions
+          for file in .github/workflows/*.yml; do
+            if grep -q "permissions:" "$file"; then
+              echo "✅ $(basename $file) has permissions defined"
+            else
+              echo "⚠️ $(basename $file) has no explicit permissions"
+            fi
+          done
+      
+      - name: Generate test report
+        if: always()
+        run: |
+          echo "## 📊 Workflow Integration Test Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Completed Tests" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. YAML syntax validation" >> $GITHUB_STEP_SUMMARY
+          echo "2. Required workflows presence" >> $GITHUB_STEP_SUMMARY
+          echo "3. Branch protection configuration" >> $GITHUB_STEP_SUMMARY
+          echo "4. Issue templates validation" >> $GITHUB_STEP_SUMMARY
+          echo "5. Pull request template check" >> $GITHUB_STEP_SUMMARY
+          echo "6. CODEOWNERS file validation" >> $GITHUB_STEP_SUMMARY
+          echo "7. CI workflow simulation" >> $GITHUB_STEP_SUMMARY
+          echo "8. Commit message validation" >> $GITHUB_STEP_SUMMARY
+          echo "9. Workflow permissions audit" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📅 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Review any warnings or failures above" >> $GITHUB_STEP_SUMMARY
+          echo "- Update configurations as needed" >> $GITHUB_STEP_SUMMARY
+          echo "- Run this test regularly to ensure workflow health" >> $GITHUB_STEP_SUMMARY

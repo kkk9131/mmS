@@ -1,0 +1,146 @@
+name: バグレポート
+description: バグや不具合を報告する
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        バグレポートありがとうございます。以下の情報を記入してください。
+        
+  - type: textarea
+    id: description
+    attributes:
+      label: バグの説明
+      description: 発生しているバグや問題について詳しく説明してください
+      placeholder: |
+        どのような問題が発生していますか？
+        どのような状況で発生しますか？
+    validations:
+      required: true
+      
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 再現手順
+      description: バグを再現するための具体的な手順を記載してください
+      placeholder: |
+        1. '...' に移動
+        2. '...' をクリック
+        3. '...' まで下にスクロール
+        4. エラーが表示される
+    validations:
+      required: true
+      
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待される動作
+      description: 本来どのような動作をするべきか説明してください
+    validations:
+      required: true
+      
+  - type: textarea
+    id: actual
+    attributes:
+      label: 実際の動作
+      description: 実際にどのような動作をしているか説明してください
+    validations:
+      required: true
+      
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: スクリーンショット
+      description: 問題を示すスクリーンショットがあれば添付してください
+      placeholder: ここに画像をドラッグ&ドロップまたはペーストしてください
+    validations:
+      required: false
+      
+  - type: dropdown
+    id: platform
+    attributes:
+      label: プラットフォーム
+      description: どのプラットフォームで問題が発生していますか？
+      multiple: true
+      options:
+        - iOS
+        - Android
+        - Web
+    validations:
+      required: true
+      
+  - type: input
+    id: version
+    attributes:
+      label: アプリバージョン
+      description: 使用しているアプリのバージョンを記入してください
+      placeholder: 例：1.2.3
+    validations:
+      required: true
+      
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境情報
+      description: |
+        **iOS の場合:**
+        - iOSバージョン
+        - デバイスモデル（例：iPhone 14 Pro）
+        
+        **Android の場合:**
+        - Androidバージョン
+        - デバイスモデル
+        
+        **Web の場合:**
+        - ブラウザとバージョン
+        - OS
+      placeholder: |
+        例：
+        - iOS 17.0
+        - iPhone 14 Pro
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 優先度
+      description: このバグの影響度を選択してください
+      options:
+        - 低（Low） - 軽微な問題
+        - 中（Medium） - 一部機能に影響
+        - 高（High） - 主要機能に影響
+        - 緊急（Critical） - アプリが使用不可
+    validations:
+      required: true
+      
+  - type: textarea
+    id: logs
+    attributes:
+      label: 関連ログ
+      description: エラーログやコンソール出力があれば貼り付けてください
+      render: shell
+    validations:
+      required: false
+      
+  - type: textarea
+    id: additional
+    attributes:
+      label: その他の情報
+      description: その他、問題の解決に役立つ情報があれば記入してください
+    validations:
+      required: false
+      
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: 確認事項
+      description: 提出前に以下を確認してください
+      options:
+        - label: 既存のIssueに同じ問題が報告されていないことを確認しました
+          required: true
+        - label: 最新バージョンで問題が発生することを確認しました
+          required: true

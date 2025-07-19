@@ -1,0 +1,89 @@
+# CODEOWNERS file for automatic code review assignments
+# Each line is a file pattern followed by one or more owners.
+# Order is important; the last matching pattern takes precedence.
+
+# Default owners for everything in the repo
+* @default-team
+
+# Frontend code owners
+/src/components/ @frontend-team
+/src/pages/ @frontend-team
+/src/styles/ @frontend-team @design-team
+/src/hooks/ @frontend-team
+/src/utils/ @frontend-team
+/src/assets/ @design-team
+*.tsx @frontend-team
+*.jsx @frontend-team
+*.css @frontend-team @design-team
+*.scss @frontend-team @design-team
+
+# Backend code owners
+/src/api/ @backend-team
+/src/services/ @backend-team
+/src/models/ @backend-team
+/src/middleware/ @backend-team
+/src/database/ @backend-team @dba-team
+/src/auth/ @backend-team @security-team
+*.sql @dba-team
+
+# Mobile specific code
+/src/mobile/ @mobile-team
+/ios/ @ios-team
+/android/ @android-team
+*.swift @ios-team
+*.kt @android-team
+*.java @android-team
+
+# Configuration and DevOps
+/.github/ @devops-team
+/scripts/ @devops-team
+/docker/ @devops-team
+/k8s/ @devops-team
+*.yml @devops-team
+*.yaml @devops-team
+Dockerfile* @devops-team
+docker-compose* @devops-team
+
+# Documentation
+/docs/ @docs-team @product-team
+*.md @docs-team
+README.md @docs-team @product-team
+CONTRIBUTING.md @docs-team @engineering-leads
+
+# Test files
+/tests/ @qa-team
+/e2e/ @qa-team
+/__tests__/ @qa-team
+*.test.ts @qa-team @frontend-team
+*.test.tsx @qa-team @frontend-team
+*.spec.ts @qa-team @backend-team
+*.spec.js @qa-team
+
+# Security sensitive files
+/.env* @security-team @engineering-leads
+/security/ @security-team
+*secret* @security-team
+*password* @security-team
+*token* @security-team
+*key* @security-team
+
+# Build and dependency files
+package.json @engineering-leads
+package-lock.json @engineering-leads
+yarn.lock @engineering-leads
+tsconfig.json @frontend-team @engineering-leads
+.eslintrc* @frontend-team
+.prettierrc* @frontend-team
+webpack.config.js @frontend-team @devops-team
+vite.config.js @frontend-team @devops-team
+
+# Critical application files
+/src/App.tsx @frontend-team @engineering-leads
+/src/index.tsx @frontend-team @engineering-leads
+/src/main.ts @backend-team @engineering-leads
+/src/config/ @devops-team @engineering-leads
+
+# Team lead approvals for certain changes
+CODEOWNERS @engineering-leads
+.github/branch-protection.yml @engineering-leads
+.github/workflows/ @devops-team @engineering-leads

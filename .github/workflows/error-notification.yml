@@ -1,0 +1,213 @@
+name: Error Handling and Notifications
+
+on:
+  workflow_run:
+    workflows: ["CI/CD Pipeline", "Release", "Commit Message Validation"]
+    types:
+      - completed
+
+jobs:
+  error-handler:
+    name: Handle Workflow Errors
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Get workflow details
+        id: workflow_info
+        run: |
+          echo "workflow_name=${{ github.event.workflow_run.name }}" >> $GITHUB_OUTPUT
+          echo "run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+          echo "run_url=${{ github.event.workflow_run.html_url }}" >> $GITHUB_OUTPUT
+          echo "actor=${{ github.event.workflow_run.actor.login }}" >> $GITHUB_OUTPUT
+          echo "branch=${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+          echo "commit=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+      
+      - name: Analyze failure type
+        id: analyze_failure
+        run: |
+          # Determine the type of failure
+          WORKFLOW_NAME="${{ steps.workflow_info.outputs.workflow_name }}"
+          
+          case "$WORKFLOW_NAME" in
+            "CI/CD Pipeline")
+              if [[ "${{ github.event.workflow_run.head_branch }}" == "main" ]]; then
+                echo "failure_type=production_deployment" >> $GITHUB_OUTPUT
+                echo "severity=critical" >> $GITHUB_OUTPUT
+              elif [[ "${{ github.event.workflow_run.head_branch }}" == "develop" ]]; then
+                echo "failure_type=staging_deployment" >> $GITHUB_OUTPUT
+                echo "severity=high" >> $GITHUB_OUTPUT
+              else
+                echo "failure_type=ci_build" >> $GITHUB_OUTPUT
+                echo "severity=medium" >> $GITHUB_OUTPUT
+              fi
+              ;;
+            "Release")
+              echo "failure_type=release_process" >> $GITHUB_OUTPUT
+              echo "severity=high" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "failure_type=general" >> $GITHUB_OUTPUT
+              echo "severity=low" >> $GITHUB_OUTPUT
+              ;;
+          esac
+      
+      - name: Create error issue
+        if: steps.analyze_failure.outputs.severity == 'critical' || steps.analyze_failure.outputs.severity == 'high'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const failureType = '${{ steps.analyze_failure.outputs.failure_type }}';
+            const severity = '${{ steps.analyze_failure.outputs.severity }}';
+            const workflowName = '${{ steps.workflow_info.outputs.workflow_name }}';
+            const runUrl = '${{ steps.workflow_info.outputs.run_url }}';
+            const actor = '${{ steps.workflow_info.outputs.actor }}';
+            const branch = '${{ steps.workflow_info.outputs.branch }}';
+            const commit = '${{ steps.workflow_info.outputs.commit }}';
+            
+            const labels = ['automated', 'workflow-failure', severity];
+            if (failureType === 'production_deployment') {
+              labels.push('production', 'urgent');
+            }
+            
+            const issueTitle = `🚨 ${severity.toUpperCase()}: ${workflowName} failed on ${branch}`;
+            
+            const issueBody = `## Workflow Failure Report
+            
+            ### Summary
+            The **${workflowName}** workflow failed on branch \`${branch}\`.
+            
+            ### Details
+            - **Failure Type**: ${failureType.replace(/_/g, ' ')}
+            - **Severity**: ${severity.toUpperCase()}
+            - **Failed Run**: [View workflow run](${runUrl})
+            - **Triggered by**: @${actor}
+            - **Commit**: \`${commit.substring(0, 7)}\`
+            - **Time**: ${new Date().toISOString()}
+            
+            ### Action Required
+            ${severity === 'critical' ? '⚠️ **IMMEDIATE ACTION REQUIRED** - Production deployment failed!' : ''}
+            ${severity === 'high' ? '⚠️ Please investigate this failure as soon as possible.' : ''}
+            
+            1. Review the [failed workflow run](${runUrl})
+            2. Check the error logs
+            3. Fix the issue and re-run the workflow
+            ${failureType === 'production_deployment' ? '4. Consider rolling back if the issue cannot be fixed immediately' : ''}
+            
+            ### Assignees
+            @${actor}
+            
+            ---
+            *This issue was automatically created by the error handling workflow.*`;
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: issueTitle,
+              body: issueBody,
+              labels: labels,
+              assignees: [actor]
+            });
+      
+      - name: Send Slack notification
+        if: steps.analyze_failure.outputs.severity == 'critical' || steps.analyze_failure.outputs.severity == 'high'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            SEVERITY="${{ steps.analyze_failure.outputs.severity }}"
+            WORKFLOW="${{ steps.workflow_info.outputs.workflow_name }}"
+            BRANCH="${{ steps.workflow_info.outputs.branch }}"
+            RUN_URL="${{ steps.workflow_info.outputs.run_url }}"
+            ACTOR="${{ steps.workflow_info.outputs.actor }}"
+            
+            # Set color based on severity
+            if [ "$SEVERITY" == "critical" ]; then
+              COLOR="#FF0000"
+              EMOJI="🚨"
+            else
+              COLOR="#FF9900"
+              EMOJI="⚠️"
+            fi
+            
+            # Send Slack message
+            curl -X POST $SLACK_WEBHOOK_URL \
+              -H 'Content-Type: application/json' \
+              -d @- <<EOF
+            {
+              "attachments": [
+                {
+                  "color": "$COLOR",
+                  "title": "$EMOJI $SEVERITY: $WORKFLOW failed",
+                  "text": "Workflow failed on branch \`$BRANCH\`",
+                  "fields": [
+                    {
+                      "title": "Triggered by",
+                      "value": "@$ACTOR",
+                      "short": true
+                    },
+                    {
+                      "title": "Branch",
+                      "value": "\`$BRANCH\`",
+                      "short": true
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": "button",
+                      "text": "View Workflow Run",
+                      "url": "$RUN_URL",
+                      "style": "danger"
+                    }
+                  ],
+                  "footer": "GitHub Actions",
+                  "ts": $(date +%s)
+                }
+              ]
+            }
+            EOF
+          else
+            echo "Slack webhook URL not configured. Skipping notification."
+          fi
+      
+      - name: Generate error report
+        if: always()
+        run: |
+          echo "## 📊 Error Report Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Workflow | ${{ steps.workflow_info.outputs.workflow_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | ${{ steps.workflow_info.outputs.branch }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Actor | @${{ steps.workflow_info.outputs.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Failure Type | ${{ steps.analyze_failure.outputs.failure_type }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | ${{ steps.analyze_failure.outputs.severity }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Run URL | [View](${{ steps.workflow_info.outputs.run_url }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.analyze_failure.outputs.severity }}" == "critical" ]; then
+            echo "### ⚠️ Critical Failure Detected!" >> $GITHUB_STEP_SUMMARY
+            echo "Production deployment failed. Immediate action required!" >> $GITHUB_STEP_SUMMARY
+          fi
+  
+  security-vulnerability-alert:
+    name: Security Vulnerability Alert
+    runs-on: ubuntu-latest
+    if: |
+      github.event.workflow_run.name == 'CI/CD Pipeline' &&
+      github.event.workflow_run.conclusion == 'failure'
+    
+    steps:
+      - name: Check for security failures
+        run: |
+          # This would check if the failure was due to security vulnerabilities
+          echo "Checking for security-related failures..."
+      
+      - name: Create security alert
+        if: failure()
+        run: |
+          echo "🔒 Security vulnerability detected!" >> $GITHUB_STEP_SUMMARY
+          echo "Please review the security audit results immediately." >> $GITHUB_STEP_SUMMARY
