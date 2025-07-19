@@ -101,7 +101,7 @@ export default function HomeScreen() {
   const [commentText, setCommentText] = useState('');
   // 実際の実装では、AsyncStorageやContextから読み込む
   const [dominantHand, setDominantHand] = useState<'right' | 'left'>('right');
-  
+
   // 空いた手の側を計算（利き手の逆側）
   const freeHandSide = dominantHand === 'right' ? 'left' : 'right';
 
@@ -113,24 +113,24 @@ export default function HomeScreen() {
   };
 
   const handleLike = (postId: string) => {
-    setPosts(posts.map(post => 
-      post.id === postId 
+    setPosts(posts.map(post =>
+      post.id === postId
         ? { ...post, isLiked: !post.isLiked, likes: post.isLiked ? post.likes - 1 : post.likes + 1 }
         : post
     ));
   };
 
   const handleCommentLike = (postId: string, commentId: string) => {
-    setPosts(posts.map(post => 
-      post.id === postId 
+    setPosts(posts.map(post =>
+      post.id === postId
         ? {
-            ...post,
-            commentList: post.commentList?.map(comment =>
-              comment.id === commentId
-                ? { ...comment, isLiked: !comment.isLiked, likes: comment.isLiked ? comment.likes - 1 : comment.likes + 1 }
-                : comment
-            )
-          }
+          ...post,
+          commentList: post.commentList?.map(comment =>
+            comment.id === commentId
+              ? { ...comment, isLiked: !comment.isLiked, likes: comment.isLiked ? comment.likes - 1 : comment.likes + 1 }
+              : comment
+          )
+        }
         : post
     ));
   };
@@ -152,13 +152,13 @@ export default function HomeScreen() {
       isLiked: false
     };
 
-    setPosts(posts.map(post => 
-      post.id === selectedPost.id 
-        ? { 
-            ...post, 
-            comments: post.comments + 1,
-            commentList: [...(post.commentList || []), newComment]
-          }
+    setPosts(posts.map(post =>
+      post.id === selectedPost.id
+        ? {
+          ...post,
+          comments: post.comments + 1,
+          commentList: [...(post.commentList || []), newComment]
+        }
         : post
     ));
 
@@ -195,22 +195,22 @@ export default function HomeScreen() {
         </TouchableOpacity>
         <Text style={styles.timestamp}>{post.timestamp}</Text>
       </View>
-      
+
       <Text style={styles.postContent}>{post.content}</Text>
-      
+
       <View style={styles.tagsContainer}>
         {post.tags.map((tag, index) => (
           <Text key={index} style={styles.tag}>#{tag}</Text>
         ))}
       </View>
-      
+
       {post.aiResponse && (
         <View style={styles.aiResponseContainer}>
           <Text style={styles.aiResponseLabel}>ママの味方</Text>
           <Text style={styles.aiResponseText}>{post.aiResponse}</Text>
         </View>
       )}
-      
+
       <View style={styles.actionsContainer}>
         <TouchableOpacity
           style={[styles.actionButton, post.isLiked && styles.likedButton]}
@@ -221,15 +221,15 @@ export default function HomeScreen() {
             {post.likes} 共感
           </Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.actionButton}
           onPress={() => handleCommentPress(post)}
         >
           <MessageCircle size={20} color="#666" />
           <Text style={styles.actionText}>{post.comments} コメント</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.moreButton}>
           <MoreHorizontal size={20} color="#666" />
         </TouchableOpacity>
@@ -249,20 +249,23 @@ export default function HomeScreen() {
         >
           <Menu size={24} color="#ff6b9d" />
         </TouchableOpacity>
+
+
+
         <Text style={styles.headerSubtitle}>ママの共感コミュニティ</Text>
       </View>
-      
+
       <View style={styles.headerContent}>
         <Text style={styles.headerTitle}>Mamapace</Text>
-    </View>
-      
+      </View>
+
       <ScrollView
         style={styles.timeline}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff6b9d" />}
       >
         {posts.map(renderPost)}
       </ScrollView>
-      
+
       <TouchableOpacity
         style={[
           styles.createPostButton,
@@ -272,12 +275,12 @@ export default function HomeScreen() {
       >
         <Plus size={28} color="#fff" />
       </TouchableOpacity>
-      
-      <Sidebar 
+
+      <Sidebar
         visible={sidebarVisible}
         onClose={() => setSidebarVisible(false)}
       />
-      
+
       {/* コメントモーダル */}
       <Modal
         animationType="slide"
@@ -292,21 +295,21 @@ export default function HomeScreen() {
           >
             <View style={styles.commentModalHeader}>
               <Text style={styles.commentModalTitle}>コメント</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => setCommentModalVisible(false)}
                 style={styles.commentModalClose}
               >
                 <Text style={styles.commentModalCloseText}>×</Text>
               </TouchableOpacity>
             </View>
-            
+
             {selectedPost && (
               <>
                 <View style={styles.originalPost}>
                   <Text style={styles.originalPostAuthor}>{selectedPost.author}</Text>
                   <Text style={styles.originalPostContent}>{selectedPost.content}</Text>
                 </View>
-                
+
                 <ScrollView style={styles.commentsList}>
                   {selectedPost.commentList?.map((comment) => (
                     <View key={comment.id} style={styles.commentItem}>
@@ -315,7 +318,7 @@ export default function HomeScreen() {
                         <Text style={styles.commentTimestamp}>{comment.timestamp}</Text>
                       </View>
                       <Text style={styles.commentContent}>{comment.content}</Text>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={[styles.commentLikeButton, comment.isLiked && styles.commentLikedButton]}
                         onPress={() => handleCommentLike(selectedPost.id, comment.id)}
                       >
@@ -327,7 +330,7 @@ export default function HomeScreen() {
                     </View>
                   ))}
                 </ScrollView>
-                
+
                 <View style={styles.commentInputContainer}>
                   <TextInput
                     style={styles.commentInput}
@@ -338,7 +341,7 @@ export default function HomeScreen() {
                     multiline
                     maxLength={200}
                   />
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[styles.commentSubmitButton, commentText.trim().length === 0 && styles.commentSubmitButtonDisabled]}
                     onPress={handleCommentSubmit}
                     disabled={commentText.trim().length === 0}
