@@ -2,16 +2,25 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ApiResponse, RequestConfig, ApiError } from '../../types/api';
 import { ApiConfigManager } from './config';
 import { FeatureFlagsManager } from '../featureFlags';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export class HttpClient {
   private axiosInstance: AxiosInstance;
   private configManager: ApiConfigManager;
   private featureFlags: FeatureFlagsManager;
+  private static instance: HttpClient;
 
-  constructor() {
+  private constructor() {
     this.configManager = ApiConfigManager.getInstance();
     this.featureFlags = FeatureFlagsManager.getInstance();
     this.axiosInstance = this.createAxiosInstance();
+  }
+
+  public static getInstance(): HttpClient {
+    if (!HttpClient.instance) {
+      HttpClient.instance = new HttpClient();
+    }
+    return HttpClient.instance;
   }
 
   private createAxiosInstance(): AxiosInstance {
@@ -23,10 +32,26 @@ export class HttpClient {
       headers: config.headers,
     });
 
-    instance.interceptors.request.use((config: any) => {
+    instance.interceptors.request.use(async (config: any) => {
       config.metadata = {
         requestStartTime: Date.now(),
       };
+
+      // Add auth token if available
+      try {
+        const tokenDataStr = await AsyncStorage.getItem('@mamapace_auth_token');
+        if (tokenDataStr) {
+          const tokenData = JSON.parse(tokenDataStr);
+          if (tokenData.accessToken && !this.isTokenExpired(tokenData.expiresAt)) {
+            config.headers.Authorization = `Bearer ${tokenData.accessToken}`;
+          }
+        }
+      } catch (error) {
+        if (this.featureFlags.isDebugModeEnabled()) {
+          console.error('Failed to get auth token:', error);
+        }
+      }
+
       return config;
     });
 
@@ -175,5 +200,9 @@ export class HttpClient {
 
   public updateConfig(): void {
     this.axiosInstance = this.createAxiosInstance();
+  }
+
+  private isTokenExpired(expiresAt: number): boolean {
+    return Date.now() > expiresAt;
   }
 }

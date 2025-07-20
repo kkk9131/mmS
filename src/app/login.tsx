@@ -1,41 +1,85 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { Heart, ArrowRight } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useAuth } from '../contexts/AuthContext';
+import { FeatureFlagsManager } from '../services/featureFlags';
 
 export default function LoginScreen() {
   const [maternalBookNumber, setMaternalBookNumber] = useState('');
   const [nickname, setNickname] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const { login } = useAuth();
+  const featureFlags = FeatureFlagsManager.getInstance();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!maternalBookNumber.trim()) {
-      Alert.alert('エラー', '母子手帳番号を入力してください');
+      setError('母子手帳番号を入力してください');
       return;
     }
     
     if (!nickname.trim()) {
-      Alert.alert('エラー', 'ニックネームを入力してください');
+      setError('ニックネームを入力してください');
       return;
     }
 
     if (maternalBookNumber.length < 8) {
-      Alert.alert('エラー', '母子手帳番号は正しい形式で入力してください');
+      setError('母子手帳番号は正しい形式で入力してください');
       return;
     }
 
     if (nickname.length < 2 || nickname.length > 20) {
-      Alert.alert('エラー', 'ニックネームは2文字以上20文字以下で入力してください');
+      setError('ニックネームは2文字以上20文字以下で入力してください');
       return;
     }
 
-    // Navigate to main app
-    router.replace('/(tabs)');
+    setError('');
+    setIsLoading(true);
+
+    try {
+      await login(maternalBookNumber.trim(), nickname.trim());
+
+      if (featureFlags.isDebugModeEnabled()) {
+        console.log('Login successful');
+      }
+
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      if (featureFlags.isDebugModeEnabled()) {
+        console.error('Login failed:', error);
+      }
+
+      if (error.type === 'network') {
+        setError('ネットワークエラーが発生しました。接続を確認してください。');
+      } else if (error.status === 401) {
+        setError('認証に失敗しました。入力内容を確認してください。');
+      } else if (error.type === 'timeout') {
+        setError('接続がタイムアウトしました。もう一度お試しください。');
+      } else {
+        setError('ログインに失敗しました。もう一度お試しください。');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      <TouchableWithoutFeedback onPress={dismissKeyboard}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollViewContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
         <Heart size={48} color="#ff6b9d" fill="#ff6b9d" />
         <Text style={styles.title}>Mamaspace</Text>
         <Text style={styles.subtitle}>ママの共感コミュニティ</Text>
@@ -62,6 +106,11 @@ export default function LoginScreen() {
             onChangeText={setMaternalBookNumber}
             keyboardType="numeric"
             maxLength={15}
+            returnKeyType="next"
+            onSubmitEditing={() => {
+              // Focus next input (nickname)
+            }}
+            blurOnSubmit={false}
           />
           <Text style={styles.inputHelper}>
             自治体発行の母子手帳に記載されている番号を入力してください
@@ -77,15 +126,34 @@ export default function LoginScreen() {
             value={nickname}
             onChangeText={setNickname}
             maxLength={20}
+            returnKeyType="done"
+            onSubmitEditing={handleLogin}
+            blurOnSubmit={true}
           />
           <Text style={styles.inputHelper}>
             コミュニティ内で表示される名前（2-20文字）
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-          <Text style={styles.loginButtonText}>ログイン</Text>
-          <ArrowRight size={20} color="#fff" />
+        {error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
+
+        <TouchableOpacity 
+          style={[styles.loginButton, isLoading && styles.loginButtonDisabled]} 
+          onPress={handleLogin}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <Text style={styles.loginButtonText}>ログイン</Text>
+              <ArrowRight size={20} color="#fff" />
+            </>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -107,7 +175,9 @@ export default function LoginScreen() {
         <Text style={styles.versionText}>
           Version 1.0.0 | Made with ♡ for moms
         </Text>
-      </View>
+          </View>
+        </ScrollView>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
@@ -116,6 +186,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#121212',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
     padding: 20,
   },
   header: {
@@ -236,5 +312,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#444',
     textAlign: 'center',
+  },
+  errorContainer: {
+    backgroundColor: '#ff3333',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  loginButtonDisabled: {
+    opacity: 0.7,
   },
 });
