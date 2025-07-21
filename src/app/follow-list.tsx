@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { ArrowLeft, Search, User, UserPlus, UserMinus, MessageCircle, Heart } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { FollowService } from '../services/FollowService';
+import { FollowUser as FollowUserFromService, FollowListResponse } from '../types/follow';
 
-interface FollowUser {
+// 既存UIとの互換性のために、表示用の型を定義
+interface DisplayFollowUser {
   id: string;
   name: string;
   lastActivity: string;
@@ -13,9 +16,10 @@ interface FollowUser {
   mutualFollows: boolean;
   recentPost?: string;
   isOnline: boolean;
+  avatar?: string;
 }
 
-const mockFollowing: FollowUser[] = [
+const mockFollowing: DisplayFollowUser[] = [
   {
     id: '1',
     name: 'ゆかちゃん',
@@ -58,7 +62,7 @@ const mockFollowing: FollowUser[] = [
   },
 ];
 
-const mockFollowers: FollowUser[] = [
+const mockFollowers: DisplayFollowUser[] = [
   {
     id: '5',
     name: 'あい',
@@ -103,24 +107,138 @@ const mockFollowers: FollowUser[] = [
 
 export default function FollowListScreen() {
   const [activeTab, setActiveTab] = useState<'following' | 'followers'>('following');
-  const [following, setFollowing] = useState<FollowUser[]>(mockFollowing);
-  const [followers, setFollowers] = useState<FollowUser[]>(mockFollowers);
+  const [following, setFollowing] = useState<DisplayFollowUser[]>([]);
+  const [followers, setFollowers] = useState<DisplayFollowUser[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const followService = FollowService.getInstance();
+
+  // サービス層のデータを表示用の形式に変換
+  const convertToDisplayFollowUser = (serviceUser: FollowUserFromService): DisplayFollowUser => {
+    // タイムスタンプを相対的な時間表示に変換
+    const getRelativeTime = (dateString?: string): string => {
+      if (!dateString) return '不明';
+      const now = new Date();
+      const past = new Date(dateString);
+      const diffMs = now.getTime() - past.getTime();
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      
+      if (diffHours < 1) return '1時間未満';
+      if (diffHours < 24) return `${diffHours}時間前`;
+      
+      const diffDays = Math.floor(diffHours / 24);
+      return `${diffDays}日前`;
+    };
+
+    return {
+      id: serviceUser.id,
+      name: serviceUser.nickname,
+      lastActivity: getRelativeTime(serviceUser.followedAt),
+      isFollowing: serviceUser.isFollowing,
+      isFollower: serviceUser.isFollowedBy,
+      mutualFollows: serviceUser.isFollowing && serviceUser.isFollowedBy,
+      recentPost: undefined, // API仕様に含まれていないため省略
+      isOnline: Math.random() > 0.5, // モック値（API仕様に含まれていないため）
+      avatar: serviceUser.avatar,
+    };
+  };
+
+  // フォロー中ユーザー一覧を取得
+  const fetchFollowing = async () => {
+    try {
+      const response = await followService.getFollowing(undefined, 1, 100);
+      const displayUsers = response.users.map(convertToDisplayFollowUser);
+      setFollowing(displayUsers);
+    } catch (error) {
+      console.error('Failed to fetch following list:', error);
+      // エラー時はモックデータを使用
+      setFollowing(mockFollowing);
+    }
+  };
+
+  // フォロワー一覧を取得
+  const fetchFollowers = async () => {
+    try {
+      const response = await followService.getFollowers(undefined, 1, 100);
+      const displayUsers = response.users.map(convertToDisplayFollowUser);
+      setFollowers(displayUsers);
+    } catch (error) {
+      console.error('Failed to fetch followers list:', error);
+      // エラー時はモックデータを使用
+      setFollowers(mockFollowers);
+    }
+  };
+
+  // 両方のリストを取得
+  const fetchFollowData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([fetchFollowing(), fetchFollowers()]);
+    } catch (error) {
+      console.error('Failed to fetch follow data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 初回ロード時にデータを取得
+  useEffect(() => {
+    fetchFollowData();
+  }, []);
 
   const handleBack = () => {
     router.back();
   };
 
-  const handleFollowToggle = (userId: string) => {
-    const updateUser = (users: FollowUser[]) =>
+  const handleFollowToggle = async (userId: string) => {
+    // フォロー状態を取得
+    const followingUser = following.find(u => u.id === userId);
+    const followerUser = followers.find(u => u.id === userId);
+    const currentUser = followingUser || followerUser;
+    
+    if (!currentUser) return;
+
+    const willFollow = !currentUser.isFollowing;
+
+    // 楽観的更新: UIを即座に更新
+    const updateUser = (users: DisplayFollowUser[]) =>
       users.map(user => 
         user.id === userId 
-          ? { ...user, isFollowing: !user.isFollowing, mutualFollows: !user.isFollowing && user.isFollower }
+          ? { ...user, isFollowing: willFollow, mutualFollows: willFollow && user.isFollower }
           : user
       );
 
     setFollowing(updateUser(following));
     setFollowers(updateUser(followers));
+
+    try {
+      if (willFollow) {
+        await followService.followUser(userId);
+        followService.optimisticallyUpdateFollow(userId, true);
+      } else {
+        await followService.unfollowUser(userId);
+        followService.optimisticallyUpdateFollow(userId, false);
+      }
+    } catch (error) {
+      console.error('Failed to update follow status:', error);
+      
+      // エラー時はUIをロールバック
+      const rollbackUser = (users: DisplayFollowUser[]) =>
+        users.map(user => 
+          user.id === userId 
+            ? { ...user, isFollowing: !willFollow, mutualFollows: !willFollow && user.isFollower }
+            : user
+        );
+
+      setFollowing(rollbackUser(following));
+      setFollowers(rollbackUser(followers));
+      
+      Alert.alert(
+        'エラー', 
+        willFollow ? 'フォローに失敗しました' : 'フォロー解除に失敗しました'
+      );
+    }
   };
 
   const handleChatPress = (userId: string, userName: string) => {
@@ -147,14 +265,35 @@ export default function FollowListScreen() {
     );
   };
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => {
+    try {
+      await fetchFollowData();
+    } catch (error) {
+      console.error('Failed to refresh follow data:', error);
+    } finally {
       setRefreshing(false);
-    }, 2000);
+    }
   };
 
   const currentUsers = activeTab === 'following' ? following : followers;
+
+  // ローディング状態の表示
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <ArrowLeft size={24} color="#ff6b9d" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>フォロー管理</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>フォロー情報を読み込んでいます...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -492,5 +631,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
     marginLeft: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#888',
+    textAlign: 'center',
   },
 });

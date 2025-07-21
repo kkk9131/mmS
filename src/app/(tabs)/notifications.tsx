@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { Bell, Heart, MessageCircle, UserPlus, Clock } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { NotificationService } from '../../services/NotificationService';
+import { Notification as NotificationTypeFromService, NotificationList } from '../../types/notifications';
+import { useNotificationBadge } from '../../hooks/useNotificationBadge';
 
-interface Notification {
+// 既存UIとの互換性のために、表示用の型を定義
+interface DisplayNotification {
   id: string;
   type: 'like' | 'comment' | 'mention' | 'follow' | 'room_join';
   user: string;
@@ -14,7 +18,7 @@ interface Notification {
   roomId?: string;
 }
 
-const mockNotifications: Notification[] = [
+const mockNotifications: DisplayNotification[] = [
   {
     id: '1',
     type: 'like',
@@ -63,28 +67,141 @@ const mockNotifications: Notification[] = [
 ];
 
 export default function NotificationsScreen() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<DisplayNotification[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 2000);
+  const notificationService = NotificationService.getInstance();
+  const { unreadCount, decrementUnreadCount, clearUnreadCount, refreshUnreadCount } = useNotificationBadge();
+
+  // サービス層の通知データを表示用の形式に変換
+  const convertToDisplayNotification = (serviceNotification: NotificationTypeFromService): DisplayNotification => {
+    // 通知タイプのマッピング
+    let type: DisplayNotification['type'] = 'like';
+    switch (serviceNotification.type) {
+      case 'like':
+        type = 'like';
+        break;
+      case 'comment':
+        type = 'comment';
+        break;
+      case 'mention':
+        type = 'mention';
+        break;
+      case 'follow':
+        type = 'follow';
+        break;
+      default:
+        type = 'like';
+        break;
+    }
+
+    // タイムスタンプを相対的な時間表示に変換
+    const getRelativeTime = (dateString: string): string => {
+      const now = new Date();
+      const past = new Date(dateString);
+      const diffMs = now.getTime() - past.getTime();
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      
+      if (diffMinutes < 1) return '今';
+      if (diffMinutes < 60) return `${diffMinutes}分前`;
+      
+      const diffHours = Math.floor(diffMinutes / 60);
+      if (diffHours < 24) return `${diffHours}時間前`;
+      
+      const diffDays = Math.floor(diffHours / 24);
+      return `${diffDays}日前`;
+    };
+
+    return {
+      id: serviceNotification.id,
+      type,
+      user: serviceNotification.data.userName || 'ユーザー',
+      content: serviceNotification.message,
+      timestamp: getRelativeTime(serviceNotification.createdAt),
+      isRead: serviceNotification.isRead,
+      postId: serviceNotification.data.postId,
+    };
   };
 
-  const markAsRead = (notificationId: string) => {
+  // 通知一覧を取得
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const notificationData = await notificationService.getNotifications(1, 50);
+      const displayNotifications = notificationData.notifications.map(convertToDisplayNotification);
+      
+      setNotifications(displayNotifications);
+      // フックの未読数も更新
+      refreshUnreadCount();
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+      // エラー時はモックデータを使用
+      setNotifications(mockNotifications);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 初回ロード時に通知を取得
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchNotifications();
+    } catch (error) {
+      console.error('Failed to refresh notifications:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const markAsRead = async (notificationId: string) => {
+    // 既読かどうかを確認
+    const notification = notifications.find(n => n.id === notificationId);
+    if (!notification || notification.isRead) return;
+
+    // 楽観的更新: UIを即座に更新
     setNotifications(notifications.map(notification => 
       notification.id === notificationId 
         ? { ...notification, isRead: true }
         : notification
     ));
+    decrementUnreadCount(1);
+
+    try {
+      await notificationService.markSingleAsRead(notificationId);
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+      // エラー時はUIをロールバック
+      setNotifications(notifications.map(notification => 
+        notification.id === notificationId 
+          ? { ...notification, isRead: false }
+          : notification
+      ));
+      // フックの未読数を再取得
+      refreshUnreadCount();
+    }
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    // 楽観的更新: UIを即座に更新
     setNotifications(notifications.map(notification => 
       ({ ...notification, isRead: true })
     ));
+    clearUnreadCount();
+
+    try {
+      await notificationService.markAllAsRead();
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+      Alert.alert('エラー', '全件既読の更新に失敗しました');
+      // エラー時は再取得してリフレッシュ
+      await fetchNotifications();
+    }
   };
 
   const getNotificationIcon = (type: string) => {
@@ -104,7 +221,19 @@ export default function NotificationsScreen() {
     }
   };
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  // ローディング状態を表示
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>通知</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>通知を読み込んでいます...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -287,6 +416,17 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
+    color: '#888',
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 16,
     color: '#888',
     textAlign: 'center',
   },

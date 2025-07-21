@@ -41,7 +41,7 @@ export default function HomeScreen() {
       if (isRefresh) {
         setError(null);
       }
-      
+
       const response = await postsService.getPosts({
         page,
         limit: 10,
@@ -100,7 +100,7 @@ export default function HomeScreen() {
     if (!post) return;
 
     const wasLiked = post.isLiked;
-    
+
     // 楽観的更新
     setPosts(posts.map(p =>
       p.id === postId
@@ -141,7 +141,7 @@ export default function HomeScreen() {
 
       // コメント一覧を更新
       setSelectedPostComments(prev => [...prev, newComment]);
-      
+
       // 投稿のコメント数を更新
       setPosts(posts.map(post =>
         post.id === selectedPost.id
@@ -173,7 +173,6 @@ export default function HomeScreen() {
 
   const renderPost = (post: PostWithLocalState) => (
     <TouchableOpacity
-      key={post.id}
       style={styles.postContainer}
       onLongPress={() => handleLongPress(post.id)}
       delayLongPress={800}

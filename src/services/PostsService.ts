@@ -38,7 +38,7 @@ export class PostsService {
       if (params.order) queryParams.append('order', params.order);
 
       const url = `/posts?${queryParams.toString()}`;
-      
+
       try {
         const response: ApiResponse<PostsResponse> = await this.httpClient.get<PostsResponse>(url);
         return response.data;
@@ -100,7 +100,7 @@ export class PostsService {
       if (params.order) queryParams.append('order', params.order);
 
       const url = `/posts/${postId}/comments?${queryParams.toString()}`;
-      
+
       try {
         const response: ApiResponse<CommentsResponse> = await this.httpClient.get<CommentsResponse>(url);
         return response.data;
@@ -129,14 +129,14 @@ export class PostsService {
 
   private async getMockPosts(params: PostsQueryParams = {}): Promise<PostsResponse> {
     await this.delay(this.featureFlags.getMockDelay());
-    
+
     const page = params.page || 1;
     const limit = params.limit || 10;
     const sortBy = params.sortBy || 'createdAt';
     const order = params.order || 'desc';
 
     let posts = this.generateMockPosts();
-    
+
     if (sortBy === 'createdAt') {
       posts = posts.sort((a, b) => {
         const aDate = new Date(a.createdAt);
@@ -169,7 +169,7 @@ export class PostsService {
 
   private async createMockPost(data: CreatePostRequest): Promise<Post> {
     await this.delay(this.featureFlags.getMockDelay());
-    
+
     return {
       id: `mock_post_${Date.now()}`,
       content: data.content,
@@ -187,10 +187,10 @@ export class PostsService {
 
   private async getMockComments(postId: string, params: CommentsQueryParams = {}): Promise<CommentsResponse> {
     await this.delay(this.featureFlags.getMockDelay());
-    
+
     const page = params.page || 1;
     const limit = params.limit || 20;
-    
+
     const mockComments = this.generateMockComments(postId);
     const totalItems = mockComments.length;
     const totalPages = Math.ceil(totalItems / limit);
@@ -212,7 +212,7 @@ export class PostsService {
 
   private async createMockComment(postId: string, data: CreateCommentRequest): Promise<Comment> {
     await this.delay(this.featureFlags.getMockDelay());
-    
+
     return {
       id: `mock_comment_${Date.now()}`,
       postId,
@@ -245,9 +245,9 @@ export class PostsService {
       const author = authors[i % authors.length];
       const content = contents[i % contents.length];
       const createdAt = new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString();
-      
+
       posts.push({
-        id: `mock_post_${i + 1}`,
+        id: `mock_post_${i + 1}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         content,
         authorId: author.id,
         authorName: author.name,
@@ -283,7 +283,7 @@ export class PostsService {
       const author = authors[i % authors.length];
       const content = commentContents[i % commentContents.length];
       const createdAt = new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000).toISOString();
-      
+
       comments.push({
         id: `mock_comment_${postId}_${i + 1}`,
         postId,

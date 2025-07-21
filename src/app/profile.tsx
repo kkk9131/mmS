@@ -1,23 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { ArrowLeft, User, MessageCircle, UserPlus, UserMinus, Heart, Calendar, MapPin, Share, MoveHorizontal as MoreHorizontal, LogOut } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
+import { UserService } from '../services/UserService';
+import { FollowService } from '../services/FollowService';
+import { User as UserType, UserProfile as UserProfileType } from '../types/users';
 
-interface UserProfile {
+// 画面表示用のプロフィールインターface（既存のUIとの互換性維持）
+interface DisplayProfile {
   id: string;
   name: string;
-  bio: string;
-  location: string;
+  bio?: string;
+  location?: string;
   joinDate: string;
   postCount: number;
   followingCount: number;
   followerCount: number;
   isFollowing: boolean;
   isOwnProfile: boolean;
-  isOnline: boolean;
-  lastActivity: string;
+  avatar?: string;
 }
 
 interface UserPost {
@@ -31,7 +34,7 @@ interface UserPost {
   aiResponse?: string;
 }
 
-const mockUserProfile: UserProfile = {
+const mockUserProfile: DisplayProfile = {
   id: '1',
   name: 'ゆかちゃん',
   bio: '2歳の男の子のママです♡ 毎日の子育て、お互いに支え合いましょう！夜泣きや離乳食の悩みをシェアしています。',
@@ -42,11 +45,9 @@ const mockUserProfile: UserProfile = {
   followerCount: 203,
   isFollowing: false,
   isOwnProfile: false,
-  isOnline: true,
-  lastActivity: '2時間前'
 };
 
-const mockOwnProfile: UserProfile = {
+const mockOwnProfile: DisplayProfile = {
   id: 'own',
   name: 'みさき',
   bio: '新米ママです！みんなのアドバイスに助けられています。よろしくお願いします♪',
@@ -95,25 +96,115 @@ const mockUserPosts: UserPost[] = [
 export default function ProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId?: string }>();
   const { logout, user } = useAuth();
-  
+
   // 自分のプロフィールかどうかを判定
   const isOwnProfile = !userId || userId === 'own';
-  const [profile, setProfile] = useState<UserProfile>(isOwnProfile ? { ...mockOwnProfile, name: user?.nickname || mockOwnProfile.name } : mockUserProfile);
+  const [profile, setProfile] = useState<DisplayProfile | null>(null);
   const [posts, setPosts] = useState<UserPost[]>(mockUserPosts);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const userService = UserService.getInstance();
+  const followService = FollowService.getInstance();
+
+  // API経由でのプロフィール取得
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      let userData: UserType | UserProfileType;
+
+      if (isOwnProfile) {
+        userData = await userService.getMyProfile();
+      } else {
+        userData = await userService.getUserById(userId!);
+      }
+
+      // UserServiceの型をDisplayProfile型に変換
+      const displayProfile: DisplayProfile = {
+        id: userData.id,
+        name: userData.nickname,
+        bio: userData.bio || '',
+        location: '',
+        joinDate: new Date(userData.createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric' }),
+        postCount: userData.postsCount,
+        followingCount: userData.followingCount,
+        followerCount: userData.followersCount,
+        isFollowing: userData.isFollowing || false,
+        isOwnProfile,
+        avatar: userData.avatar,
+      };
+
+      setProfile(displayProfile);
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+      setError('プロフィールの読み込みに失敗しました');
+
+      // エラー時はモックデータを表示
+      const fallbackProfile = isOwnProfile
+        ? { ...mockOwnProfile, name: user?.nickname || mockOwnProfile.name }
+        : mockUserProfile;
+      setProfile(fallbackProfile);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 初回ロード時とuserId変更時にプロフィールを取得
+  useEffect(() => {
+    fetchProfile();
+  }, [userId, isOwnProfile]);
+
+  // 画面にフォーカスが戻った時にプロフィールを再取得（編集後の更新を反映）
+  useFocusEffect(
+    React.useCallback(() => {
+      if (isOwnProfile) {
+        fetchProfile();
+      }
+    }, [isOwnProfile])
+  );
 
   const handleBack = () => {
     router.back();
   };
 
-  const handleFollow = () => {
-    if (profile.isOwnProfile) return;
-    
-    setProfile(prev => ({
+  const handleFollow = async () => {
+    if (!profile || profile.isOwnProfile) return;
+
+    const willFollow = !profile.isFollowing;
+
+    // 楽観的更新: UIを即座に更新
+    setProfile(prev => prev ? ({
       ...prev,
-      isFollowing: !prev.isFollowing,
-      followerCount: prev.isFollowing ? prev.followerCount - 1 : prev.followerCount + 1
-    }));
+      isFollowing: willFollow,
+      followerCount: willFollow ? prev.followerCount + 1 : prev.followerCount - 1
+    }) : null);
+
+    try {
+      if (willFollow) {
+        await followService.followUser(profile.id);
+        followService.optimisticallyUpdateFollow(profile.id, true);
+      } else {
+        await followService.unfollowUser(profile.id);
+        followService.optimisticallyUpdateFollow(profile.id, false);
+      }
+    } catch (error) {
+      console.error('Failed to update follow status:', error);
+
+      // エラー時はUIをロールバック
+      setProfile(prev => prev ? ({
+        ...prev,
+        isFollowing: !willFollow,
+        followerCount: willFollow ? prev.followerCount - 1 : prev.followerCount + 1
+      }) : null);
+
+      Alert.alert(
+        'エラー',
+        willFollow ? 'フォローに失敗しました' : 'フォロー解除に失敗しました'
+      );
+    }
   };
 
   const handleMessage = () => {
@@ -128,18 +219,22 @@ export default function ProfileScreen() {
   };
 
   const handleLike = (postId: string) => {
-    setPosts(posts.map(post => 
+    setPosts(posts.map(post =>
       post.id === postId
         ? { ...post, isLiked: !post.isLiked, likes: post.isLiked ? post.likes - 1 : post.likes + 1 }
         : post
     ));
   };
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => {
+    try {
+      await fetchProfile();
+    } catch (error) {
+      console.error('Failed to refresh profile:', error);
+    } finally {
       setRefreshing(false);
-    }, 2000);
+    }
   };
 
   const handleLogout = () => {
@@ -165,6 +260,25 @@ export default function ProfileScreen() {
       ]
     );
   };
+
+  // ローディング状態の表示
+  if (loading || !profile) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <ArrowLeft size={24} color="#ff6b9d" />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>読み込み中...</Text>
+          </View>
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>プロフィールを読み込んでいます...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -194,10 +308,10 @@ export default function ProfileScreen() {
               <User size={60} color="#ff6b9d" />
               {profile.isOnline && <View style={styles.onlineIndicator} />}
             </View>
-            
+
             <View style={styles.profileActions}>
               {profile.isOwnProfile ? (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.editButton}
                   onPress={() => router.push('/profile-edit')}
                 >
@@ -232,7 +346,7 @@ export default function ProfileScreen() {
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{profile.name}</Text>
             <Text style={styles.profileBio}>{profile.bio}</Text>
-            
+
             <View style={styles.profileMeta}>
               <View style={styles.metaItem}>
                 <MapPin size={16} color="#666" />
@@ -252,21 +366,21 @@ export default function ProfileScreen() {
             <View style={styles.statsContainer}>
               {profile.isOwnProfile && (
                 <View style={styles.activityButtons}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.activityButton}
                     onPress={() => router.push('/liked-posts')}
                   >
                     <Heart size={16} color="#ff6b9d" />
                     <Text style={styles.activityButtonText}>共感履歴</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.activityButton}
                     onPress={() => router.push('/follow-list')}
                   >
                     <User size={16} color="#ff6b9d" />
                     <Text style={styles.activityButtonText}>フォロー管理</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[styles.activityButton, styles.logoutButton]}
                     onPress={handleLogout}
                   >
@@ -305,22 +419,22 @@ export default function ProfileScreen() {
                     <MoreHorizontal size={20} color="#666" />
                   </TouchableOpacity>
                 </View>
-                
+
                 <Text style={styles.postContent}>{post.content}</Text>
-                
+
                 <View style={styles.tagsContainer}>
                   {post.tags.map((tag, index) => (
                     <Text key={index} style={styles.tag}>#{tag}</Text>
                   ))}
                 </View>
-                
+
                 {post.aiResponse && (
                   <View style={styles.aiResponseContainer}>
                     <Text style={styles.aiResponseLabel}>ママの味方</Text>
                     <Text style={styles.aiResponseText}>{post.aiResponse}</Text>
                   </View>
                 )}
-                
+
                 <View style={styles.postActions}>
                   <TouchableOpacity
                     style={[styles.actionButton, post.isLiked && styles.likedButton]}
@@ -331,7 +445,7 @@ export default function ProfileScreen() {
                       {post.likes}
                     </Text>
                   </TouchableOpacity>
-                  
+
                   <TouchableOpacity style={styles.actionButton}>
                     <MessageCircle size={20} color="#666" />
                     <Text style={styles.actionText}>{post.comments}</Text>
@@ -667,5 +781,16 @@ const styles = StyleSheet.create({
   },
   logoutButtonText: {
     color: '#ff4444',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#888',
+    textAlign: 'center',
   },
 });

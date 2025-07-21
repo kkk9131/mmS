@@ -1,7 +1,11 @@
 import { Tabs } from 'expo-router';
 import { Chrome as Home, Bell, User } from 'lucide-react-native';
+import { View, Text } from 'react-native';
+import { useNotificationBadge } from '../../hooks/useNotificationBadge';
 
 export default function TabLayout() {
+  const { unreadCount } = useNotificationBadge();
+
   return (
     <Tabs
       screenOptions={{
@@ -35,7 +39,36 @@ export default function TabLayout() {
         options={{
           title: '通知',
           tabBarIcon: ({ size, color }) => (
-            <Bell size={size} color={color} />
+            <View style={{ position: 'relative' }}>
+              <Bell size={size} color={color} />
+              {unreadCount > 0 && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: -6,
+                    right: -6,
+                    backgroundColor: '#ff6b9d',
+                    borderRadius: 10,
+                    minWidth: 20,
+                    height: 20,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingHorizontal: 6,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: 'white',
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount.toString()}
+                  </Text>
+                </View>
+              )}
+            </View>
           ),
         }}
       />

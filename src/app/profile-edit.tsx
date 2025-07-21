@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { ArrowLeft, Save, User, MapPin, CreditCard as Edit3, CircleAlert as AlertCircle } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { UserService } from '../services/UserService';
+import { UpdateProfileData } from '../types/users';
 
 interface ProfileData {
   nickname: string;
@@ -25,16 +27,59 @@ const prefectures = [
 
 export default function ProfileEditScreen() {
   const [profileData, setProfileData] = useState<ProfileData>({
-    nickname: 'みさき',
-    bio: '新米ママです！みんなのアドバイスに助けられています。よろしくお願いします♪',
-    location: '神奈川県',
-    maternalBookNumber: '****-****-123',
+    nickname: '',
+    bio: '',
+    location: '',
+    maternalBookNumber: '',
     aiEmpathyEnabled: true,
     privacyLevel: 'friends'
   });
 
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [originalData, setOriginalData] = useState<ProfileData | null>(null);
+
+  const userService = UserService.getInstance();
+
+  // プロフィール初期データの取得
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      const userProfile = await userService.getMyProfile();
+
+      const formData: ProfileData = {
+        nickname: userProfile.nickname,
+        bio: userProfile.bio || '',
+        location: '', // 位置情報は既存のUIに合わせてモック
+        maternalBookNumber: '****-****-***', // セキュリティ上マスク表示
+        aiEmpathyEnabled: userProfile.preferences.notifications?.likes || true,
+        privacyLevel: userProfile.privacy.profileVisibility as 'public' | 'friends' | 'private'
+      };
+
+      setProfileData(formData);
+      setOriginalData(formData);
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+      Alert.alert('エラー', 'プロフィール情報の読み込みに失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 初回ロード時にプロフィールを取得
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  // データの変更を検知
+  useEffect(() => {
+    if (!originalData) return;
+
+    const hasDataChanged = JSON.stringify(profileData) !== JSON.stringify(originalData);
+    setHasChanges(hasDataChanged);
+  }, [profileData, originalData]);
 
   const handleBack = () => {
     if (hasChanges) {
@@ -52,7 +97,8 @@ export default function ProfileEditScreen() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    // バリデーション
     if (profileData.nickname.trim().length < 2) {
       Alert.alert('エラー', 'ニックネームは2文字以上で入力してください');
       return;
@@ -63,11 +109,54 @@ export default function ProfileEditScreen() {
       return;
     }
 
-    Alert.alert(
-      '保存完了',
-      'プロフィールを更新しました',
-      [{ text: 'OK', onPress: () => router.back() }]
-    );
+    try {
+      setSaving(true);
+
+      // UserServiceのUpdateProfileData型に変換
+      const updateData: UpdateProfileData = {
+        nickname: profileData.nickname.trim(),
+        bio: profileData.bio.trim(),
+        preferences: {
+          notifications: {
+            likes: profileData.aiEmpathyEnabled,
+            comments: true, // 既存値を保持
+            follows: true, // 既存値を保持
+            messages: true, // 既存値を保持
+            pushEnabled: true // 既存値を保持
+          }
+        },
+        privacy: {
+          profileVisibility: profileData.privacyLevel,
+          showFollowersCount: true, // 既存値を保持
+          showFollowingCount: true, // 既存値を保持
+          allowMessages: true // 既存値を保持
+        }
+      };
+
+      await userService.updateProfile(updateData);
+
+      // 成功時にキャッシュをクリアして最新データを反映
+      userService.clearUserCache();
+
+      // 成功時にoriginalDataを更新
+      setOriginalData(profileData);
+      setHasChanges(false);
+
+      Alert.alert(
+        '保存完了',
+        'プロフィールを更新しました',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+
+    } catch (error) {
+      console.error('Failed to save profile:', error);
+      Alert.alert(
+        'エラー',
+        'プロフィールの更新に失敗しました。もう一度お試しください。'
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updateProfile = (key: keyof ProfileData, value: any) => {
@@ -84,6 +173,23 @@ export default function ProfileEditScreen() {
     Keyboard.dismiss();
   };
 
+  // ローディング状態の表示
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <ArrowLeft size={24} color="#ff6b9d" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>プロフィール編集</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>プロフィール情報を読み込んでいます...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -91,161 +197,165 @@ export default function ProfileEditScreen() {
           <ArrowLeft size={24} color="#ff6b9d" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>プロフィール編集</Text>
-        <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-          <Save size={24} color="#ff6b9d" />
+        <TouchableOpacity
+          onPress={handleSave}
+          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+          disabled={saving}
+        >
+          <Save size={24} color={saving ? "#999" : "#ff6b9d"} />
         </TouchableOpacity>
       </View>
 
       <TouchableWithoutFeedback onPress={dismissKeyboard}>
-        <ScrollView 
-          style={styles.content} 
+        <ScrollView
+          style={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-        {/* プロフィール画像セクション */}
-        <View style={styles.avatarSection}>
-          <View style={styles.avatarContainer}>
-            <User size={60} color="#ff6b9d" />
-            <TouchableOpacity style={styles.editAvatarButton}>
-              <Edit3 size={16} color="#fff" />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.avatarText}>プロフィール画像を変更</Text>
-        </View>
-
-        {/* ニックネーム */}
-        <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>ニックネーム</Text>
-          <TextInput
-            style={styles.textInput}
-            value={profileData.nickname}
-            onChangeText={(text) => updateProfile('nickname', text)}
-            placeholder="ニックネームを入力"
-            placeholderTextColor="#666"
-            maxLength={20}
-            returnKeyType="next"
-            onSubmitEditing={dismissKeyboard}
-          />
-          <Text style={styles.inputHelper}>
-            {profileData.nickname.length}/20文字
-          </Text>
-        </View>
-
-        {/* 自己紹介 */}
-        <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>自己紹介</Text>
-          <TextInput
-            style={[styles.textInput, styles.bioInput]}
-            value={profileData.bio}
-            onChangeText={(text) => updateProfile('bio', text)}
-            placeholder="自己紹介を入力してください"
-            placeholderTextColor="#666"
-            multiline
-            maxLength={200}
-            returnKeyType="done"
-            onSubmitEditing={dismissKeyboard}
-          />
-          <Text style={styles.inputHelper}>
-            {profileData.bio.length}/200文字
-          </Text>
-        </View>
-
-        {/* 居住地域 */}
-        <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>居住地域</Text>
-          <TouchableOpacity 
-            style={styles.locationSelector}
-            onPress={() => setShowLocationPicker(!showLocationPicker)}
-          >
-            <MapPin size={20} color="#666" />
-            <Text style={styles.locationText}>{profileData.location}</Text>
-          </TouchableOpacity>
-          
-          {showLocationPicker && (
-            <View style={styles.locationPicker}>
-              <ScrollView style={styles.locationList} nestedScrollEnabled>
-                {prefectures.map((prefecture, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.locationItem,
-                      profileData.location === prefecture && styles.selectedLocation
-                    ]}
-                    onPress={() => handleLocationSelect(prefecture)}
-                  >
-                    <Text style={[
-                      styles.locationItemText,
-                      profileData.location === prefecture && styles.selectedLocationText
-                    ]}>
-                      {prefecture}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-        </View>
-
-        {/* 母子手帳番号 */}
-        <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>母子手帳番号</Text>
-          <View style={styles.readOnlyInput}>
-            <Text style={styles.readOnlyText}>{profileData.maternalBookNumber}</Text>
-            <AlertCircle size={16} color="#666" />
-          </View>
-          <Text style={styles.inputHelper}>
-            セキュリティ上の理由により変更できません
-          </Text>
-        </View>
-
-        {/* プライバシー設定 */}
-        <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>プロフィール公開範囲</Text>
-          <View style={styles.privacyOptions}>
-            {[
-              { key: 'public', label: '全体に公開', desc: '誰でも閲覧可能' },
-              { key: 'friends', label: 'フォロワーのみ', desc: 'フォロワーのみ閲覧可能' },
-              { key: 'private', label: '非公開', desc: '自分のみ閲覧可能' }
-            ].map((option) => (
-              <TouchableOpacity
-                key={option.key}
-                style={[
-                  styles.privacyOption,
-                  profileData.privacyLevel === option.key && styles.selectedPrivacy
-                ]}
-                onPress={() => updateProfile('privacyLevel', option.key)}
-              >
-                <View style={styles.privacyInfo}>
-                  <Text style={[
-                    styles.privacyLabel,
-                    profileData.privacyLevel === option.key && styles.selectedPrivacyLabel
-                  ]}>
-                    {option.label}
-                  </Text>
-                  <Text style={styles.privacyDesc}>{option.desc}</Text>
-                </View>
-                <View style={[
-                  styles.radioButton,
-                  profileData.privacyLevel === option.key && styles.selectedRadio
-                ]}>
-                  {profileData.privacyLevel === option.key && (
-                    <View style={styles.radioInner} />
-                  )}
-                </View>
+          {/* プロフィール画像セクション */}
+          <View style={styles.avatarSection}>
+            <View style={styles.avatarContainer}>
+              <User size={60} color="#ff6b9d" />
+              <TouchableOpacity style={styles.editAvatarButton}>
+                <Edit3 size={16} color="#fff" />
               </TouchableOpacity>
-            ))}
+            </View>
+            <Text style={styles.avatarText}>プロフィール画像を変更</Text>
           </View>
-        </View>
 
-        {/* セキュリティ情報 */}
-        <View style={styles.securitySection}>
-          <Text style={styles.securityTitle}>セキュリティ情報</Text>
-          <Text style={styles.securityText}>
-            • 母子手帳番号は暗号化されて保存されます{'\n'}
-            • 個人を特定できる情報は表示されません{'\n'}
-            • プロフィール情報は安全に管理されます
-          </Text>
-        </View>
+          {/* ニックネーム */}
+          <View style={styles.inputSection}>
+            <Text style={styles.inputLabel}>ニックネーム</Text>
+            <TextInput
+              style={styles.textInput}
+              value={profileData.nickname}
+              onChangeText={(text) => updateProfile('nickname', text)}
+              placeholder="ニックネームを入力"
+              placeholderTextColor="#666"
+              maxLength={20}
+              returnKeyType="next"
+              onSubmitEditing={dismissKeyboard}
+            />
+            <Text style={styles.inputHelper}>
+              {profileData.nickname.length}/20文字
+            </Text>
+          </View>
+
+          {/* 自己紹介 */}
+          <View style={styles.inputSection}>
+            <Text style={styles.inputLabel}>自己紹介</Text>
+            <TextInput
+              style={[styles.textInput, styles.bioInput]}
+              value={profileData.bio}
+              onChangeText={(text) => updateProfile('bio', text)}
+              placeholder="自己紹介を入力してください"
+              placeholderTextColor="#666"
+              multiline
+              maxLength={200}
+              returnKeyType="done"
+              onSubmitEditing={dismissKeyboard}
+            />
+            <Text style={styles.inputHelper}>
+              {profileData.bio.length}/200文字
+            </Text>
+          </View>
+
+          {/* 居住地域 */}
+          <View style={styles.inputSection}>
+            <Text style={styles.inputLabel}>居住地域</Text>
+            <TouchableOpacity
+              style={styles.locationSelector}
+              onPress={() => setShowLocationPicker(!showLocationPicker)}
+            >
+              <MapPin size={20} color="#666" />
+              <Text style={styles.locationText}>{profileData.location}</Text>
+            </TouchableOpacity>
+
+            {showLocationPicker && (
+              <View style={styles.locationPicker}>
+                <ScrollView style={styles.locationList} nestedScrollEnabled>
+                  {prefectures.map((prefecture, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.locationItem,
+                        profileData.location === prefecture && styles.selectedLocation
+                      ]}
+                      onPress={() => handleLocationSelect(prefecture)}
+                    >
+                      <Text style={[
+                        styles.locationItemText,
+                        profileData.location === prefecture && styles.selectedLocationText
+                      ]}>
+                        {prefecture}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+
+          {/* 母子手帳番号 */}
+          <View style={styles.inputSection}>
+            <Text style={styles.inputLabel}>母子手帳番号</Text>
+            <View style={styles.readOnlyInput}>
+              <Text style={styles.readOnlyText}>{profileData.maternalBookNumber}</Text>
+              <AlertCircle size={16} color="#666" />
+            </View>
+            <Text style={styles.inputHelper}>
+              セキュリティ上の理由により変更できません
+            </Text>
+          </View>
+
+          {/* プライバシー設定 */}
+          <View style={styles.inputSection}>
+            <Text style={styles.inputLabel}>プロフィール公開範囲</Text>
+            <View style={styles.privacyOptions}>
+              {[
+                { key: 'public', label: '全体に公開', desc: '誰でも閲覧可能' },
+                { key: 'friends', label: 'フォロワーのみ', desc: 'フォロワーのみ閲覧可能' },
+                { key: 'private', label: '非公開', desc: '自分のみ閲覧可能' }
+              ].map((option) => (
+                <TouchableOpacity
+                  key={option.key}
+                  style={[
+                    styles.privacyOption,
+                    profileData.privacyLevel === option.key && styles.selectedPrivacy
+                  ]}
+                  onPress={() => updateProfile('privacyLevel', option.key)}
+                >
+                  <View style={styles.privacyInfo}>
+                    <Text style={[
+                      styles.privacyLabel,
+                      profileData.privacyLevel === option.key && styles.selectedPrivacyLabel
+                    ]}>
+                      {option.label}
+                    </Text>
+                    <Text style={styles.privacyDesc}>{option.desc}</Text>
+                  </View>
+                  <View style={[
+                    styles.radioButton,
+                    profileData.privacyLevel === option.key && styles.selectedRadio
+                  ]}>
+                    {profileData.privacyLevel === option.key && (
+                      <View style={styles.radioInner} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* セキュリティ情報 */}
+          <View style={styles.securitySection}>
+            <Text style={styles.securityTitle}>セキュリティ情報</Text>
+            <Text style={styles.securityText}>
+              • 母子手帳番号は暗号化されて保存されます{'\n'}
+              • 個人を特定できる情報は表示されません{'\n'}
+              • プロフィール情報は安全に管理されます
+            </Text>
+          </View>
         </ScrollView>
       </TouchableWithoutFeedback>
 
@@ -507,5 +617,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     marginLeft: 6,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#888',
+    textAlign: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.5,
   },
 });

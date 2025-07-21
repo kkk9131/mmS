@@ -53,3 +53,10 @@ export interface BlockedUser {
   userId: string;
   blockedAt: string;
 }
+
+// Re-export new type definitions
+export * from './api';
+export * from './posts';
+export * from './users';
+export * from './notifications';
+export * from './follow';
