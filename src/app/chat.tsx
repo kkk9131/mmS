@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { ArrowLeft, Send, User, MoveHorizontal as MoreHorizontal } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -86,6 +86,10 @@ export default function ChatScreen() {
     router.back();
   };
 
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
+  };
+
   const handleSend = () => {
     if (inputText.trim().length === 0) return;
 
@@ -138,13 +142,15 @@ export default function ChatScreen() {
         style={styles.chatContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.messagesContainer}
-          contentContainerStyle={styles.messagesContent}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-        >
+        <TouchableWithoutFeedback onPress={dismissKeyboard}>
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.messagesContainer}
+            contentContainerStyle={styles.messagesContent}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+            keyboardShouldPersistTaps="handled"
+          >
           {messages.map((message) => (
             <View
               key={message.id}
@@ -174,7 +180,8 @@ export default function ChatScreen() {
               </View>
             </View>
           ))}
-        </ScrollView>
+          </ScrollView>
+        </TouchableWithoutFeedback>
 
         <View style={styles.inputContainer}>
           <TextInput
@@ -185,6 +192,9 @@ export default function ChatScreen() {
             onChangeText={setInputText}
             multiline
             maxLength={500}
+            returnKeyType="send"
+            onSubmitEditing={handleSend}
+            blurOnSubmit={false}
           />
           <TouchableOpacity
             style={[styles.sendButton, inputText.trim().length === 0 && styles.sendButtonDisabled]}
