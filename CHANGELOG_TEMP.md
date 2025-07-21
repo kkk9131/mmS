@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.2.0 - 2025-07-20
+## v1.3.0 - 2025-07-21
 
 ### ✨ Features
 - feat: complete project restructure and GitHub workflow setup (dba670c)
@@ -13,5 +13,6 @@
 - docs: Add comprehensive README.md (e027a8e)
 
 ### 🔧 Chores
+- chore: bump version to v1.2.0 (#3) (682ce7b)
 - chore: bump version to v1.1.0 (#1) (7f347a0)
 
