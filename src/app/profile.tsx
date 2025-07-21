@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
-import { ArrowLeft, User, MessageCircle, UserPlus, UserMinus, Heart, Calendar, MapPin, Share, MoveHorizontal as MoreHorizontal } from 'lucide-react-native';
+import { ArrowLeft, User, MessageCircle, UserPlus, UserMinus, Heart, Calendar, MapPin, Share, MoveHorizontal as MoreHorizontal, LogOut } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useAuth } from '../contexts/AuthContext';
 
 interface UserProfile {
   id: string;
@@ -93,10 +94,11 @@ const mockUserPosts: UserPost[] = [
 
 export default function ProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId?: string }>();
+  const { logout, user } = useAuth();
   
   // 自分のプロフィールかどうかを判定
   const isOwnProfile = !userId || userId === 'own';
-  const [profile, setProfile] = useState<UserProfile>(isOwnProfile ? mockOwnProfile : mockUserProfile);
+  const [profile, setProfile] = useState<UserProfile>(isOwnProfile ? { ...mockOwnProfile, name: user?.nickname || mockOwnProfile.name } : mockUserProfile);
   const [posts, setPosts] = useState<UserPost[]>(mockUserPosts);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -138,6 +140,30 @@ export default function ProfileScreen() {
     setTimeout(() => {
       setRefreshing(false);
     }, 2000);
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'ログアウト',
+      'ログアウトしますか？',
+      [
+        {
+          text: 'キャンセル',
+          style: 'cancel',
+        },
+        {
+          text: 'ログアウト',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+            } catch (error) {
+              Alert.alert('エラー', 'ログアウトに失敗しました');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -239,6 +265,13 @@ export default function ProfileScreen() {
                   >
                     <User size={16} color="#ff6b9d" />
                     <Text style={styles.activityButtonText}>フォロー管理</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.activityButton, styles.logoutButton]}
+                    onPress={handleLogout}
+                  >
+                    <LogOut size={16} color="#ff4444" />
+                    <Text style={[styles.activityButtonText, styles.logoutButtonText]}>ログアウト</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -627,5 +660,12 @@ const styles = StyleSheet.create({
   },
   likedText: {
     color: '#ff6b9d',
+  },
+  logoutButton: {
+    borderColor: '#ff4444',
+    backgroundColor: '#2a1f1f',
+  },
+  logoutButtonText: {
+    color: '#ff4444',
   },
 });

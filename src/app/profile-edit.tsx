@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { ArrowLeft, Save, User, MapPin, CreditCard as Edit3, CircleAlert as AlertCircle } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -80,6 +80,10 @@ export default function ProfileEditScreen() {
     setShowLocationPicker(false);
   };
 
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -92,7 +96,12 @@ export default function ProfileEditScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <TouchableWithoutFeedback onPress={dismissKeyboard}>
+        <ScrollView 
+          style={styles.content} 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* プロフィール画像セクション */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarContainer}>
@@ -114,6 +123,8 @@ export default function ProfileEditScreen() {
             placeholder="ニックネームを入力"
             placeholderTextColor="#666"
             maxLength={20}
+            returnKeyType="next"
+            onSubmitEditing={dismissKeyboard}
           />
           <Text style={styles.inputHelper}>
             {profileData.nickname.length}/20文字
@@ -131,6 +142,8 @@ export default function ProfileEditScreen() {
             placeholderTextColor="#666"
             multiline
             maxLength={200}
+            returnKeyType="done"
+            onSubmitEditing={dismissKeyboard}
           />
           <Text style={styles.inputHelper}>
             {profileData.bio.length}/200文字
@@ -233,7 +246,8 @@ export default function ProfileEditScreen() {
             • プロフィール情報は安全に管理されます
           </Text>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </TouchableWithoutFeedback>
 
       {hasChanges && (
         <View style={styles.savePrompt}>

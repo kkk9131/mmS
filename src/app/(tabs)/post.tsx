@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch, ScrollView, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { Send, Heart, Bot } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,6 +10,10 @@ export default function PostScreen() {
   const maxCharacters = 400;
   const characterCount = postText.length;
   const isOverLimit = characterCount > maxCharacters;
+
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
+  };
 
   const handlePost = () => {
     if (postText.trim().length === 0) {
@@ -47,7 +51,14 @@ export default function PostScreen() {
         <Text style={styles.headerSubtitle}>今の気持ちを共有しませんか？</Text>
       </View>
 
-      <View style={styles.content}>
+      <TouchableWithoutFeedback onPress={dismissKeyboard}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollViewContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.content}>
         <TextInput
           style={[styles.textInput, isOverLimit && styles.textInputError]}
           placeholder="今日はどんな一日でしたか？ママたちと共有しませんか..."
@@ -56,6 +67,8 @@ export default function PostScreen() {
           value={postText}
           onChangeText={setPostText}
           maxLength={maxCharacters}
+          returnKeyType="done"
+          onSubmitEditing={dismissKeyboard}
         />
         
         <View style={styles.inputFooter}>
@@ -90,8 +103,10 @@ export default function PostScreen() {
           <Text style={styles.infoText}>
             あなたの気持ちや体験を自由に共有してください。ママたちがあなたの投稿に共感してくれます。
           </Text>
-        </View>
-      </View>
+          </View>
+          </View>
+        </ScrollView>
+      </TouchableWithoutFeedback>
 
       <View style={styles.footer}>
         <TouchableOpacity
@@ -111,6 +126,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#121212',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
   },
   header: {
     padding: 20,
