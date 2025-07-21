@@ -1,23 +1,27 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch, ScrollView, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch, ScrollView, Keyboard, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
 import { Send, Heart, Bot } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { PostsService } from '../../services/PostsService';
 
 export default function PostScreen() {
   const [postText, setPostText] = useState('');
   const [aiEmpathyEnabled, setAiEmpathyEnabled] = useState(true);
+  const [isPosting, setIsPosting] = useState(false);
 
-  const maxCharacters = 400;
+  const maxCharacters = 600;
   const characterCount = postText.length;
   const isOverLimit = characterCount > maxCharacters;
+  const postsService = PostsService.getInstance();
 
   const dismissKeyboard = () => {
     Keyboard.dismiss();
   };
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (postText.trim().length === 0) {
-      Alert.alert('エラー', 'ポスト内容を入力してください');
+      Alert.alert('エラー', '投稿内容を入力してください');
       return;
     }
     
@@ -29,15 +33,33 @@ export default function PostScreen() {
     const empathyMessage = aiEmpathyEnabled ? '\n\n※ ママの味方からの共感メッセージが届きます' : '';
     
     Alert.alert(
-      'ポスト確認',
-      `ポストしますか？${empathyMessage}`,
+      '投稿確認',
+      `投稿しますか？${empathyMessage}`,
       [
         { text: 'キャンセル', style: 'cancel' },
         { 
-          text: 'ポストする', 
-          onPress: () => {
-            Alert.alert('ポスト完了', 'ポストが正常に送信されました');
-            setPostText('');
+          text: '投稿する', 
+          onPress: async () => {
+            setIsPosting(true);
+            try {
+              await postsService.createPost({
+                content: postText.trim()
+              });
+              
+              Alert.alert('投稿完了', '投稿が正常に送信されました', [
+                { 
+                  text: 'OK', 
+                  onPress: () => {
+                    setPostText('');
+                    router.back();
+                  }
+                }
+              ]);
+            } catch (error) {
+              Alert.alert('エラー', '投稿の送信に失敗しました。もう一度お試しください。');
+            } finally {
+              setIsPosting(false);
+            }
           }
         }
       ]
@@ -110,12 +132,24 @@ export default function PostScreen() {
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.postButton, isOverLimit && styles.postButtonDisabled]}
+          style={[
+            styles.postButton, 
+            (isOverLimit || isPosting) && styles.postButtonDisabled
+          ]}
           onPress={handlePost}
-          disabled={isOverLimit}
+          disabled={isOverLimit || isPosting}
         >
-          <Send size={20} color="#fff" />
-          <Text style={styles.postButtonText}>ポストする</Text>
+          {isPosting ? (
+            <>
+              <ActivityIndicator size={20} color="#fff" />
+              <Text style={styles.postButtonText}>投稿中...</Text>
+            </>
+          ) : (
+            <>
+              <Send size={20} color="#fff" />
+              <Text style={styles.postButtonText}>投稿する</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

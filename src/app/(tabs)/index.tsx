@@ -1,169 +1,158 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Heart, MessageCircle, MoveHorizontal as MoreHorizontal, Menu, Plus } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Sidebar from '../../components/Sidebar';
+import { PostsService } from '../../services/PostsService';
+import { Post, Comment } from '../../types/posts';
 
-interface Post {
-  id: string;
-  content: string;
-  author: string;
-  timestamp: string;
-  likes: number;
-  comments: number;
-  tags: string[];
-  isLiked: boolean;
+interface PostWithLocalState extends Post {
   aiResponse?: string;
-  commentList?: Comment[];
 }
 
-interface Comment {
-  id: string;
-  content: string;
-  author: string;
-  timestamp: string;
-  likes: number;
-  isLiked: boolean;
-}
-
-const mockPosts: Post[] = [
-  {
-    id: '1',
-    content: '今日は息子の夜泣きがひどくて、もう限界かも...😢 みんなはどうやって乗り切ってる？ #夜泣き #新生児 #しんどい',
-    author: 'みさき',
-    timestamp: '2分前',
-    likes: 12,
-    comments: 3,
-    tags: ['夜泣き', '新生児', 'しんどい'],
-    isLiked: false,
-    aiResponse: '夜泣き本当にお疲れ様です。一人で頑張らないで、少しでも休める時間を作ってくださいね ♡',
-    commentList: [
-      {
-        id: '1',
-        content: '私も同じ悩みを抱えています。一緒に頑張りましょう！',
-        author: 'ゆか',
-        timestamp: '5分前',
-        likes: 2,
-        isLiked: false
-      },
-      {
-        id: '2',
-        content: 'マッサージが効果的でした。試してみてください',
-        author: 'さくら',
-        timestamp: '10分前',
-        likes: 1,
-        isLiked: true
-      }
-    ]
-  },
-  {
-    id: '2',
-    content: '離乳食を全然食べてくれない... 栄養面が心配で毎日不安です。何かいい方法はないでしょうか？ #離乳食 #食べない #心配',
-    author: 'ゆか',
-    timestamp: '15分前',
-    likes: 8,
-    comments: 5,
-    tags: ['離乳食', '食べない', '心配'],
-    isLiked: true,
-    aiResponse: '離乳食の悩み、よくわかります。無理をせず、お子さんのペースに合わせて大丈夫ですよ',
-    commentList: [
-      {
-        id: '3',
-        content: '少しずつでも食べてくれるようになりますよ',
-        author: 'えみ',
-        timestamp: '1時間前',
-        likes: 3,
-        isLiked: false
-      }
-    ]
-  },
-  {
-    id: '3',
-    content: '保育園の送迎で他のママとの会話が苦手... 人見知りな性格で毎朝憂鬱になっちゃう #保育園 #人見知り #ママ友',
-    author: 'えみ',
-    timestamp: '1時間前',
-    likes: 15,
-    comments: 7,
-    tags: ['保育園', '人見知り', 'ママ友'],
-    isLiked: false,
-    aiResponse: '人見知りは恥ずかしいことじゃないですよ。無理をしないで、自分らしくいることが一番です',
-    commentList: []
-  }
-];
+const mockAiResponses: { [postId: string]: string } = {
+  'mock_post_1': '夜泣き本当にお疲れ様です。一人で頑張らないで、少しでも休める時間を作ってくださいね ♡',
+  'mock_post_2': '離乳食の悩み、よくわかります。無理をせず、お子さんのペースに合わせて大丈夫ですよ',
+  'mock_post_3': '人見知りは恥ずかしいことじゃないですよ。無理をしないで、自分らしくいることが一番です',
+};
 
 export default function HomeScreen() {
-  const [posts, setPosts] = useState<Post[]>(mockPosts);
+  const [posts, setPosts] = useState<PostWithLocalState[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selectedPost, setSelectedPost] = useState<PostWithLocalState | null>(null);
+  const [selectedPostComments, setSelectedPostComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
-  // 実際の実装では、AsyncStorageやContextから読み込む
   const [dominantHand, setDominantHand] = useState<'right' | 'left'>('right');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+
+  const postsService = PostsService.getInstance();
 
   // 空いた手の側を計算（利き手の逆側）
   const freeHandSide = dominantHand === 'right' ? 'left' : 'right';
 
-  const onRefresh = () => {
+  const loadPosts = async (page: number = 1, isRefresh: boolean = false) => {
+    try {
+      if (isRefresh) {
+        setError(null);
+      }
+      
+      const response = await postsService.getPosts({
+        page,
+        limit: 10,
+        sortBy: 'createdAt',
+        order: 'desc'
+      });
+
+      const postsWithAi = response.posts.map(post => ({
+        ...post,
+        aiResponse: mockAiResponses[post.id]
+      }));
+
+      if (isRefresh || page === 1) {
+        setPosts(postsWithAi);
+      } else {
+        setPosts(prev => [...prev, ...postsWithAi]);
+      }
+
+      setHasMore(response.pagination.hasNext);
+      setCurrentPage(page);
+    } catch (error: any) {
+      console.error('投稿の読み込みに失敗しました:', error);
+      setError('投稿の読み込みに失敗しました。');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadComments = async (postId: string) => {
+    try {
+      const response = await postsService.getComments(postId, {
+        page: 1,
+        limit: 50,
+        sortBy: 'createdAt',
+        order: 'asc'
+      });
+      setSelectedPostComments(response.comments);
+    } catch (error) {
+      console.error('コメントの読み込みに失敗しました:', error);
+      setSelectedPostComments([]);
+    }
+  };
+
+  useEffect(() => {
+    loadPosts();
+  }, []);
+
+  const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 2000);
+    await loadPosts(1, true);
+    setRefreshing(false);
   };
 
-  const handleLike = (postId: string) => {
-    setPosts(posts.map(post =>
-      post.id === postId
-        ? { ...post, isLiked: !post.isLiked, likes: post.isLiked ? post.likes - 1 : post.likes + 1 }
-        : post
+  const handleLike = async (postId: string) => {
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    const wasLiked = post.isLiked;
+    
+    // 楽観的更新
+    setPosts(posts.map(p =>
+      p.id === postId
+        ? { ...p, isLiked: !p.isLiked, likesCount: p.isLiked ? p.likesCount - 1 : p.likesCount + 1 }
+        : p
     ));
+
+    try {
+      if (wasLiked) {
+        await postsService.unlikePost(postId);
+      } else {
+        await postsService.likePost(postId);
+      }
+    } catch (error) {
+      // エラー時はロールバック
+      setPosts(posts.map(p =>
+        p.id === postId
+          ? { ...p, isLiked: wasLiked, likesCount: wasLiked ? p.likesCount + 1 : p.likesCount - 1 }
+          : p
+      ));
+      Alert.alert('エラー', 'いいねの処理に失敗しました。');
+    }
   };
 
-  const handleCommentLike = (postId: string, commentId: string) => {
-    setPosts(posts.map(post =>
-      post.id === postId
-        ? {
-          ...post,
-          commentList: post.commentList?.map(comment =>
-            comment.id === commentId
-              ? { ...comment, isLiked: !comment.isLiked, likes: comment.isLiked ? comment.likes - 1 : comment.likes + 1 }
-              : comment
-          )
-        }
-        : post
-    ));
-  };
-
-  const handleCommentPress = (post: Post) => {
+  const handleCommentPress = async (post: PostWithLocalState) => {
     setSelectedPost(post);
     setCommentModalVisible(true);
+    await loadComments(post.id);
   };
 
-  const handleCommentSubmit = () => {
+  const handleCommentSubmit = async () => {
     if (!selectedPost || commentText.trim().length === 0) return;
 
-    const newComment: Comment = {
-      id: Date.now().toString(),
-      content: commentText,
-      author: 'あなた',
-      timestamp: '今',
-      likes: 0,
-      isLiked: false
-    };
+    try {
+      const newComment = await postsService.createComment(selectedPost.id, {
+        content: commentText.trim()
+      });
 
-    setPosts(posts.map(post =>
-      post.id === selectedPost.id
-        ? {
-          ...post,
-          comments: post.comments + 1,
-          commentList: [...(post.commentList || []), newComment]
-        }
-        : post
-    ));
+      // コメント一覧を更新
+      setSelectedPostComments(prev => [...prev, newComment]);
+      
+      // 投稿のコメント数を更新
+      setPosts(posts.map(post =>
+        post.id === selectedPost.id
+          ? { ...post, commentsCount: post.commentsCount + 1 }
+          : post
+      ));
 
-    setCommentText('');
-    setCommentModalVisible(false);
+      setCommentText('');
+    } catch (error) {
+      Alert.alert('エラー', 'コメントの投稿に失敗しました。');
+    }
   };
 
   const handleLongPress = (postId: string) => {
@@ -182,7 +171,7 @@ export default function HomeScreen() {
     router.push('/post');
   };
 
-  const renderPost = (post: Post) => (
+  const renderPost = (post: PostWithLocalState) => (
     <TouchableOpacity
       key={post.id}
       style={styles.postContainer}
@@ -190,19 +179,18 @@ export default function HomeScreen() {
       delayLongPress={800}
     >
       <View style={styles.postHeader}>
-        <TouchableOpacity onPress={() => router.push({ pathname: '/profile', params: { userId: post.id } })}>
-          <Text style={styles.authorName}>{post.author}</Text>
+        <TouchableOpacity onPress={() => router.push({ pathname: '/profile', params: { userId: post.authorId } })}>
+          <Text style={styles.authorName}>{post.authorName}</Text>
         </TouchableOpacity>
-        <Text style={styles.timestamp}>{post.timestamp}</Text>
+        <Text style={styles.timestamp}>{new Date(post.createdAt).toLocaleString('ja-JP', {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })}</Text>
       </View>
 
       <Text style={styles.postContent}>{post.content}</Text>
-
-      <View style={styles.tagsContainer}>
-        {post.tags.map((tag, index) => (
-          <Text key={index} style={styles.tag}>#{tag}</Text>
-        ))}
-      </View>
 
       {post.aiResponse && (
         <View style={styles.aiResponseContainer}>
@@ -218,7 +206,7 @@ export default function HomeScreen() {
         >
           <Heart size={20} color={post.isLiked ? '#ff6b9d' : '#666'} fill={post.isLiked ? '#ff6b9d' : 'none'} />
           <Text style={[styles.actionText, post.isLiked && styles.likedText]}>
-            {post.likes} 共感
+            {post.likesCount} 共感
           </Text>
         </TouchableOpacity>
 
@@ -227,7 +215,7 @@ export default function HomeScreen() {
           onPress={() => handleCommentPress(post)}
         >
           <MessageCircle size={20} color="#666" />
-          <Text style={styles.actionText}>{post.comments} コメント</Text>
+          <Text style={styles.actionText}>{post.commentsCount} コメント</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.moreButton}>
@@ -259,12 +247,45 @@ export default function HomeScreen() {
         <Text style={styles.headerTitle}>Mamapace</Text>
       </View>
 
-      <ScrollView
-        style={styles.timeline}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff6b9d" />}
-      >
-        {posts.map(renderPost)}
-      </ScrollView>
+      {loading && posts.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#ff6b9d" />
+          <Text style={styles.loadingText}>読み込み中...</Text>
+        </View>
+      ) : error && posts.length === 0 ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => loadPosts()}>
+            <Text style={styles.retryButtonText}>再試行</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={posts}
+          renderItem={({ item }) => renderPost(item)}
+          keyExtractor={(item) => item.id}
+          style={styles.timeline}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff6b9d" />
+          }
+          onEndReached={() => {
+            if (hasMore && !loading) {
+              loadPosts(currentPage + 1, false);
+            }
+          }}
+          onEndReachedThreshold={0.1}
+          ListFooterComponent={() => {
+            if (hasMore && posts.length > 0) {
+              return (
+                <View style={styles.footerLoading}>
+                  <ActivityIndicator size="small" color="#ff6b9d" />
+                </View>
+              );
+            }
+            return null;
+          }}
+        />
+      )}
 
       <TouchableOpacity
         style={[
@@ -306,30 +327,34 @@ export default function HomeScreen() {
             {selectedPost && (
               <>
                 <View style={styles.originalPost}>
-                  <Text style={styles.originalPostAuthor}>{selectedPost.author}</Text>
+                  <Text style={styles.originalPostAuthor}>{selectedPost.authorName}</Text>
                   <Text style={styles.originalPostContent}>{selectedPost.content}</Text>
                 </View>
 
-                <ScrollView style={styles.commentsList}>
-                  {selectedPost.commentList?.map((comment) => (
-                    <View key={comment.id} style={styles.commentItem}>
+                <FlatList
+                  data={selectedPostComments}
+                  keyExtractor={(comment) => comment.id}
+                  style={styles.commentsList}
+                  renderItem={({ item: comment }) => (
+                    <View style={styles.commentItem}>
                       <View style={styles.commentHeader}>
-                        <Text style={styles.commentAuthor}>{comment.author}</Text>
-                        <Text style={styles.commentTimestamp}>{comment.timestamp}</Text>
+                        <Text style={styles.commentAuthor}>{comment.authorName}</Text>
+                        <Text style={styles.commentTimestamp}>{new Date(comment.createdAt).toLocaleString('ja-JP', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}</Text>
                       </View>
                       <Text style={styles.commentContent}>{comment.content}</Text>
-                      <TouchableOpacity
-                        style={[styles.commentLikeButton, comment.isLiked && styles.commentLikedButton]}
-                        onPress={() => handleCommentLike(selectedPost.id, comment.id)}
-                      >
-                        <Heart size={16} color={comment.isLiked ? '#ff6b9d' : '#666'} fill={comment.isLiked ? '#ff6b9d' : 'none'} />
-                        <Text style={[styles.commentLikeText, comment.isLiked && styles.commentLikedText]}>
-                          {comment.likes}
-                        </Text>
-                      </TouchableOpacity>
                     </View>
-                  ))}
-                </ScrollView>
+                  )}
+                  ListEmptyComponent={() => (
+                    <View style={styles.noCommentsContainer}>
+                      <Text style={styles.noCommentsText}>まだコメントがありません</Text>
+                    </View>
+                  )}
+                />
 
                 <View style={styles.commentInputContainer}>
                   <TextInput
@@ -662,5 +687,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#fff',
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    color: '#888',
+    marginTop: 10,
+    fontSize: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  errorText: {
+    color: '#ff6b6b',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#ff6b9d',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  footerLoading: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  noCommentsContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  noCommentsText: {
+    color: '#888',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
