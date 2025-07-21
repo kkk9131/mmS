@@ -33,10 +33,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const authService = AuthService.getInstance();
   const featureFlags = FeatureFlagsManager.getInstance();
 
-  useEffect(() => {
-    checkAuthStatus();
-  }, [checkAuthStatus]);
-
   const checkAuthStatus = React.useCallback(async () => {
     try {
       const hasValidToken = await authService.checkAuthStatus();
@@ -58,6 +54,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     }
   }, [authService, featureFlags]);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, [checkAuthStatus]);
 
   const login = async (maternalBookNumber: string, nickname: string) => {
     const response = await authService.login({ maternalBookNumber, nickname });
