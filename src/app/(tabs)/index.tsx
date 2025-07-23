@@ -5,12 +5,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Sidebar from '../../components/Sidebar';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
-import { postsApi } from '../../store/api/postsApi';
+// import { postsApi } from '../../store/api/postsApi'; // Supabase無効時は使用しない
+import { FeatureFlagsManager } from '../../services/featureFlags';
 import { useRealtimePosts } from '../../hooks/useRealtimePosts';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+import { useHandPreference } from '../../contexts/HandPreferenceContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Post, Comment } from '../../types/posts';
 
-interface PostWithLocalState extends Post {
+interface PostWithLocalState {
+  id: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+  likesCount: number;
+  commentsCount: number;
+  isLiked: boolean;
   aiResponse?: string;
 }
 
@@ -20,98 +31,113 @@ const mockAiResponses: { [postId: string]: string } = {
   'mock_post_3': '人見知りは恥ずかしいことじゃないですよ。無理をしないで、自分らしくいることが一番です',
 };
 
+// Mock posts for when Supabase is disabled
+const mockPosts: PostWithLocalState[] = [
+  {
+    id: 'mock_post_1',
+    authorId: 'user1',
+    authorName: 'ママ太郎',
+    content: '夜泣きで全然寝れない…誰か同じ経験ある人いますか？もう限界かも😭',
+    createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+    likesCount: 12,
+    commentsCount: 5,
+    isLiked: false,
+    aiResponse: mockAiResponses['mock_post_1'],
+  },
+  {
+    id: 'mock_post_2',
+    authorId: 'user2',
+    authorName: 'はなまる',
+    content: '離乳食始めたけど全然食べてくれない。みんなどうしてる？',
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+    likesCount: 8,
+    commentsCount: 3,
+    isLiked: true,
+    aiResponse: mockAiResponses['mock_post_2'],
+  },
+  {
+    id: 'mock_post_3',
+    authorId: 'user3',
+    authorName: '匿名ママ',
+    content: '児童館デビューしたいけど人見知りで…みんな最初は緊張した？',
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+    likesCount: 15,
+    commentsCount: 7,
+    isLiked: false,
+    aiResponse: mockAiResponses['mock_post_3'],
+  },
+];
+
 export default function HomeScreen() {
   const dispatch = useAppDispatch();
+  const featureFlags = FeatureFlagsManager.getInstance();
+  const isSupabaseEnabled = featureFlags.isSupabaseEnabled();
+  const { handPreference, getFreeHandSide } = useHandPreference();
+  const { theme } = useTheme();
   
   // UI State
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState<PostWithLocalState | null>(null);
   const [commentText, setCommentText] = useState('');
-  const [dominantHand, setDominantHand] = useState<'right' | 'left'>('right');
   
-  // RTK Query - Posts data with pagination
-  const {
-    data: postsData,
-    error: postsError,
-    isLoading: postsLoading,
-    isFetching: postsFetching,
-    refetch: refetchPosts,
-  } = postsApi.useGetPostsQuery({
-    limit: 20, // Load more items per page
-    offset: 0,
-  });
+  // Mock states for when Supabase is disabled
+  const [localPosts, setLocalPosts] = useState(mockPosts);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Comments query for selected post
-  const {
-    data: commentsData,
-    isLoading: commentsLoading,
-    refetch: refetchComments,
-  } = postsApi.useGetCommentsQuery(
-    selectedPost ? selectedPost.id : '',
-    { skip: !selectedPost }
-  );
+  // Real-time subscriptions (disabled for now)
+  // const realtimePosts = useRealtimePosts({
+  //   autoSubscribe: isSupabaseEnabled,
+  //   conflictResolution: 'latest',
+  //   debug: __DEV__,
+  //   onError: (error, context) => {
+  //     console.error(`[RealtimePosts] ${context}:`, error);
+  //   }
+  // });
   
-  // RTK Query mutations
-  const [likePost] = postsApi.useToggleLikeMutation();
-  const [unlikePost] = postsApi.useToggleLikeMutation();
-  const [createComment] = postsApi.useCreateCommentMutation();
-  
-  // Real-time subscriptions
-  const realtimePosts = useRealtimePosts({
-    autoSubscribe: true,
-    conflictResolution: 'latest',
-    debug: __DEV__,
-    onError: (error, context) => {
-      console.error(`[RealtimePosts] ${context}:`, error);
-    }
-  });
-  
-  const realtimeNotifications = useRealtimeNotifications({
-    autoSubscribe: true,
-    enableSound: true,
-    enableVibration: true,
-    showInForeground: false, // Don't show notifications on home screen
-    debug: __DEV__,
-    onError: (error, context) => {
-      console.error(`[RealtimeNotifications] ${context}:`, error);
-    }
-  });
+  // const realtimeNotifications = useRealtimeNotifications({
+  //   autoSubscribe: isSupabaseEnabled,
+  //   enableSound: true,
+  //   enableVibration: true,
+  //   showInForeground: false, // Don't show notifications on home screen
+  //   debug: __DEV__,
+  //   onError: (error, context) => {
+  //     console.error(`[RealtimeNotifications] ${context}:`, error);
+  //   }
+  // });
 
   // 空いた手の側を計算（利き手の逆側）
-  const freeHandSide = dominantHand === 'right' ? 'left' : 'right';
+  const freeHandSide = getFreeHandSide();
   
-  // Transform posts data with AI responses
-  const posts: any[] = (Array.isArray(postsData) ? postsData : (postsData as any)?.posts || [])?.map((post: any) => ({
-    ...post,
-    aiResponse: mockAiResponses[post.id]
-  })) || [];
-  
-  const comments = Array.isArray(commentsData) ? commentsData : (commentsData as any)?.comments || [];
-  const hasMore = (postsData as any)?.pagination?.hasNext || false;
-  const loading = postsLoading;
-  const refreshing = postsFetching && !postsLoading;
-  const error = postsError ? '投稿の読み込みに失敗しました。' : null;
+  // Use local posts for now (Supabase is disabled)
+  const posts = localPosts;
+  const comments: any[] = [];
+  const hasMore = false;
+  const loading = false;
+  const refreshing = isRefreshing;
+  const error = null;
 
   const onRefresh = async () => {
-    await refetchPosts();
+    setIsRefreshing(true);
+    // Simulate refresh delay
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 1000);
   };
 
   const handleLike = async (postId: string) => {
-    const post = posts.find(p => p.id === postId);
-    if (!post) return;
-
-    try {
-      if (post.isLiked) {
-        // RTK Query automatically handles optimistic updates
-        await unlikePost({ postId, userId: 'current-user' }).unwrap();
-      } else {
-        await likePost({ postId, userId: 'current-user' }).unwrap();
-      }
-    } catch (error) {
-      console.error('いいねの処理に失敗しました:', error);
-      Alert.alert('エラー', 'いいねの処理に失敗しました。');
-    }
+    // Mock local update
+    setLocalPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? {
+              ...post,
+              isLiked: !post.isLiked,
+              likesCount: post.likesCount + (post.isLiked ? -1 : 1)
+            }
+          : post
+      )
+    );
   };
 
   const handleCommentPress = (post: PostWithLocalState) => {
@@ -123,19 +149,9 @@ export default function HomeScreen() {
   const handleCommentSubmit = async () => {
     if (!selectedPost || commentText.trim().length === 0) return;
 
-    try {
-      await createComment({
-        post_id: selectedPost.id,
-        content: commentText.trim(),
-        user_id: 'current-user'
-      }).unwrap();
-      
-      setCommentText('');
-      // Comments will be updated automatically via real-time or RTK Query cache
-    } catch (error) {
-      console.error('コメントの投稿に失敗しました:', error);
-      Alert.alert('エラー', 'コメントの投稿に失敗しました。');
-    }
+    // Mock comment submission
+    Alert.alert('開発モード', 'コメント機能は現在モック状態です。');
+    setCommentText('');
   };
 
   const handleLongPress = (postId: string) => {
@@ -154,17 +170,198 @@ export default function HomeScreen() {
     router.push('/post');
   };
 
+  // 勘的スタイル
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+      position: 'relative',
+    },
+    headerTitle: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: theme.colors.primary,
+      textAlign: 'center',
+    },
+    headerSubtitle: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      textAlign: 'center',
+      marginTop: 4,
+    },
+    postContainer: {
+      backgroundColor: theme.colors.surface,
+      margin: 10,
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    authorName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.primary,
+    },
+    timestamp: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+    },
+    postContent: {
+      fontSize: 16,
+      color: theme.colors.text.primary,
+      lineHeight: 24,
+      marginBottom: 12,
+    },
+    aiResponseContainer: {
+      backgroundColor: theme.colors.card,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 12,
+      borderLeftWidth: 3,
+      borderLeftColor: theme.colors.primary,
+    },
+    aiResponseLabel: {
+      fontSize: 12,
+      color: theme.colors.primary,
+      fontWeight: '500',
+      marginBottom: 4,
+    },
+    aiResponseText: {
+      fontSize: 14,
+      color: theme.colors.text.primary,
+      lineHeight: 20,
+    },
+    actionsContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    actionText: {
+      fontSize: 14,
+      color: theme.colors.text.disabled,
+      marginLeft: 6,
+    },
+    likedText: {
+      color: theme.colors.primary,
+    },
+    commentModalContainer: {
+      backgroundColor: theme.colors.background,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      height: '80%',
+      maxHeight: '80%',
+    },
+    commentModalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    commentModalTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+    },
+    commentModalCloseText: {
+      fontSize: 24,
+      color: theme.colors.text.disabled,
+    },
+    originalPost: {
+      backgroundColor: theme.colors.surface,
+      padding: 16,
+      marginHorizontal: 16,
+      marginTop: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    originalPostAuthor: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.primary,
+      marginBottom: 8,
+    },
+    originalPostContent: {
+      fontSize: 16,
+      color: theme.colors.text.primary,
+      lineHeight: 22,
+    },
+    commentItem: {
+      backgroundColor: theme.colors.surface,
+      padding: 12,
+      marginBottom: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    commentAuthor: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.primary,
+    },
+    commentTimestamp: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+    },
+    commentContent: {
+      fontSize: 14,
+      color: theme.colors.text.primary,
+      lineHeight: 20,
+      marginBottom: 8,
+    },
+    commentInputContainer: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      padding: 16,
+      backgroundColor: theme.colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    commentInput: {
+      flex: 1,
+      backgroundColor: theme.colors.card,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      fontSize: 16,
+      color: theme.colors.text.primary,
+      maxHeight: 80,
+      marginRight: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    loadingText: {
+      color: theme.colors.text.secondary,
+      marginTop: 10,
+      fontSize: 16,
+    },
+    noCommentsText: {
+      color: theme.colors.text.secondary,
+      fontSize: 14,
+      textAlign: 'center',
+    },
+  });
+
   const renderPost = (post: PostWithLocalState) => (
     <TouchableOpacity
-      style={styles.postContainer}
+      style={dynamicStyles.postContainer}
       onLongPress={() => handleLongPress(post.id)}
       delayLongPress={800}
     >
       <View style={styles.postHeader}>
         <TouchableOpacity onPress={() => router.push({ pathname: '/profile', params: { userId: post.authorId } })}>
-          <Text style={styles.authorName}>{post.authorName}</Text>
+          <Text style={dynamicStyles.authorName}>{post.authorName}</Text>
         </TouchableOpacity>
-        <Text style={styles.timestamp}>{new Date(post.createdAt).toLocaleString('ja-JP', {
+        <Text style={dynamicStyles.timestamp}>{new Date(post.createdAt).toLocaleString('ja-JP', {
           month: 'short',
           day: 'numeric',
           hour: '2-digit',
@@ -172,22 +369,22 @@ export default function HomeScreen() {
         })}</Text>
       </View>
 
-      <Text style={styles.postContent}>{post.content}</Text>
+      <Text style={dynamicStyles.postContent}>{post.content}</Text>
 
       {post.aiResponse && (
-        <View style={styles.aiResponseContainer}>
-          <Text style={styles.aiResponseLabel}>ママの味方</Text>
-          <Text style={styles.aiResponseText}>{post.aiResponse}</Text>
+        <View style={dynamicStyles.aiResponseContainer}>
+          <Text style={dynamicStyles.aiResponseLabel}>ママの味方</Text>
+          <Text style={dynamicStyles.aiResponseText}>{post.aiResponse}</Text>
         </View>
       )}
 
-      <View style={styles.actionsContainer}>
+      <View style={dynamicStyles.actionsContainer}>
         <TouchableOpacity
           style={[styles.actionButton, post.isLiked && styles.likedButton]}
           onPress={() => handleLike(post.id)}
         >
-          <Heart size={20} color={post.isLiked ? '#ff6b9d' : '#666'} fill={post.isLiked ? '#ff6b9d' : 'none'} />
-          <Text style={[styles.actionText, post.isLiked && styles.likedText]}>
+          <Heart size={20} color={post.isLiked ? theme.colors.primary : theme.colors.text.disabled} fill={post.isLiked ? theme.colors.primary : 'none'} />
+          <Text style={[dynamicStyles.actionText, post.isLiked && dynamicStyles.likedText]}>
             {post.likesCount} 共感
           </Text>
         </TouchableOpacity>
@@ -196,20 +393,20 @@ export default function HomeScreen() {
           style={styles.actionButton}
           onPress={() => handleCommentPress(post)}
         >
-          <MessageCircle size={20} color="#666" />
-          <Text style={styles.actionText}>{post.commentsCount} コメント</Text>
+          <MessageCircle size={20} color={theme.colors.text.disabled} />
+          <Text style={dynamicStyles.actionText}>{post.commentsCount} コメント</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.moreButton}>
-          <MoreHorizontal size={20} color="#666" />
+          <MoreHorizontal size={20} color={theme.colors.text.disabled} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={dynamicStyles.container}>
+      <View style={dynamicStyles.header}>
         <TouchableOpacity
           style={[
             styles.menuButton,
@@ -217,27 +414,27 @@ export default function HomeScreen() {
           ]}
           onPress={() => setSidebarVisible(true)}
         >
-          <Menu size={24} color="#ff6b9d" />
+          <Menu size={24} color={theme.colors.primary} />
         </TouchableOpacity>
 
 
 
-        <Text style={styles.headerSubtitle}>ママの共感コミュニティ</Text>
+        <Text style={dynamicStyles.headerSubtitle}>ママの共感コミュニティ</Text>
       </View>
 
       <View style={styles.headerContent}>
-        <Text style={styles.headerTitle}>Mamapace</Text>
+        <Text style={dynamicStyles.headerTitle}>Mamapace</Text>
       </View>
 
       {loading && posts.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#ff6b9d" />
-          <Text style={styles.loadingText}>読み込み中...</Text>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={dynamicStyles.loadingText}>読み込み中...</Text>
         </View>
       ) : error && posts.length === 0 ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => refetchPosts()}>
+          <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
             <Text style={styles.retryButtonText}>再試行</Text>
           </TouchableOpacity>
         </View>
@@ -248,7 +445,7 @@ export default function HomeScreen() {
           keyExtractor={(item) => item.id}
           style={styles.timeline}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff6b9d" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
           }
           onEndReachedThreshold={0.1}
         />
@@ -278,24 +475,24 @@ export default function HomeScreen() {
       >
         <View style={styles.commentModalOverlay}>
           <KeyboardAvoidingView
-            style={styles.commentModalContainer}
+            style={dynamicStyles.commentModalContainer}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           >
-            <View style={styles.commentModalHeader}>
-              <Text style={styles.commentModalTitle}>コメント</Text>
+            <View style={dynamicStyles.commentModalHeader}>
+              <Text style={dynamicStyles.commentModalTitle}>コメント</Text>
               <TouchableOpacity
                 onPress={() => setCommentModalVisible(false)}
                 style={styles.commentModalClose}
               >
-                <Text style={styles.commentModalCloseText}>×</Text>
+                <Text style={dynamicStyles.commentModalCloseText}>×</Text>
               </TouchableOpacity>
             </View>
 
             {selectedPost && (
               <>
-                <View style={styles.originalPost}>
-                  <Text style={styles.originalPostAuthor}>{selectedPost.authorName}</Text>
-                  <Text style={styles.originalPostContent}>{selectedPost.content}</Text>
+                <View style={dynamicStyles.originalPost}>
+                  <Text style={dynamicStyles.originalPostAuthor}>{selectedPost.authorName}</Text>
+                  <Text style={dynamicStyles.originalPostContent}>{selectedPost.content}</Text>
                 </View>
 
                 <FlatList
@@ -303,31 +500,31 @@ export default function HomeScreen() {
                   keyExtractor={(comment) => comment.id}
                   style={styles.commentsList}
                   renderItem={({ item: comment }) => (
-                    <View style={styles.commentItem}>
+                    <View style={dynamicStyles.commentItem}>
                       <View style={styles.commentHeader}>
-                        <Text style={styles.commentAuthor}>{comment.authorName}</Text>
-                        <Text style={styles.commentTimestamp}>{new Date(comment.createdAt).toLocaleString('ja-JP', {
+                        <Text style={dynamicStyles.commentAuthor}>{comment.authorName}</Text>
+                        <Text style={dynamicStyles.commentTimestamp}>{new Date(comment.createdAt).toLocaleString('ja-JP', {
                           month: 'short',
                           day: 'numeric',
                           hour: '2-digit',
                           minute: '2-digit'
                         })}</Text>
                       </View>
-                      <Text style={styles.commentContent}>{comment.content}</Text>
+                      <Text style={dynamicStyles.commentContent}>{comment.content}</Text>
                     </View>
                   )}
                   ListEmptyComponent={() => (
                     <View style={styles.noCommentsContainer}>
-                      <Text style={styles.noCommentsText}>まだコメントがありません</Text>
+                      <Text style={dynamicStyles.noCommentsText}>まだコメントがありません</Text>
                     </View>
                   )}
                 />
 
-                <View style={styles.commentInputContainer}>
+                <View style={dynamicStyles.commentInputContainer}>
                   <TextInput
-                    style={styles.commentInput}
+                    style={dynamicStyles.commentInput}
                     placeholder="コメントを入力..."
-                    placeholderTextColor="#666"
+                    placeholderTextColor={theme.colors.text.disabled}
                     value={commentText}
                     onChangeText={setCommentText}
                     multiline

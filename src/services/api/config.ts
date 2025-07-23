@@ -18,10 +18,20 @@ export class ApiConfigManager {
   private loadConfig(): ApiConfig {
     const isDevelopment = __DEV__ ?? false;
     
+    // モバイルデバイスの場合はlocalhostではなくマシンのIPアドレスを使用
+    const getBaseURL = () => {
+      if (!isDevelopment) {
+        return 'https://api.mamapace.com/api';
+      }
+      
+      // Expoの開発環境では、モックAPIを使用
+      // 実際のAPIサーバーがある場合は、開発マシンのIPアドレスに変更
+      // 例: return 'http://192.168.1.100:3048/api';
+      return 'http://localhost:3048/api';
+    };
+    
     return {
-      baseURL: isDevelopment 
-        ? 'http://localhost:3048/api' 
-        : 'https://api.mamapace.com/api',
+      baseURL: getBaseURL(),
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',

@@ -15,6 +15,7 @@ import { errorMiddleware } from './middleware/errorMiddleware';
 export const createStore = () => {
   const featureFlags = FeatureFlagsManager.getInstance();
   const isReduxEnabled = featureFlags.isReduxEnabled();
+  const isSupabaseEnabled = featureFlags.isSupabaseEnabled();
   const isDebugMode = featureFlags.isDebugModeEnabled();
 
   if (!isReduxEnabled) {
@@ -26,7 +27,7 @@ export const createStore = () => {
       auth: authSlice.reducer,
       ui: uiSlice.reducer,
       settings: settingsSlice.reducer,
-      ...(isReduxEnabled ? {
+      ...(isReduxEnabled && isSupabaseEnabled ? {
         [supabaseApi.reducerPath]: supabaseApi.reducer,
       } : {}),
     },
@@ -46,7 +47,7 @@ export const createStore = () => {
 
       const middlewareArray = [errorMiddleware];
 
-      if (isReduxEnabled) {
+      if (isReduxEnabled && isSupabaseEnabled) {
         middlewareArray.push(
           supabaseApi.middleware
         );

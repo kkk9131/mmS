@@ -48,11 +48,28 @@ export class FeatureFlagsManager {
   private syncTimer?: ReturnType<typeof setInterval>;
 
   private constructor() {
-    this.flags = this.loadFlags();
-    this.extendedConfig = {
-      flags: {},
-      lastSync: new Date().toISOString()
-    };
+    try {
+      this.flags = this.loadFlags();
+      
+      this.extendedConfig = {
+        flags: {},
+        lastSync: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('FeatureFlagsManager constructor失敗:', error);
+      // フォールバック設定
+      this.flags = {
+        USE_API: false,
+        USE_SUPABASE: false,
+        USE_REDUX: true,
+        DEBUG_MODE: false,
+        MOCK_DELAY: 100,
+      };
+      this.extendedConfig = {
+        flags: {},
+        lastSync: new Date().toISOString()
+      };
+    }
   }
 
   public static getInstance(): FeatureFlagsManager {
@@ -87,20 +104,34 @@ export class FeatureFlagsManager {
   }
 
   private loadFlags(): FeatureFlags {
-    const isDevelopment = __DEV__ ?? false;
-    
-    // Load from environment variables if available
-    const useSupabase = process.env.EXPO_PUBLIC_USE_SUPABASE === 'true';
-    const useRedux = process.env.EXPO_PUBLIC_USE_REDUX !== 'false'; // default true
-    const debugMode = process.env.EXPO_PUBLIC_DEBUG_MODE === 'true' || isDevelopment;
-    
-    return {
-      USE_API: !isDevelopment || useSupabase,
-      USE_SUPABASE: useSupabase,
-      USE_REDUX: useRedux,
-      DEBUG_MODE: debugMode,
-      MOCK_DELAY: isDevelopment ? 500 : 0,
-    };
+    try {
+      const isDevelopment = __DEV__ ?? false;
+      
+      // Load from environment variables if available
+      const useSupabase = process.env.EXPO_PUBLIC_USE_SUPABASE === 'true';
+      const useRedux = process.env.EXPO_PUBLIC_USE_REDUX !== 'false'; // default true
+      const debugMode = process.env.EXPO_PUBLIC_DEBUG_MODE === 'true';
+      
+      const flags = {
+        USE_API: !isDevelopment || useSupabase,
+        USE_SUPABASE: useSupabase,
+        USE_REDUX: useRedux,
+        DEBUG_MODE: debugMode,
+        MOCK_DELAY: isDevelopment ? 100 : 0,
+      };
+      
+      return flags;
+    } catch (error) {
+      console.error('loadFlags失敗:', error);
+      // フォールバック
+      return {
+        USE_API: false,
+        USE_SUPABASE: false,
+        USE_REDUX: true,
+        DEBUG_MODE: false,
+        MOCK_DELAY: 100,
+      };
+    }
   }
 
   public getFlag<K extends keyof FeatureFlags>(flagName: K): FeatureFlags[K] {

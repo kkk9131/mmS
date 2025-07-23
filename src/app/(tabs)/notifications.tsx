@@ -3,8 +3,10 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Ale
 import { Bell, Heart, MessageCircle, UserPlus, Clock } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
-import { notificationsApi } from '../../store/api/notificationsApi';
-import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+// import { notificationsApi } from '../../store/api/notificationsApi'; // Supabase無効時は使用しない
+// import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'; // リアルタイム機能は一時無効
+import { useHandPreference } from '../../contexts/HandPreferenceContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Notification as NotificationTypeFromService } from '../../types/notifications';
 
 // 既存UIとの互換性のために、表示用の型を定義
@@ -69,36 +71,36 @@ const mockNotifications: DisplayNotification[] = [
 
 export default function NotificationsScreen() {
   const dispatch = useAppDispatch();
+  const { handPreference } = useHandPreference();
+  const { theme } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
+  const [localNotifications, setLocalNotifications] = useState(mockNotifications);
 
-  // RTK Query - Notifications data
-  const {
-    data: notificationsData,
-    error: notificationsError,
-    isLoading: notificationsLoading,
-    refetch: refetchNotifications,
-  } = notificationsApi.useGetNotificationsQuery({ userId: 'current-user', limit: 50, offset: 0 });
+  // Mock data for now (Supabase is disabled)
+  const notificationsData = localNotifications;
+  const notificationsError = null;
+  const notificationsLoading = false;
+  const unreadCount = localNotifications.filter(n => !n.isRead).length;
   
-  // Unread count query
-  const {
-    data: unreadCount = 0,
-  } = notificationsApi.useGetUnreadCountQuery('current-user');
+  // Mock functions
+  const refetchNotifications = async () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  };
   
-  // RTK Query mutations
-  const [markAsReadMutation] = notificationsApi.useMarkAsReadMutation();
-  const [markAllAsReadMutation] = notificationsApi.useMarkAllAsReadMutation();
-  
-  // Real-time notifications
-  const realtimeNotifications = useRealtimeNotifications({
-    autoSubscribe: true,
-    enableSound: true,
-    enableVibration: true,
-    showInForeground: false, // Don't show banner on notification screen
-    debug: __DEV__,
-    onError: (error, context) => {
-      console.error(`[RealtimeNotifications] ${context}:`, error);
-    }
-  });
+  // Real-time notifications (disabled for now)
+  // const realtimeNotifications = useRealtimeNotifications({
+  //   autoSubscribe: false,
+  //   enableSound: true,
+  //   enableVibration: true,
+  //   showInForeground: false, // Don't show banner on notification screen
+  //   debug: __DEV__,
+  //   onError: (error, context) => {
+  //     console.error(`[RealtimeNotifications] ${context}:`, error);
+  //   }
+  // });
 
   // タイムスタンプを相対的な時間表示に変換
   const getRelativeTime = (dateString: string): string => {
@@ -150,46 +152,33 @@ export default function NotificationsScreen() {
     };
   };
 
-  // Transform notifications data
-  const notifications: DisplayNotification[] = (Array.isArray(notificationsData) ? notificationsData : (notificationsData as any)?.notifications || [])?.map(convertToDisplayNotification) || [];
+  // Use local notifications directly
+  const notifications = localNotifications;
   
   // Loading and error states
-  const loading = notificationsLoading;
-  const error = notificationsError ? '通知の読み込みに失敗しました。' : null;
+  const loading = false;
+  const error = null;
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await refetchNotifications();
-    } catch (error) {
-      console.error('Failed to refresh notifications:', error);
-    } finally {
-      setRefreshing(false);
-    }
+    await refetchNotifications();
   };
 
   const markAsRead = async (notificationId: string) => {
-    // 既読かどうかを確認
-    const notification = notifications.find(n => n.id === notificationId);
-    if (!notification || notification.isRead) return;
-
-    try {
-      // RTK Query handles optimistic updates automatically
-      await markAsReadMutation(notificationId).unwrap();
-    } catch (error) {
-      console.error('Failed to mark notification as read:', error);
-      Alert.alert('エラー', '通知の既読処理に失敗しました。');
-    }
+    // Mock local update
+    setLocalNotifications(prevNotifications =>
+      prevNotifications.map(notification =>
+        notification.id === notificationId
+          ? { ...notification, isRead: true }
+          : notification
+      )
+    );
   };
 
   const markAllAsRead = async () => {
-    try {
-      // RTK Query handles optimistic updates automatically
-      await markAllAsReadMutation('current-user').unwrap();
-    } catch (error) {
-      console.error('Failed to mark all notifications as read:', error);
-      Alert.alert('エラー', '全件既読の更新に失敗しました');
-    }
+    // Mock local update
+    setLocalNotifications(prevNotifications =>
+      prevNotifications.map(notification => ({ ...notification, isRead: true }))
+    );
   };
 
   const getNotificationIcon = (type: string) => {
@@ -209,39 +198,171 @@ export default function NotificationsScreen() {
     }
   };
 
+  // 動的スタイル
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    headerTitle: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: theme.colors.primary,
+    },
+    connectionStatus: {
+      fontSize: 10,
+      color: theme.colors.text.secondary,
+      marginRight: 8,
+    },
+    markAllButton: {
+      backgroundColor: theme.colors.card,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+    },
+    markAllText: {
+      fontSize: 12,
+      color: theme.colors.primary,
+      fontWeight: '500',
+    },
+    notificationItem: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+      backgroundColor: theme.colors.surface,
+    },
+    unreadNotification: {
+      backgroundColor: theme.colors.surface,
+      borderLeftWidth: 3,
+      borderLeftColor: theme.colors.primary,
+    },
+    notificationUser: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.primary,
+      marginBottom: 4,
+    },
+    notificationText: {
+      fontSize: 14,
+      color: theme.colors.text.primary,
+      lineHeight: 20,
+      marginBottom: 6,
+    },
+    timestamp: {
+      fontSize: 12,
+      color: theme.colors.text.disabled,
+      marginLeft: 4,
+    },
+    unreadDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: theme.colors.primary,
+      marginLeft: 8,
+      marginTop: 8,
+    },
+    footer: {
+      padding: 16,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+      backgroundColor: theme.colors.surface,
+    },
+    footerText: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+      textAlign: 'center',
+    },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+      marginTop: 16,
+      marginBottom: 8,
+    },
+    emptyDescription: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    loadingText: {
+      fontSize: 16,
+      color: theme.colors.text.secondary,
+      textAlign: 'center',
+    },
+  });
+
   // ローディング状態を表示
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>通知</Text>
+      <SafeAreaView style={dynamicStyles.container}>
+        <View style={dynamicStyles.header}>
+          <Text style={dynamicStyles.headerTitle}>通知</Text>
           <View style={styles.headerRight}>
-            <Text style={styles.connectionStatus}>
-              {realtimeNotifications.isConnected ? '🟢' : '🔴'} {realtimeNotifications.isConnected ? 'リアルタイム' : 'オフライン'}
+            <Text style={dynamicStyles.connectionStatus}>
+              🔴 オフライン（開発モード）
             </Text>
           </View>
         </View>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>通知を読み込んでいます...</Text>
+          <Text style={dynamicStyles.loadingText}>通知を読み込んでいます...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>通知</Text>
-        <View style={styles.headerRight}>
-          <Text style={styles.connectionStatus}>
-            {realtimeNotifications.isConnected ? '🟢' : '🔴'} {realtimeNotifications.isConnected ? 'リアルタイム' : 'オフライン'}
-          </Text>
-          {unreadCount > 0 && (
-            <TouchableOpacity onPress={markAllAsRead} style={styles.markAllButton}>
-              <Text style={styles.markAllText}>すべて既読</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+    <SafeAreaView style={dynamicStyles.container}>
+      <View style={[dynamicStyles.header, styles.headerContainer]}>
+        {handPreference === 'right' ? (
+          // 右利き：「すべて既読」を左、「通知」を右に配置
+          <>
+            {/* 左端：すべて既読ボタンエリア */}
+            <View style={styles.headerAbsoluteLeft}>
+              <Text style={dynamicStyles.connectionStatus}>
+                🔴 オフライン（開発モード）
+              </Text>
+              {unreadCount > 0 && (
+                <TouchableOpacity onPress={markAllAsRead} style={dynamicStyles.markAllButton}>
+                  <Text style={dynamicStyles.markAllText}>すべて既読</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {/* 右端：通知タイトル */}
+            <View style={styles.headerAbsoluteRight}>
+              <Text style={dynamicStyles.headerTitle}>通知</Text>
+            </View>
+          </>
+        ) : (
+          // 左利き：「通知」を左、「すべて既読」を右に配置（元の配置）
+          <>
+            {/* 左端：通知タイトル */}
+            <View style={styles.headerAbsoluteLeft}>
+              <Text style={dynamicStyles.headerTitle}>通知</Text>
+            </View>
+            {/* 右端：すべて既読ボタンエリア */}
+            <View style={styles.headerAbsoluteRight}>
+              <Text style={dynamicStyles.connectionStatus}>
+                🔴 オフライン（開発モード）
+              </Text>
+              {unreadCount > 0 && (
+                <TouchableOpacity onPress={markAllAsRead} style={dynamicStyles.markAllButton}>
+                  <Text style={dynamicStyles.markAllText}>すべて既読</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </>
+        )}
       </View>
 
       <FlatList
@@ -249,13 +370,13 @@ export default function NotificationsScreen() {
         keyExtractor={(item) => item.id}
         style={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff6b9d" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
         }
         renderItem={({ item: notification }) => (
           <TouchableOpacity
             style={[
-              styles.notificationItem,
-              !notification.isRead && styles.unreadNotification
+              dynamicStyles.notificationItem,
+              !notification.isRead && dynamicStyles.unreadNotification
             ]}
             onPress={() => markAsRead(notification.id)}
           >
@@ -264,24 +385,24 @@ export default function NotificationsScreen() {
             </View>
             
             <View style={styles.notificationContent}>
-              <Text style={styles.notificationUser}>{notification.user}</Text>
-              <Text style={styles.notificationText}>{notification.content}</Text>
+              <Text style={dynamicStyles.notificationUser}>{notification.user}</Text>
+              <Text style={dynamicStyles.notificationText}>{notification.content}</Text>
               <View style={styles.notificationFooter}>
-                <Clock size={12} color="#666" />
-                <Text style={styles.timestamp}>{notification.timestamp}</Text>
+                <Clock size={12} color={theme.colors.text.disabled} />
+                <Text style={dynamicStyles.timestamp}>{notification.timestamp}</Text>
               </View>
             </View>
             
             {!notification.isRead && (
-              <View style={styles.unreadDot} />
+              <View style={dynamicStyles.unreadDot} />
             )}
           </TouchableOpacity>
         )}
         ListEmptyComponent={() => (
           <View style={styles.emptyState}>
-            <Bell size={48} color="#666" />
-            <Text style={styles.emptyTitle}>通知はありません</Text>
-            <Text style={styles.emptyDescription}>
+            <Bell size={48} color={theme.colors.text.disabled} />
+            <Text style={dynamicStyles.emptyTitle}>通知はありません</Text>
+            <Text style={dynamicStyles.emptyDescription}>
               新しい共感やコメントが届くとここに表示されます
             </Text>
           </View>
@@ -289,8 +410,8 @@ export default function NotificationsScreen() {
       />
 
       {unreadCount > 0 && (
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
+        <View style={dynamicStyles.footer}>
+          <Text style={dynamicStyles.footerText}>
             未読通知: {unreadCount}件
           </Text>
         </View>
@@ -312,12 +433,36 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#333',
   },
+  headerContainer: {
+    position: 'relative',
+    minHeight: 60,
+  },
+  headerAbsoluteLeft: {
+    position: 'absolute',
+    left: 20,
+    top: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  headerAbsoluteRight: {
+    position: 'absolute',
+    right: 20,
+    top: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 10,
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#ff6b9d',
   },
   headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },

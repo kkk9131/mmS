@@ -127,12 +127,30 @@ const LegacyAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const featureFlags = FeatureFlagsManager.getInstance();
-  const isReduxEnabled = featureFlags.isReduxEnabled();
+  try {
+    const featureFlags = FeatureFlagsManager.getInstance();
+    const isReduxEnabled = featureFlags.isReduxEnabled();
 
-  if (isReduxEnabled) {
-    return <ReduxAuthProvider>{children}</ReduxAuthProvider>;
+    if (isReduxEnabled) {
+      return <ReduxAuthProvider>{children}</ReduxAuthProvider>;
+    }
+
+    return <LegacyAuthProvider>{children}</LegacyAuthProvider>;
+  } catch (error) {
+    console.error('AuthProvider初期化エラー:', error);
+    // フォールバック: 最小限のコンテキストを提供
+    const fallbackValue: AuthContextType = {
+      user: null,
+      isLoading: false,
+      isAuthenticated: false,
+      login: async () => {},
+      logout: async () => {},
+    };
+    
+    return (
+      <AuthContext.Provider value={fallbackValue}>
+        {children}
+      </AuthContext.Provider>
+    );
   }
-
-  return <LegacyAuthProvider>{children}</LegacyAuthProvider>;
 };
