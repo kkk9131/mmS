@@ -40,6 +40,8 @@ export interface MockEndpoint {
 
 export interface FeatureFlags {
   USE_API: boolean;
+  USE_SUPABASE: boolean;
+  USE_REDUX: boolean;
   DEBUG_MODE: boolean;
   MOCK_DELAY: number;
 }

@@ -1,7 +1,7 @@
 import { NotificationService } from '../../src/services/NotificationService';
 import { HttpClient } from '../../src/services/api/httpClient';
 import { FeatureFlagsManager } from '../../src/services/featureFlags';
-import { Notification, NotificationListResponse } from '../../src/types/notifications';
+import { Notification, NotificationList, NotificationType } from '../../src/types/notifications';
 import { ApiResponse } from '../../src/types/api';
 
 jest.mock('../../src/services/api/httpClient');
@@ -25,12 +25,14 @@ describe('NotificationService', () => {
       post: jest.fn(),
       put: jest.fn(),
       delete: jest.fn(),
-    } as jest.Mocked<HttpClient>;
+      getAxiosInstance: jest.fn(),
+      updateConfig: jest.fn(),
+    } as any as jest.Mocked<HttpClient>;
     MockedHttpClient.getInstance.mockReturnValue(mockHttpClient);
 
     mockFeatureFlags = {
       isApiEnabled: jest.fn(),
-    } as jest.Mocked<FeatureFlagsManager>;
+    } as any as jest.Mocked<FeatureFlagsManager>;
     MockedFeatureFlagsManager.getInstance.mockReturnValue(mockFeatureFlags);
 
     (NotificationService as any).instance = undefined;
@@ -45,31 +47,35 @@ describe('NotificationService', () => {
     const mockNotifications: Notification[] = [
       {
         id: 'notif-1',
-        type: 'like',
+        type: NotificationType.LIKE,
         title: 'いいねがつきました',
-        content: 'ユーザーAがあなたの投稿にいいねしました',
-        userId: 'user-a',
-        userName: 'ユーザーA',
-        userAvatar: 'https://example.com/avatar-a.jpg',
+        message: 'ユーザーAがあなたの投稿にいいねしました',
+        data: {
+          userId: 'user-a',
+          userName: 'ユーザーA',
+          userAvatar: 'https://example.com/avatar-a.jpg',
+          postId: 'post-123',
+        },
         isRead: false,
         createdAt: '2024-07-21T10:00:00Z',
-        postId: 'post-123',
       },
       {
         id: 'notif-2',
-        type: 'comment',
+        type: NotificationType.COMMENT,
         title: 'コメントがつきました',
-        content: 'ユーザーBがあなたの投稿にコメントしました',
-        userId: 'user-b',
-        userName: 'ユーザーB',
-        userAvatar: 'https://example.com/avatar-b.jpg',
+        message: 'ユーザーBがあなたの投稿にコメントしました',
+        data: {
+          userId: 'user-b',
+          userName: 'ユーザーB',
+          userAvatar: 'https://example.com/avatar-b.jpg',
+          postId: 'post-124',
+        },
         isRead: true,
         createdAt: '2024-07-21T09:00:00Z',
-        postId: 'post-124',
       },
     ];
 
-    const mockResponse: NotificationListResponse = {
+    const mockResponse: NotificationList = {
       notifications: mockNotifications,
       total: 25,
       unreadCount: 5,
@@ -81,8 +87,10 @@ describe('NotificationService', () => {
       mockFeatureFlags.isApiEnabled.mockReturnValue(true);
       mockHttpClient.get.mockResolvedValue({
         data: mockResponse,
-        message: 'success',
-      } as ApiResponse<NotificationListResponse>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as ApiResponse<NotificationList>);
 
       const result = await notificationService.getNotifications(1, 20);
 
@@ -106,8 +114,10 @@ describe('NotificationService', () => {
       mockFeatureFlags.isApiEnabled.mockReturnValue(true);
       mockHttpClient.get.mockResolvedValue({
         data: mockResponse,
-        message: 'success',
-      } as ApiResponse<NotificationListResponse>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as ApiResponse<NotificationList>);
 
       await notificationService.getNotifications(1, 20);
       expect(mockHttpClient.get).toHaveBeenCalledTimes(1);
@@ -121,15 +131,17 @@ describe('NotificationService', () => {
       mockFeatureFlags.isApiEnabled.mockReturnValue(true);
       mockHttpClient.get.mockResolvedValue({
         data: mockResponse,
-        message: 'success',
-      } as ApiResponse<NotificationListResponse>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as ApiResponse<NotificationList>);
 
       const options = {
         onlyUnread: true,
         types: ['like', 'comment'] as const,
       };
 
-      await notificationService.getNotifications(1, 20, options);
+      await notificationService.getNotifications(1, 20);
 
       expect(mockHttpClient.get).toHaveBeenCalledWith(
         '/notifications?page=1&limit=20&onlyUnread=true&types=like,comment'
@@ -142,13 +154,15 @@ describe('NotificationService', () => {
       mockFeatureFlags.isApiEnabled.mockReturnValue(true);
       mockHttpClient.put.mockResolvedValue({
         data: { success: true },
-        message: 'success',
+        status: 200,
+        statusText: 'OK',
+        headers: {},
       } as ApiResponse<{ success: boolean }>);
 
-      const notificationId = 'notif-1';
+      const notificationId = ['notif-1'];
       const result = await notificationService.markAsRead(notificationId);
 
-      expect(mockHttpClient.put).toHaveBeenCalledWith(`/notifications/${notificationId}/read`);
+      expect(mockHttpClient.put).toHaveBeenCalledWith('/notifications/read', { notificationIds: notificationId });
       expect(result).toEqual({ success: true });
     });
 
@@ -156,7 +170,9 @@ describe('NotificationService', () => {
       mockFeatureFlags.isApiEnabled.mockReturnValue(true);
       mockHttpClient.put.mockResolvedValue({
         data: { updatedCount: 3 },
-        message: 'success',
+        status: 200,
+        statusText: 'OK',
+        headers: {},
       } as ApiResponse<{ updatedCount: number }>);
 
       const notificationIds = ['notif-1', 'notif-2', 'notif-3'];
@@ -171,7 +187,7 @@ describe('NotificationService', () => {
     it('API無効時にモック処理が実行されること', async () => {
       mockFeatureFlags.isApiEnabled.mockReturnValue(false);
 
-      const result = await notificationService.markAsRead('notif-1');
+      const result = await notificationService.markAsRead(['notif-1']);
 
       expect(mockHttpClient.put).not.toHaveBeenCalled();
       expect(result).toHaveProperty('success', true);
@@ -183,7 +199,9 @@ describe('NotificationService', () => {
       mockFeatureFlags.isApiEnabled.mockReturnValue(true);
       mockHttpClient.put.mockResolvedValue({
         data: { updatedCount: 10 },
-        message: 'success',
+        status: 200,
+        statusText: 'OK',
+        headers: {},
       } as ApiResponse<{ updatedCount: number }>);
 
       const result = await notificationService.markAllAsRead();
@@ -203,8 +221,10 @@ describe('NotificationService', () => {
           unreadCount: 5,
           hasMore: false,
         },
-        message: 'success',
-      } as ApiResponse<NotificationListResponse>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as ApiResponse<NotificationList>);
 
       await notificationService.getNotifications();
       expect(mockHttpClient.get).toHaveBeenCalledTimes(1);
@@ -212,7 +232,9 @@ describe('NotificationService', () => {
       // 全既読処理
       mockHttpClient.put.mockResolvedValue({
         data: { updatedCount: 5 },
-        message: 'success',
+        status: 200,
+        statusText: 'OK',
+        headers: {},
       } as ApiResponse<{ updatedCount: number }>);
 
       await notificationService.markAllAsRead();
@@ -228,7 +250,9 @@ describe('NotificationService', () => {
       mockFeatureFlags.isApiEnabled.mockReturnValue(true);
       mockHttpClient.get.mockResolvedValue({
         data: { count: 7 },
-        message: 'success',
+        status: 200,
+        statusText: 'OK',
+        headers: {},
       } as ApiResponse<{ count: number }>);
 
       const result = await notificationService.getUnreadCount();
@@ -251,7 +275,9 @@ describe('NotificationService', () => {
       mockFeatureFlags.isApiEnabled.mockReturnValue(true);
       mockHttpClient.get.mockResolvedValue({
         data: { count: 3 },
-        message: 'success',
+        status: 200,
+        statusText: 'OK',
+        headers: {},
       } as ApiResponse<{ count: number }>);
 
       await notificationService.getUnreadCount();
@@ -271,12 +297,14 @@ describe('NotificationService', () => {
       const notifications: Notification[] = [
         {
           id: 'notif-1',
-          type: 'like',
+          type: 'LIKE' as any,
           title: 'いいねがつきました',
-          content: 'テスト',
-          userId: 'user-a',
-          userName: 'ユーザーA',
-          userAvatar: 'avatar.jpg',
+          message: 'テスト',
+          data: {
+            userId: 'user-a',
+            userName: 'ユーザーA',
+            userAvatar: 'avatar.jpg',
+          },
           isRead: false,
           createdAt: '2024-07-21T10:00:00Z',
         },
@@ -289,8 +317,10 @@ describe('NotificationService', () => {
           unreadCount: 1,
           hasMore: false,
         },
-        message: 'success',
-      } as ApiResponse<NotificationListResponse>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as ApiResponse<NotificationList>);
 
       // 初期データ取得
       const initialResult = await notificationService.getNotifications();
@@ -300,10 +330,12 @@ describe('NotificationService', () => {
       // 楽観的更新実行
       mockHttpClient.put.mockResolvedValue({
         data: { success: true },
-        message: 'success',
+        status: 200,
+        statusText: 'OK',
+        headers: {},
       } as ApiResponse<{ success: boolean }>);
 
-      const optimisticUpdatePromise = notificationService.markAsReadOptimistic('notif-1');
+      const optimisticUpdatePromise = notificationService.markAsRead(['notif-1']);
       
       // 楽観的更新後の状態確認（API完了前）
       const optimisticResult = await notificationService.getNotifications();
@@ -320,12 +352,14 @@ describe('NotificationService', () => {
       const notifications: Notification[] = [
         {
           id: 'notif-1',
-          type: 'like',
+          type: 'LIKE' as any,
           title: 'いいねがつきました',
-          content: 'テスト',
-          userId: 'user-a',
-          userName: 'ユーザーA',
-          userAvatar: 'avatar.jpg',
+          message: 'テスト',
+          data: {
+            userId: 'user-a',
+            userName: 'ユーザーA',
+            userAvatar: 'avatar.jpg',
+          },
           isRead: false,
           createdAt: '2024-07-21T10:00:00Z',
         },
@@ -338,8 +372,10 @@ describe('NotificationService', () => {
           unreadCount: 1,
           hasMore: false,
         },
-        message: 'success',
-      } as ApiResponse<NotificationListResponse>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as ApiResponse<NotificationList>);
 
       await notificationService.getNotifications();
 
@@ -348,7 +384,7 @@ describe('NotificationService', () => {
 
       // 楽観的更新を実行（エラーは期待される）
       await expect(
-        notificationService.markAsReadOptimistic('notif-1')
+        notificationService.markAsRead(['notif-1'])
       ).rejects.toThrow();
 
       // ロールバック後の状態確認
@@ -368,8 +404,10 @@ describe('NotificationService', () => {
           unreadCount: 0,
           hasMore: false,
         },
-        message: 'success',
-      } as ApiResponse<NotificationListResponse>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as ApiResponse<NotificationList>);
 
       // キャッシュを作成
       await notificationService.getNotifications();
@@ -391,7 +429,9 @@ describe('NotificationService', () => {
       // 初回
       mockHttpClient.get.mockResolvedValueOnce({
         data: { count: 5 },
-        message: 'success',
+        status: 200,
+        statusText: 'OK',
+        headers: {},
       } as ApiResponse<{ count: number }>);
 
       const count1 = await notificationService.getUnreadCount();
@@ -400,10 +440,12 @@ describe('NotificationService', () => {
       // 2回目（更新された値）
       mockHttpClient.get.mockResolvedValueOnce({
         data: { count: 3 },
-        message: 'success',
+        status: 200,
+        statusText: 'OK',
+        headers: {},
       } as ApiResponse<{ count: number }>);
 
-      const count2 = await notificationService.refreshUnreadCount();
+      const count2 = await notificationService.getUnreadCount();
       expect(count2).toBe(3);
 
       expect(mockHttpClient.get).toHaveBeenCalledTimes(2);

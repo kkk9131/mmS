@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { Bell, Heart, MessageCircle, UserPlus, Clock } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { NotificationService } from '../../services/NotificationService';
-import { Notification as NotificationTypeFromService, NotificationList } from '../../types/notifications';
-import { useNotificationBadge } from '../../hooks/useNotificationBadge';
+import { useAppDispatch, useAppSelector } from '../../hooks/redux';
+import { notificationsApi } from '../../store/api/notificationsApi';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+import { Notification as NotificationTypeFromService } from '../../types/notifications';
 
 // 既存UIとの互換性のために、表示用の型を定義
 interface DisplayNotification {
@@ -67,13 +68,55 @@ const mockNotifications: DisplayNotification[] = [
 ];
 
 export default function NotificationsScreen() {
-  const [notifications, setNotifications] = useState<DisplayNotification[]>([]);
+  const dispatch = useAppDispatch();
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
 
-  const notificationService = NotificationService.getInstance();
-  const { unreadCount, decrementUnreadCount, clearUnreadCount, refreshUnreadCount } = useNotificationBadge();
+  // RTK Query - Notifications data
+  const {
+    data: notificationsData,
+    error: notificationsError,
+    isLoading: notificationsLoading,
+    refetch: refetchNotifications,
+  } = notificationsApi.useGetNotificationsQuery({ userId: 'current-user', limit: 50, offset: 0 });
+  
+  // Unread count query
+  const {
+    data: unreadCount = 0,
+  } = notificationsApi.useGetUnreadCountQuery('current-user');
+  
+  // RTK Query mutations
+  const [markAsReadMutation] = notificationsApi.useMarkAsReadMutation();
+  const [markAllAsReadMutation] = notificationsApi.useMarkAllAsReadMutation();
+  
+  // Real-time notifications
+  const realtimeNotifications = useRealtimeNotifications({
+    autoSubscribe: true,
+    enableSound: true,
+    enableVibration: true,
+    showInForeground: false, // Don't show banner on notification screen
+    debug: __DEV__,
+    onError: (error, context) => {
+      console.error(`[RealtimeNotifications] ${context}:`, error);
+    }
+  });
 
+  // タイムスタンプを相対的な時間表示に変換
+  const getRelativeTime = (dateString: string): string => {
+    const now = new Date();
+    const past = new Date(dateString);
+    const diffMs = now.getTime() - past.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    
+    if (diffMinutes < 1) return '今';
+    if (diffMinutes < 60) return `${diffMinutes}分前`;
+    
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}時間前`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}日前`;
+  };
+  
   // サービス層の通知データを表示用の形式に変換
   const convertToDisplayNotification = (serviceNotification: NotificationTypeFromService): DisplayNotification => {
     // 通知タイプのマッピング
@@ -96,23 +139,6 @@ export default function NotificationsScreen() {
         break;
     }
 
-    // タイムスタンプを相対的な時間表示に変換
-    const getRelativeTime = (dateString: string): string => {
-      const now = new Date();
-      const past = new Date(dateString);
-      const diffMs = now.getTime() - past.getTime();
-      const diffMinutes = Math.floor(diffMs / (1000 * 60));
-      
-      if (diffMinutes < 1) return '今';
-      if (diffMinutes < 60) return `${diffMinutes}分前`;
-      
-      const diffHours = Math.floor(diffMinutes / 60);
-      if (diffHours < 24) return `${diffHours}時間前`;
-      
-      const diffDays = Math.floor(diffHours / 24);
-      return `${diffDays}日前`;
-    };
-
     return {
       id: serviceNotification.id,
       type,
@@ -124,34 +150,17 @@ export default function NotificationsScreen() {
     };
   };
 
-  // 通知一覧を取得
-  const fetchNotifications = async () => {
-    try {
-      setLoading(true);
-      const notificationData = await notificationService.getNotifications(1, 50);
-      const displayNotifications = notificationData.notifications.map(convertToDisplayNotification);
-      
-      setNotifications(displayNotifications);
-      // フックの未読数も更新
-      refreshUnreadCount();
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error);
-      // エラー時はモックデータを使用
-      setNotifications(mockNotifications);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 初回ロード時に通知を取得
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
+  // Transform notifications data
+  const notifications: DisplayNotification[] = (Array.isArray(notificationsData) ? notificationsData : (notificationsData as any)?.notifications || [])?.map(convertToDisplayNotification) || [];
+  
+  // Loading and error states
+  const loading = notificationsLoading;
+  const error = notificationsError ? '通知の読み込みに失敗しました。' : null;
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await fetchNotifications();
+      await refetchNotifications();
     } catch (error) {
       console.error('Failed to refresh notifications:', error);
     } finally {
@@ -164,43 +173,22 @@ export default function NotificationsScreen() {
     const notification = notifications.find(n => n.id === notificationId);
     if (!notification || notification.isRead) return;
 
-    // 楽観的更新: UIを即座に更新
-    setNotifications(notifications.map(notification => 
-      notification.id === notificationId 
-        ? { ...notification, isRead: true }
-        : notification
-    ));
-    decrementUnreadCount(1);
-
     try {
-      await notificationService.markSingleAsRead(notificationId);
+      // RTK Query handles optimistic updates automatically
+      await markAsReadMutation(notificationId).unwrap();
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
-      // エラー時はUIをロールバック
-      setNotifications(notifications.map(notification => 
-        notification.id === notificationId 
-          ? { ...notification, isRead: false }
-          : notification
-      ));
-      // フックの未読数を再取得
-      refreshUnreadCount();
+      Alert.alert('エラー', '通知の既読処理に失敗しました。');
     }
   };
 
   const markAllAsRead = async () => {
-    // 楽観的更新: UIを即座に更新
-    setNotifications(notifications.map(notification => 
-      ({ ...notification, isRead: true })
-    ));
-    clearUnreadCount();
-
     try {
-      await notificationService.markAllAsRead();
+      // RTK Query handles optimistic updates automatically
+      await markAllAsReadMutation('current-user').unwrap();
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
       Alert.alert('エラー', '全件既読の更新に失敗しました');
-      // エラー時は再取得してリフレッシュ
-      await fetchNotifications();
     }
   };
 
@@ -227,6 +215,11 @@ export default function NotificationsScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>通知</Text>
+          <View style={styles.headerRight}>
+            <Text style={styles.connectionStatus}>
+              {realtimeNotifications.isConnected ? '🟢' : '🔴'} {realtimeNotifications.isConnected ? 'リアルタイム' : 'オフライン'}
+            </Text>
+          </View>
         </View>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>通知を読み込んでいます...</Text>
@@ -240,6 +233,9 @@ export default function NotificationsScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>通知</Text>
         <View style={styles.headerRight}>
+          <Text style={styles.connectionStatus}>
+            {realtimeNotifications.isConnected ? '🟢' : '🔴'} {realtimeNotifications.isConnected ? 'リアルタイム' : 'オフライン'}
+          </Text>
           {unreadCount > 0 && (
             <TouchableOpacity onPress={markAllAsRead} style={styles.markAllButton}>
               <Text style={styles.markAllText}>すべて既読</Text>
@@ -248,13 +244,40 @@ export default function NotificationsScreen() {
         </View>
       </View>
 
-      <ScrollView
+      <FlatList
+        data={notifications}
+        keyExtractor={(item) => item.id}
         style={styles.content}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff6b9d" />
         }
-      >
-        {notifications.length === 0 ? (
+        renderItem={({ item: notification }) => (
+          <TouchableOpacity
+            style={[
+              styles.notificationItem,
+              !notification.isRead && styles.unreadNotification
+            ]}
+            onPress={() => markAsRead(notification.id)}
+          >
+            <View style={styles.notificationIcon}>
+              {getNotificationIcon(notification.type)}
+            </View>
+            
+            <View style={styles.notificationContent}>
+              <Text style={styles.notificationUser}>{notification.user}</Text>
+              <Text style={styles.notificationText}>{notification.content}</Text>
+              <View style={styles.notificationFooter}>
+                <Clock size={12} color="#666" />
+                <Text style={styles.timestamp}>{notification.timestamp}</Text>
+              </View>
+            </View>
+            
+            {!notification.isRead && (
+              <View style={styles.unreadDot} />
+            )}
+          </TouchableOpacity>
+        )}
+        ListEmptyComponent={() => (
           <View style={styles.emptyState}>
             <Bell size={48} color="#666" />
             <Text style={styles.emptyTitle}>通知はありません</Text>
@@ -262,36 +285,8 @@ export default function NotificationsScreen() {
               新しい共感やコメントが届くとここに表示されます
             </Text>
           </View>
-        ) : (
-          notifications.map((notification) => (
-            <TouchableOpacity
-              key={notification.id}
-              style={[
-                styles.notificationItem,
-                !notification.isRead && styles.unreadNotification
-              ]}
-              onPress={() => markAsRead(notification.id)}
-            >
-              <View style={styles.notificationIcon}>
-                {getNotificationIcon(notification.type)}
-              </View>
-              
-              <View style={styles.notificationContent}>
-                <Text style={styles.notificationUser}>{notification.user}</Text>
-                <Text style={styles.notificationText}>{notification.content}</Text>
-                <View style={styles.notificationFooter}>
-                  <Clock size={12} color="#666" />
-                  <Text style={styles.timestamp}>{notification.timestamp}</Text>
-                </View>
-              </View>
-              
-              {!notification.isRead && (
-                <View style={styles.unreadDot} />
-              )}
-            </TouchableOpacity>
-          ))
         )}
-      </ScrollView>
+      />
 
       {unreadCount > 0 && (
         <View style={styles.footer}>
@@ -325,6 +320,11 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  connectionStatus: {
+    fontSize: 10,
+    color: '#888',
+    marginRight: 8,
   },
   markAllButton: {
     backgroundColor: '#2a2a2a',

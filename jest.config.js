@@ -1,9 +1,14 @@
 module.exports = {
-  preset: 'jest-expo',
+  preset: 'ts-jest',
+  testEnvironment: 'node',
   setupFilesAfterEnv: ['<rootDir>/__tests__/setup.ts'],
   testMatch: [
     '**/__tests__/**/*.(ts|tsx|js)',
     '**/*.(test|spec).(ts|tsx|js)'
+  ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/.yoyo/'
   ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
@@ -12,11 +17,13 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  transformIgnorePatterns: [
-    'node_modules/(?!(jest-)?@?react-native|@react-native-community|@react-navigation|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-clone-referenced-element|@react-native-picker|react-native-safe-area-context)'
-  ],
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  testEnvironment: 'node',
+  transform: {
+    '^.+\\.(ts|tsx)$': ['ts-jest', {
+      tsconfig: 'tsconfig.json',
+    }],
+  },
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
 };

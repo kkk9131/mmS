@@ -11,7 +11,7 @@ export class ConnectionTest {
   private errorHandler: ApiErrorHandler;
 
   constructor() {
-    this.httpClient = new HttpClient();
+    this.httpClient = (HttpClient as any).getInstance();
     this.mockSystem = MockSystem.getInstance();
     this.featureFlags = FeatureFlagsManager.getInstance();
     this.errorHandler = new ApiErrorHandler();
@@ -72,13 +72,11 @@ export class ConnectionTest {
       
       return {
         success: true,
-        details: {
-          type: 'api',
-          endpoint: '/health',
-          status: response.status,
-          data: response.data,
-        },
-      };
+        type: 'api',
+        endpoint: '/health',
+        status: response.status,
+        data: response.data,
+      } as any;
     } catch (error) {
       throw error;
     }
@@ -90,13 +88,11 @@ export class ConnectionTest {
       
       return {
         success: true,
-        details: {
-          type: 'mock',
-          endpoint: '/health',
-          status: response.status,
-          data: response.data,
-        },
-      };
+        type: 'mock',
+        endpoint: '/health',
+        status: response.status,
+        data: response.data,
+      } as any;
     } catch (error) {
       throw error;
     }
@@ -150,7 +146,7 @@ export class ConnectionTest {
         successfulEndpoints: individual.filter(r => r.success).length,
         failedEndpoints: individual.filter(r => !r.success).length,
       },
-    };
+    } as any;
 
     if (this.featureFlags.isDebugModeEnabled()) {
       console.log('Connection Test: Multiple endpoints test completed', {
@@ -177,12 +173,10 @@ export class ConnectionTest {
         success: true,
         responseTime,
         timestamp,
-        details: {
-          endpoint,
-          status: response.status,
-          type: this.featureFlags.isApiEnabled() ? 'api' : 'mock',
-        },
-      };
+        endpoint,
+        status: response.status,
+        type: this.featureFlags.isApiEnabled() ? 'api' : 'mock',
+      } as any;
     } catch (error: any) {
       const responseTime = Date.now() - startTime;
       const apiError = this.errorHandler.handleError(error);

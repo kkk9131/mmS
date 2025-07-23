@@ -77,7 +77,7 @@ describe('MockSystem', () => {
       const response = await mockSystem.handleRequest('GET', '/test');
       
       expect(response.status).toBe(200);
-      expect(response.data.message).toBe('success');
+      expect((response.data as any).message).toBe('success');
       expect(response.headers['X-Mock-Response']).toBe('true');
     });
 
@@ -119,8 +119,8 @@ describe('MockSystem', () => {
       const testData = { test: 'data' };
       const response = await mockSystem.handleRequest('POST', '/dynamic', testData);
       
-      expect(response.data.echo).toEqual(testData);
-      expect(response.data.timestamp).toBeDefined();
+      expect((response.data as any).echo).toEqual(testData);
+      expect((response.data as any).timestamp).toBeDefined();
     });
   });
 

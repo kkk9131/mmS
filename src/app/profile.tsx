@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { ArrowLeft, User, MessageCircle, UserPlus, UserMinus, Heart, Calendar, MapPin, Share, MoveHorizontal as MoreHorizontal, LogOut } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
-import { UserService } from '../services/UserService';
-import { FollowService } from '../services/FollowService';
+import { useAppDispatch } from '../hooks/redux';
+import { usersApi } from '../store/api/usersApi';
+import { followsApi } from '../store/api/followsApi';
+import { postsApi } from '../store/api/postsApi';
 import { User as UserType, UserProfile as UserProfileType } from '../types/users';
 
 // 画面表示用のプロフィールインターface（既存のUIとの互換性維持）
@@ -57,9 +59,7 @@ const mockOwnProfile: DisplayProfile = {
   followingCount: 67,
   followerCount: 89,
   isFollowing: false,
-  isOwnProfile: true,
-  isOnline: true,
-  lastActivity: '現在'
+  isOwnProfile: true
 };
 
 const mockUserPosts: UserPost[] = [
@@ -96,74 +96,91 @@ const mockUserPosts: UserPost[] = [
 export default function ProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId?: string }>();
   const { logout, user } = useAuth();
-
+  const dispatch = useAppDispatch();
+  
   // 自分のプロフィールかどうかを判定
   const isOwnProfile = !userId || userId === 'own';
-  const [profile, setProfile] = useState<DisplayProfile | null>(null);
-  const [posts, setPosts] = useState<UserPost[]>(mockUserPosts);
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  
+  // User profile query
+  const {
+    data: userProfile,
+    error: userProfileError,
+    isLoading: userProfileLoading,
+    refetch: refetchProfile,
+  } = usersApi.useGetUserQuery(userId!, { skip: isOwnProfile || !userId });
+  
+  // Own profile query (using same getUserQuery)
+  const {
+    data: ownProfile,
+    error: ownProfileError,
+    isLoading: ownProfileLoading,
+    refetch: refetchOwnProfile,
+  } = usersApi.useGetUserQuery(user?.id || '', { skip: !isOwnProfile || !user?.id });
+  
+  // User posts query
+  const {
+    data: postsData,
+    isLoading: postsLoading,
+    refetch: refetchPosts,
+  } = postsApi.useGetPostsQuery(
+    { limit: 20, offset: 0 },
+    { skip: !userId && !user?.id }
+  );
+  
+  // Follow mutations
+  const [followUser] = followsApi.useFollowUserMutation();
+  const [unfollowUser] = followsApi.useUnfollowUserMutation();
+  
+  // Post mutations
+  const [likePost] = postsApi.useToggleLikeMutation();
+  const [unlikePost] = postsApi.useToggleLikeMutation();
 
-  const userService = UserService.getInstance();
-  const followService = FollowService.getInstance();
+  // Transform profile data
+  const rawProfile = isOwnProfile ? ownProfile : userProfile;
+  const posts: UserPost[] = (postsData as any)?.posts?.map((post: any) => ({
+    id: post.id,
+    content: post.content,
+    timestamp: new Date(post.createdAt).toLocaleString('ja-JP', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }),
+    likes: post.likesCount,
+    comments: post.commentsCount,
+    isLiked: post.isLiked,
+    tags: [], // TODO: Extract tags from content or add tags field
+    aiResponse: undefined // TODO: Add AI response logic if needed
+  })) || [];
+  
+  // Transform to display profile
+  const profile: DisplayProfile | null = rawProfile ? {
+    id: (rawProfile as any).id,
+    name: (rawProfile as any).nickname,
+    bio: (rawProfile as any).bio || '',
+    location: '',
+    joinDate: new Date((rawProfile as any).createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric' }),
+    postCount: (rawProfile as any).postsCount,
+    followingCount: (rawProfile as any).followingCount,
+    followerCount: (rawProfile as any).followersCount,
+    isFollowing: (rawProfile as any).isFollowing || false,
+    isOwnProfile,
+    avatar: (rawProfile as any).avatar
+  } : null;
+  
+  // Loading and error states
+  const loading = isOwnProfile ? ownProfileLoading : userProfileLoading;
+  const error = (isOwnProfile ? ownProfileError : userProfileError) ? 'プロフィールの読み込みに失敗しました' : null;
 
-  // API経由でのプロフィール取得
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      let userData: UserType | UserProfileType;
-
-      if (isOwnProfile) {
-        userData = await userService.getMyProfile();
-      } else {
-        userData = await userService.getUserById(userId!);
-      }
-
-      // UserServiceの型をDisplayProfile型に変換
-      const displayProfile: DisplayProfile = {
-        id: userData.id,
-        name: userData.nickname,
-        bio: userData.bio || '',
-        location: '',
-        joinDate: new Date(userData.createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric' }),
-        postCount: userData.postsCount,
-        followingCount: userData.followingCount,
-        followerCount: userData.followersCount,
-        isFollowing: userData.isFollowing || false,
-        isOwnProfile,
-        avatar: userData.avatar,
-      };
-
-      setProfile(displayProfile);
-    } catch (error) {
-      console.error('Failed to fetch profile:', error);
-      setError('プロフィールの読み込みに失敗しました');
-
-      // エラー時はモックデータを表示
-      const fallbackProfile = isOwnProfile
-        ? { ...mockOwnProfile, name: user?.nickname || mockOwnProfile.name }
-        : mockUserProfile;
-      setProfile(fallbackProfile);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 初回ロード時とuserId変更時にプロフィールを取得
-  useEffect(() => {
-    fetchProfile();
-  }, [userId, isOwnProfile]);
-
-  // 画面にフォーカスが戻った時にプロフィールを再取得（編集後の更新を反映）
+  // Refetch on focus for own profile (to reflect updates from editing)
   useFocusEffect(
     React.useCallback(() => {
       if (isOwnProfile) {
-        fetchProfile();
+        refetchOwnProfile();
+        refetchPosts();
       }
-    }, [isOwnProfile])
+    }, [isOwnProfile, refetchOwnProfile, refetchPosts])
   );
 
   const handleBack = () => {
@@ -175,31 +192,14 @@ export default function ProfileScreen() {
 
     const willFollow = !profile.isFollowing;
 
-    // 楽観的更新: UIを即座に更新
-    setProfile(prev => prev ? ({
-      ...prev,
-      isFollowing: willFollow,
-      followerCount: willFollow ? prev.followerCount + 1 : prev.followerCount - 1
-    }) : null);
-
     try {
       if (willFollow) {
-        await followService.followUser(profile.id);
-        followService.optimisticallyUpdateFollow(profile.id, true);
+        await followUser({ userId: profile.id }).unwrap();
       } else {
-        await followService.unfollowUser(profile.id);
-        followService.optimisticallyUpdateFollow(profile.id, false);
+        await unfollowUser({ userId: profile.id }).unwrap();
       }
     } catch (error) {
       console.error('Failed to update follow status:', error);
-
-      // エラー時はUIをロールバック
-      setProfile(prev => prev ? ({
-        ...prev,
-        isFollowing: !willFollow,
-        followerCount: willFollow ? prev.followerCount - 1 : prev.followerCount + 1
-      }) : null);
-
       Alert.alert(
         'エラー',
         willFollow ? 'フォローに失敗しました' : 'フォロー解除に失敗しました'
@@ -210,7 +210,7 @@ export default function ProfileScreen() {
   const handleMessage = () => {
     router.push({
       pathname: '/chat',
-      params: { userId: profile.id, userName: profile.name }
+      params: { userId: profile?.id || '', userName: profile?.name || '' }
     });
   };
 
@@ -218,18 +218,30 @@ export default function ProfileScreen() {
     Alert.alert('プロフィールを共有', 'プロフィールのリンクをコピーしました');
   };
 
-  const handleLike = (postId: string) => {
-    setPosts(posts.map(post =>
-      post.id === postId
-        ? { ...post, isLiked: !post.isLiked, likes: post.isLiked ? post.likes - 1 : post.likes + 1 }
-        : post
-    ));
+  const handleLike = async (postId: string) => {
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    try {
+      if (post.isLiked) {
+        await (unlikePost as any)({ postId }).unwrap();
+      } else {
+        await (likePost as any)({ postId }).unwrap();
+      }
+    } catch (error) {
+      console.error('Failed to toggle like:', error);
+      Alert.alert('エラー', 'いいねの処理に失敗しました。');
+    }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await fetchProfile();
+      if (isOwnProfile) {
+        await Promise.all([refetchOwnProfile(), refetchPosts()]);
+      } else {
+        await Promise.all([refetchProfile(), refetchPosts()]);
+      }
     } catch (error) {
       console.error('Failed to refresh profile:', error);
     } finally {
@@ -306,7 +318,6 @@ export default function ProfileScreen() {
           <View style={styles.profileHeader}>
             <View style={styles.avatarContainer}>
               <User size={60} color="#ff6b9d" />
-              {profile.isOnline && <View style={styles.onlineIndicator} />}
             </View>
 
             <View style={styles.profileActions}>
@@ -356,11 +367,6 @@ export default function ProfileScreen() {
                 <Calendar size={16} color="#666" />
                 <Text style={styles.metaText}>{profile.joinDate}から利用</Text>
               </View>
-              {!profile.isOwnProfile && (
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaText}>最終活動: {profile.lastActivity}</Text>
-                </View>
-              )}
             </View>
 
             <View style={styles.statsContainer}>

@@ -35,7 +35,7 @@ describe('API Integration Tests', () => {
     });
 
     it('should handle GET requests in mock mode', async () => {
-      const response = await apiClient.get('/health');
+      const response = await apiClient.get<{ status: string; timestamp: string }>('/health');
       
       expect(response).toBeDefined();
       expect(response.status).toBe('ok');
@@ -48,7 +48,11 @@ describe('API Integration Tests', () => {
         password: 'password123'
       };
       
-      const response = await apiClient.post('/auth/login', loginData);
+      const response = await apiClient.post<{
+        success: boolean;
+        user: { email: string };
+        tokens: any;
+      }>('/auth/login', loginData);
       
       expect(response).toBeDefined();
       expect(response.success).toBe(true);
@@ -189,7 +193,7 @@ describe('API Integration Tests', () => {
     it('should maintain functionality after reinitialization', async () => {
       await apiClient.reinitialize();
       
-      const response = await apiClient.get('/health');
+      const response = await apiClient.get<{ status: string }>('/health');
       expect(response).toBeDefined();
       expect(response.status).toBe('ok');
     });

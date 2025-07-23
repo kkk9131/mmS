@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import { AuthService } from '../services/api/auth';
 import { FeatureFlagsManager } from '../services/featureFlags';
+import { useAppSelector, useAppDispatch } from '../hooks/redux';
+import { signInWithMaternalBook, signOut, getCurrentUser } from '../store/slices/authSlice';
 
 interface User {
   id: string;
@@ -27,7 +29,46 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const ReduxAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const dispatch = useAppDispatch();
+  const auth = useAppSelector((state) => state.auth);
+  const featureFlags = FeatureFlagsManager.getInstance();
+
+  useEffect(() => {
+    if (!auth.isInitialized) {
+      dispatch(getCurrentUser());
+    }
+  }, [dispatch, auth.isInitialized]);
+
+  const login = async (maternalBookNumber: string, nickname: string) => {
+    await dispatch(signInWithMaternalBook({ maternalBookNumber, nickname } as any));
+  };
+
+  const logout = async () => {
+    await dispatch(signOut());
+    router.replace('/login');
+  };
+
+  const contextValue: AuthContextType = {
+    user: auth.profile ? {
+      id: auth.profile.id,
+      nickname: auth.profile.nickname,
+      createdAt: auth.profile.created_at || '',
+    } : null,
+    isLoading: auth.isLoading || !auth.isInitialized,
+    isAuthenticated: auth.isAuthenticated,
+    login,
+    logout,
+  };
+
+  return (
+    <AuthContext.Provider value={contextValue}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+const LegacyAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const authService = AuthService.getInstance();
@@ -83,4 +124,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const featureFlags = FeatureFlagsManager.getInstance();
+  const isReduxEnabled = featureFlags.isReduxEnabled();
+
+  if (isReduxEnabled) {
+    return <ReduxAuthProvider>{children}</ReduxAuthProvider>;
+  }
+
+  return <LegacyAuthProvider>{children}</LegacyAuthProvider>;
 };
