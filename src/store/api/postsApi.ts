@@ -187,8 +187,13 @@ export const postsApi = supabaseApi.injectEndpoints({
         { type: 'Post' as const, id: 'PAGE_0_20' },
       ],
       onQueryStarted: async (newPost, { dispatch, queryFulfilled, getState }) => {
+        console.log('🚀🚀🚀 RTK Query createPost onQueryStarted 開始 🚀🚀🚀');
+        console.log('📝 新規投稿データ:', newPost);
+        console.log('🔍 現在のState:', getState());
+        
         const tempId = `temp-${Date.now()}-${Math.random()}`;
         const optimisticPost = createOptimisticPost(newPost, tempId);
+        console.log('🎯 作成されたOptimistic Post:', optimisticPost);
         
         // Update multiple cache entries for different query parameters
         const patchResults: any[] = [];
@@ -212,7 +217,9 @@ export const postsApi = supabaseApi.injectEndpoints({
         );
 
         try {
+          console.log('⏳ queryFulfilled を待機中...');
           const { data: createdPost } = await queryFulfilled;
+          console.log('✅ queryFulfilled 成功:', createdPost);
           
           // Update cache with real data
           patchResults.forEach((patchResult) => {
@@ -230,8 +237,17 @@ export const postsApi = supabaseApi.injectEndpoints({
               }
             })
           );
+          console.log('✅ キャッシュ更新完了');
           
         } catch (error) {
+          console.error('💥💥💥 RTK Query createPost エラー 💥💥💥');
+          console.error('❌ Error type:', typeof error);
+          console.error('❌ Error constructor:', error?.constructor?.name);
+          console.error('❌ Error details:', error);
+          console.error('❌ Error message:', (error as any)?.message);
+          console.error('❌ Error stack:', (error as any)?.stack);
+          console.error('❌ Full error object:', JSON.stringify(error, null, 2));
+          
           // Rollback optimistic updates on error
           patchResults.forEach((patchResult) => {
             patchResult.undo();
