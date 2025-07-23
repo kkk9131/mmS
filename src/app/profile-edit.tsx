@@ -126,7 +126,7 @@ export default function ProfileEditScreen() {
           }
         },
         privacy: {
-          profileVisibility: profileData.privacyLevel,
+          profileVisibility: profileData.privacyLevel === 'friends' ? 'followers' : profileData.privacyLevel,
           showFollowersCount: true, // 既存値を保持
           showFollowingCount: true, // 既存値を保持
           allowMessages: true // 既存値を保持

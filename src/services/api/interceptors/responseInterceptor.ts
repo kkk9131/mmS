@@ -86,7 +86,7 @@ export class ResponseInterceptor {
   }
 
   private calculateResponseTime(response: AxiosResponse): number | undefined {
-    const requestStart = response.config.metadata?.requestStartTime;
+    const requestStart = (response.config as any).metadata?.requestStartTime;
     if (requestStart) {
       return Date.now() - requestStart;
     }

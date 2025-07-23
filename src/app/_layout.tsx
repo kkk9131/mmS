@@ -3,7 +3,10 @@ import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ReduxProvider } from '@/providers/ReduxProvider';
 import { View, ActivityIndicator } from 'react-native';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { GlobalErrorNotification } from '@/components/GlobalErrorNotification';
 
 function RootLayoutNav() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -39,9 +42,14 @@ export default function RootLayout() {
   useFrameworkReady();
 
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-      <StatusBar style="light" />
-    </AuthProvider>
+    <ReduxProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <RootLayoutNav />
+          <StatusBar style="light" />
+          <GlobalErrorNotification />
+        </AuthProvider>
+      </ErrorBoundary>
+    </ReduxProvider>
   );
 }

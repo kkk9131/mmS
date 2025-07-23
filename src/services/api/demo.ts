@@ -37,9 +37,9 @@ export async function runApiDemo(): Promise<void> {
     console.log('ログインレスポンス:', JSON.stringify(loginResponse, null, 2));
     console.log('');
 
-    if (loginResponse.tokens?.accessToken) {
+    if ((loginResponse as any).tokens?.accessToken) {
       console.log('🔑 認証トークンの設定...');
-      apiClient.setAuthToken(loginResponse.tokens.accessToken);
+      apiClient.setAuthToken((loginResponse as any).tokens.accessToken);
       console.log('✅ トークン設定完了');
     }
 

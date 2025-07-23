@@ -1,5 +1,13 @@
 import { HttpClient } from './api/httpClient';
 import { FeatureFlagsManager } from './featureFlags';
+import { supabaseClient } from './supabase/client';
+import {
+  Post as SupabasePost,
+  Comment as SupabaseComment,
+  User,
+  PostInsert,
+  CommentInsert,
+} from '../types/supabase';
 import {
   Post,
   Comment,
@@ -22,6 +30,24 @@ export class PostsService {
     this.featureFlags = FeatureFlagsManager.getInstance();
   }
 
+  // RTK Query integration helper
+  public shouldUseRTKQuery(): boolean {
+    return this.featureFlags.isReduxEnabled() && this.featureFlags.isSupabaseEnabled();
+  }
+
+  // Get preferred data source based on feature flags
+  public getDataSourceInfo(): { source: 'rtk-query' | 'supabase' | 'http' | 'mock'; priority: number } {
+    if (this.featureFlags.isReduxEnabled() && this.featureFlags.isSupabaseEnabled()) {
+      return { source: 'rtk-query', priority: 1 };
+    } else if (this.featureFlags.isSupabaseEnabled()) {
+      return { source: 'supabase', priority: 2 };
+    } else if (this.featureFlags.isApiEnabled()) {
+      return { source: 'http', priority: 3 };
+    } else {
+      return { source: 'mock', priority: 4 };
+    }
+  }
+
   public static getInstance(): PostsService {
     if (!PostsService.instance) {
       PostsService.instance = new PostsService();
@@ -30,7 +56,15 @@ export class PostsService {
   }
 
   public async getPosts(params: PostsQueryParams = {}): Promise<PostsResponse> {
-    if (this.featureFlags.isApiEnabled()) {
+    // Note: If RTK Query is enabled, components should use hooks directly
+    // This method serves as fallback or for direct service usage
+    if (this.shouldUseRTKQuery()) {
+      console.info('RTK Query is available - consider using useGetPostsQuery hook for better caching');
+    }
+
+    if (this.featureFlags.isSupabaseEnabled()) {
+      return this.getSupabasePosts(params);
+    } else if (this.featureFlags.isApiEnabled()) {
       const queryParams = new URLSearchParams();
       if (params.page) queryParams.append('page', params.page.toString());
       if (params.limit) queryParams.append('limit', params.limit.toString());
@@ -52,7 +86,9 @@ export class PostsService {
   }
 
   public async createPost(data: CreatePostRequest): Promise<Post> {
-    if (this.featureFlags.isApiEnabled()) {
+    if (this.featureFlags.isSupabaseEnabled()) {
+      return this.createSupabasePost(data);
+    } else if (this.featureFlags.isApiEnabled()) {
       try {
         const response: ApiResponse<Post> = await this.httpClient.post<Post>('/posts', data);
         return response.data;
@@ -66,7 +102,9 @@ export class PostsService {
   }
 
   public async likePost(postId: string): Promise<void> {
-    if (this.featureFlags.isApiEnabled()) {
+    if (this.featureFlags.isSupabaseEnabled()) {
+      return this.supabaseLikePost(postId);
+    } else if (this.featureFlags.isApiEnabled()) {
       try {
         await this.httpClient.post(`/posts/${postId}/like`);
       } catch (error) {
@@ -79,7 +117,9 @@ export class PostsService {
   }
 
   public async unlikePost(postId: string): Promise<void> {
-    if (this.featureFlags.isApiEnabled()) {
+    if (this.featureFlags.isSupabaseEnabled()) {
+      return this.supabaseUnlikePost(postId);
+    } else if (this.featureFlags.isApiEnabled()) {
       try {
         await this.httpClient.delete(`/posts/${postId}/like`);
       } catch (error) {
@@ -92,7 +132,9 @@ export class PostsService {
   }
 
   public async getComments(postId: string, params: CommentsQueryParams = {}): Promise<CommentsResponse> {
-    if (this.featureFlags.isApiEnabled()) {
+    if (this.featureFlags.isSupabaseEnabled()) {
+      return this.getSupabaseComments(postId, params);
+    } else if (this.featureFlags.isApiEnabled()) {
       const queryParams = new URLSearchParams();
       if (params.page) queryParams.append('page', params.page.toString());
       if (params.limit) queryParams.append('limit', params.limit.toString());
@@ -114,7 +156,9 @@ export class PostsService {
   }
 
   public async createComment(postId: string, data: CreateCommentRequest): Promise<Comment> {
-    if (this.featureFlags.isApiEnabled()) {
+    if (this.featureFlags.isSupabaseEnabled()) {
+      return this.createSupabaseComment(postId, data);
+    } else if (this.featureFlags.isApiEnabled()) {
       try {
         const response: ApiResponse<Comment> = await this.httpClient.post<Comment>(`/posts/${postId}/comments`, data);
         return response.data;
@@ -301,5 +345,411 @@ export class PostsService {
 
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // Enhanced error handling with retry logic
+  private async withRetry<T>(operation: () => Promise<T>, maxRetries: number = 3): Promise<T> {
+    let lastError: Error;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        if (attempt === maxRetries) {
+          console.error(`Operation failed after ${maxRetries} attempts:`, lastError);
+          throw lastError;
+        }
+
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, attempt - 1) * 1000;
+        console.warn(`Attempt ${attempt} failed, retrying in ${delay}ms:`, lastError.message);
+        await this.delay(delay);
+      }
+    }
+
+    throw lastError!;
+  }
+
+  // Enhanced Supabase connection check
+  private async ensureSupabaseConnection(): Promise<void> {
+    if (!supabaseClient.isInitialized()) {
+      throw new Error('Supabase client is not initialized');
+    }
+
+    const status = await supabaseClient.testConnection();
+    if (!status.isConnected) {
+      throw new Error(`Supabase connection failed: ${status.error || 'Unknown error'}`);
+    }
+  }
+
+  // Supabase methods
+  private async getSupabasePosts(params: PostsQueryParams = {}): Promise<PostsResponse> {
+    await this.ensureSupabaseConnection();
+
+    return this.withRetry(async () => {
+      const client = supabaseClient.getClient();
+      const page = params.page || 1;
+      const limit = params.limit || 10;
+      const sortBy = params.sortBy || 'created_at';
+      const order = params.order || 'desc';
+
+      try {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+
+      let query = client
+        .from('posts')
+        .select(`
+          *,
+          users!inner (
+            id,
+            nickname,
+            avatar_url
+          )
+        `, { count: 'exact' })
+        .order(sortBy, { ascending: order === 'asc' })
+        .range(from, to);
+
+      const { data: posts, error, count } = await query;
+
+      if (error) {
+        console.error('Supabase posts fetch error:', error);
+        throw new Error(`Failed to fetch posts: ${error.message}`);
+      }
+
+      const transformedPosts = await Promise.all(
+        (posts || []).map(async (post) => {
+          const user = Array.isArray(post.users) ? post.users[0] : post.users;
+          
+          // Get user's like status for this post
+          const currentUser = await supabaseClient.getCurrentUser();
+          let isLiked = false;
+          
+          if (currentUser) {
+            const { data: like } = await client
+              .from('likes')
+              .select('id')
+              .eq('post_id', post.id)
+              .eq('user_id', currentUser.id)
+              .single();
+            isLiked = !!like;
+          }
+
+          return {
+            id: post.id,
+            content: post.content,
+            authorId: post.user_id,
+            authorName: user?.nickname || 'Unknown',
+            authorAvatar: user?.avatar_url || 'https://via.placeholder.com/40',
+            createdAt: post.created_at || new Date().toISOString(),
+            updatedAt: post.updated_at || new Date().toISOString(),
+            likesCount: post.likes_count || 0,
+            commentsCount: post.comments_count || 0,
+            isLiked,
+            images: post.image_url ? [post.image_url] : undefined,
+          };
+        })
+      );
+
+      const totalItems = count || transformedPosts.length;
+      const totalPages = Math.ceil(totalItems / limit);
+
+      return {
+        posts: transformedPosts,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems,
+          hasNext: page < totalPages,
+          hasPrevious: page > 1,
+        },
+      };
+      } catch (error) {
+        console.error('Failed to fetch posts from Supabase:', error);
+        throw error;
+      }
+    });
+  }
+
+  private async createSupabasePost(data: CreatePostRequest): Promise<Post> {
+    await this.ensureSupabaseConnection();
+    const currentUser = await supabaseClient.getCurrentUser();
+
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
+
+    return this.withRetry(async () => {
+      const client = supabaseClient.getClient();
+
+      try {
+      const postData: PostInsert = {
+        content: data.content,
+        user_id: currentUser.id,
+        image_url: data.images?.[0] || null,
+        is_anonymous: false,
+        likes_count: 0,
+        comments_count: 0,
+      };
+
+      const { data: post, error } = await client
+        .from('posts')
+        .insert(postData)
+        .select(`
+          *,
+          users!inner (
+            id,
+            nickname,
+            avatar_url
+          )
+        `)
+        .single();
+
+      if (error) {
+        console.error('Supabase post creation error:', error);
+        throw new Error(`Failed to create post: ${error.message}`);
+      }
+
+      const user = Array.isArray(post.users) ? post.users[0] : post.users;
+
+      return {
+        id: post.id,
+        content: post.content,
+        authorId: post.user_id,
+        authorName: user?.nickname || 'Unknown',
+        authorAvatar: user?.avatar_url || 'https://via.placeholder.com/40',
+        createdAt: post.created_at || new Date().toISOString(),
+        updatedAt: post.updated_at || new Date().toISOString(),
+        likesCount: 0,
+        commentsCount: 0,
+        isLiked: false,
+        images: post.image_url ? [post.image_url] : undefined,
+      };
+      } catch (error) {
+        console.error('Failed to create post in Supabase:', error);
+        throw error;
+      }
+    });
+  }
+
+  private async supabaseLikePost(postId: string): Promise<void> {
+    await this.ensureSupabaseConnection();
+    const currentUser = await supabaseClient.getCurrentUser();
+
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
+
+    return this.withRetry(async () => {
+      const client = supabaseClient.getClient();
+
+      try {
+      // Check if already liked
+      const { data: existingLike } = await client
+        .from('likes')
+        .select('id')
+        .eq('post_id', postId)
+        .eq('user_id', currentUser.id)
+        .single();
+
+      if (existingLike) {
+        return; // Already liked
+      }
+
+      // Create like
+      const { error: likeError } = await client
+        .from('likes')
+        .insert({
+          post_id: postId,
+          user_id: currentUser.id,
+        });
+
+      if (likeError) {
+        throw new Error(`Failed to like post: ${likeError.message}`);
+      }
+
+      // Update likes count
+      const { data: post } = await client
+        .from('posts')
+        .select('likes_count')
+        .eq('id', postId)
+        .single();
+
+      await client
+        .from('posts')
+        .update({ likes_count: (post?.likes_count || 0) + 1 })
+        .eq('id', postId);
+      } catch (error) {
+        console.error('Failed to like post in Supabase:', error);
+        throw error;
+      }
+    });
+  }
+
+  private async supabaseUnlikePost(postId: string): Promise<void> {
+    const client = supabaseClient.getClient();
+    const currentUser = await supabaseClient.getCurrentUser();
+
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      // Remove like
+      const { error: deleteError } = await client
+        .from('likes')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', currentUser.id);
+
+      if (deleteError) {
+        throw new Error(`Failed to unlike post: ${deleteError.message}`);
+      }
+
+      // Update likes count
+      const { data: post } = await client
+        .from('posts')
+        .select('likes_count')
+        .eq('id', postId)
+        .single();
+
+      await client
+        .from('posts')
+        .update({ likes_count: Math.max((post?.likes_count || 1) - 1, 0) })
+        .eq('id', postId);
+    } catch (error) {
+      console.error('Failed to unlike post in Supabase:', error);
+      throw error;
+    }
+  }
+
+  private async getSupabaseComments(postId: string, params: CommentsQueryParams = {}): Promise<CommentsResponse> {
+    const client = supabaseClient.getClient();
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const sortBy = params.sortBy || 'created_at';
+    const order = params.order || 'asc'; // Comments usually ascending by time
+
+    try {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+
+      const { data: comments, error, count } = await client
+        .from('comments')
+        .select(`
+          *,
+          users!inner (
+            id,
+            nickname,
+            avatar_url
+          )
+        `, { count: 'exact' })
+        .eq('post_id', postId)
+        .order(sortBy, { ascending: order === 'asc' })
+        .range(from, to);
+
+      if (error) {
+        console.error('Supabase comments fetch error:', error);
+        throw new Error(`Failed to fetch comments: ${error.message}`);
+      }
+
+      const transformedComments = (comments || []).map((comment) => {
+        const user = Array.isArray(comment.users) ? comment.users[0] : comment.users;
+        
+        return {
+          id: comment.id,
+          postId: comment.post_id,
+          authorId: comment.user_id,
+          authorName: user?.nickname || 'Unknown',
+          authorAvatar: user?.avatar_url || 'https://via.placeholder.com/40',
+          content: comment.content,
+          createdAt: comment.created_at || new Date().toISOString(),
+          updatedAt: comment.updated_at || new Date().toISOString(),
+        };
+      });
+
+      const totalItems = count || transformedComments.length;
+      const totalPages = Math.ceil(totalItems / limit);
+
+      return {
+        comments: transformedComments,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems,
+          hasNext: page < totalPages,
+          hasPrevious: page > 1,
+        },
+      };
+    } catch (error) {
+      console.error('Failed to fetch comments from Supabase:', error);
+      throw error;
+    }
+  }
+
+  private async createSupabaseComment(postId: string, data: CreateCommentRequest): Promise<Comment> {
+    const client = supabaseClient.getClient();
+    const currentUser = await supabaseClient.getCurrentUser();
+
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const commentData: CommentInsert = {
+        content: data.content,
+        post_id: postId,
+        user_id: currentUser.id,
+        is_anonymous: false,
+      };
+
+      const { data: comment, error } = await client
+        .from('comments')
+        .insert(commentData)
+        .select(`
+          *,
+          users!inner (
+            id,
+            nickname,
+            avatar_url
+          )
+        `)
+        .single();
+
+      if (error) {
+        console.error('Supabase comment creation error:', error);
+        throw new Error(`Failed to create comment: ${error.message}`);
+      }
+
+      // Update comments count
+      const { data: post } = await client
+        .from('posts')
+        .select('comments_count')
+        .eq('id', postId)
+        .single();
+
+      await client
+        .from('posts')
+        .update({ comments_count: (post?.comments_count || 0) + 1 })
+        .eq('id', postId);
+
+      const user = Array.isArray(comment.users) ? comment.users[0] : comment.users;
+
+      return {
+        id: comment.id,
+        postId: comment.post_id,
+        authorId: comment.user_id,
+        authorName: user?.nickname || 'Unknown',
+        authorAvatar: user?.avatar_url || 'https://via.placeholder.com/40',
+        content: comment.content,
+        createdAt: comment.created_at || new Date().toISOString(),
+        updatedAt: comment.updated_at || new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('Failed to create comment in Supabase:', error);
+      throw error;
+    }
   }
 }

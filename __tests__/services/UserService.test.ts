@@ -27,13 +27,41 @@ describe('UserService', () => {
       post: jest.fn(),
       put: jest.fn(),
       delete: jest.fn(),
-    } as jest.Mocked<HttpClient>;
+      getAxiosInstance: jest.fn(),
+      updateConfig: jest.fn(),
+    } as unknown as jest.Mocked<HttpClient>;
     MockedHttpClient.getInstance.mockReturnValue(mockHttpClient);
 
     // FeatureFlagsManagerのモック
     mockFeatureFlags = {
       isApiEnabled: jest.fn(),
-    } as jest.Mocked<FeatureFlagsManager>;
+      initializeWithSupabase: jest.fn(),
+      getFlag: jest.fn(),
+      getAllFlags: jest.fn(),
+      setFlag: jest.fn(),
+      resetFlag: jest.fn(),
+      resetAllFlags: jest.fn(),
+      isSupabaseEnabled: jest.fn(),
+      isReduxEnabled: jest.fn(),
+      isRealtimeEnabled: jest.fn(),
+      isPerformanceMonitoringEnabled: jest.fn(),
+      isDebugModeEnabled: jest.fn(),
+      isMockModeEnabled: jest.fn(),
+      isFeatureFlagEnabled: jest.fn(),
+      isAuthenticationEnabled: jest.fn(),
+      isNotificationsEnabled: jest.fn(),
+      getCacheTTL: jest.fn(),
+      getMaxRetries: jest.fn(),
+      getRequestTimeout: jest.fn(),
+      getMaxConcurrentRequests: jest.fn(),
+      getBatchSize: jest.fn(),
+      getRealtimeHeartbeatInterval: jest.fn(),
+      enableSupabaseIntegration: jest.fn(),
+      disableSupabaseIntegration: jest.fn(),
+      enableRedux: jest.fn(),
+      disableRedux: jest.fn(),
+      getDebugInfo: jest.fn(),
+    } as unknown as jest.Mocked<FeatureFlagsManager>;
     MockedFeatureFlagsManager.getInstance.mockReturnValue(mockFeatureFlags);
 
     // UserServiceインスタンス作成（シングルトンをリセット）
@@ -83,7 +111,10 @@ describe('UserService', () => {
       mockHttpClient.get.mockResolvedValue({
         data: mockUserProfile,
         message: 'success',
-      } as ApiResponse<UserProfile>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as unknown as ApiResponse<UserProfile>);
 
       const result = await userService.getMyProfile();
 
@@ -108,7 +139,10 @@ describe('UserService', () => {
       mockHttpClient.get.mockResolvedValue({
         data: mockUserProfile,
         message: 'success',
-      } as ApiResponse<UserProfile>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as unknown as ApiResponse<UserProfile>);
 
       // 初回取得
       await userService.getMyProfile();
@@ -173,7 +207,10 @@ describe('UserService', () => {
       mockHttpClient.put.mockResolvedValue({
         data: updatedProfile,
         message: 'success',
-      } as ApiResponse<UserProfile>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as unknown as ApiResponse<UserProfile>);
 
       const result = await userService.updateProfile(updateData);
 
@@ -196,7 +233,10 @@ describe('UserService', () => {
       mockHttpClient.put.mockResolvedValue({
         data: updatedProfile,
         message: 'success',
-      } as ApiResponse<UserProfile>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as unknown as ApiResponse<UserProfile>);
 
       await userService.updateProfile(updateData);
 
@@ -204,7 +244,10 @@ describe('UserService', () => {
       mockHttpClient.get.mockResolvedValue({
         data: updatedProfile,
         message: 'success',
-      } as ApiResponse<UserProfile>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as unknown as ApiResponse<UserProfile>);
 
       const cachedResult = await userService.getMyProfile();
       expect(mockHttpClient.get).not.toHaveBeenCalled();
@@ -232,7 +275,10 @@ describe('UserService', () => {
       mockHttpClient.get.mockResolvedValue({
         data: mockUser,
         message: 'success',
-      } as ApiResponse<User>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as unknown as ApiResponse<User>);
 
       const result = await userService.getUserById(userId);
 
@@ -255,7 +301,10 @@ describe('UserService', () => {
       mockHttpClient.get.mockResolvedValue({
         data: mockUser,
         message: 'success',
-      } as ApiResponse<User>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as unknown as ApiResponse<User>);
 
       // 初回取得
       await userService.getUserById(userId);
@@ -295,7 +344,10 @@ describe('UserService', () => {
       mockHttpClient.get.mockResolvedValue({
         data: mockSearchResult,
         message: 'success',
-      } as ApiResponse<any>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as unknown as ApiResponse<any>);
 
       const result = await userService.searchUsers(query, 1, 20);
 
@@ -324,7 +376,10 @@ describe('UserService', () => {
       mockHttpClient.get.mockResolvedValue({
         data: { id: 'user-123' },
         message: 'success',
-      } as ApiResponse<any>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as unknown as ApiResponse<any>);
 
       // キャッシュを作成
       await userService.getMyProfile();
@@ -345,7 +400,10 @@ describe('UserService', () => {
       mockHttpClient.get.mockResolvedValue({
         data: { id: 'user-123' },
         message: 'success',
-      } as ApiResponse<any>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as unknown as ApiResponse<any>);
 
       const userId = 'user-456';
       await userService.getUserById(userId);
@@ -364,7 +422,10 @@ describe('UserService', () => {
       mockHttpClient.get.mockResolvedValue({
         data: { id: 'current-user' },
         message: 'success',
-      } as ApiResponse<any>);
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      } as unknown as ApiResponse<any>);
 
       await userService.getMyProfile();
 
