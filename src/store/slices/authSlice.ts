@@ -54,49 +54,58 @@ export const signInWithMaternalBook = createAsyncThunk(
     try {
       const featureFlags = FeatureFlagsManager.getInstance();
       
+      console.log('🔑 authSlice signInWithMaternalBook 開始');
+      console.log('フィーチャーフラグ設定:', {
+        isSupabaseEnabled: featureFlags.isSupabaseEnabled(),
+        isApiEnabled: featureFlags.isApiEnabled(),
+        isReduxEnabled: featureFlags.isReduxEnabled(),
+        isDebugModeEnabled: featureFlags.isDebugModeEnabled()
+      });
+      console.log('認証情報:', credentials);
+      
       if (featureFlags.isSupabaseEnabled()) {
-        // Use Supabase authentication
-        const result: AuthResult = await supabaseAuth.signInWithMaternalBook(credentials);
+        console.log('🔵 Supabase認証を使用');
         
-        if (result.error) {
-          // Map Supabase errors to user-friendly messages
-          const errorMessage = getAuthErrorMessage(result.error);
-          return rejectWithValue(errorMessage);
-        }
+          // Use Supabase authentication
+          const result: AuthResult = await supabaseAuth.signInWithMaternalBook(credentials);
+          console.log('Supabase認証結果:', result);
+          
+          if (result.error) {
+            console.log('❌ Supabase認証エラー:', result.error);
+            // Map Supabase errors to user-friendly messages
+            const errorMessage = getAuthErrorMessage(result.error);
+            return rejectWithValue(errorMessage);
+          }
 
-        // Get user profile
-        const profile = await supabaseAuth.getUserProfile();
-        
-        return {
-          user: result.user,
-          session: result.session,
-          profile,
-        };
+          // Get user profile
+          const profile = await supabaseAuth.getUserProfile();
+          console.log('✅ Supabase認証成功, プロフィール:', profile);
+          
+          return {
+            user: result.user,
+            session: result.session,
+            profile,
+          };
+        } catch (supabaseError) {
+          console.error('💥 Supabase認証でエラー発生:', supabaseError);
+          throw supabaseError;
+        }
       } else {
-        // Use mock authentication via AuthService
-        const authService = AuthService.getInstance();
-        const mockCredentials = {
-          maternalBookNumber: credentials.mothersHandbookNumber || credentials.maternalBookNumber,
-          nickname: credentials.nickname,
-        };
+        console.log('🟡 モック認証を使用');
+        try {
+          // Use mock authentication via AuthService
+          const authService = AuthService.getInstance();
+          const mockCredentials = {
+            maternalBookNumber: credentials.mothersHandbookNumber || credentials.maternalBookNumber,
+            nickname: credentials.nickname,
+          };
+          
+          console.log('モック認証の認証情報:', mockCredentials);
+          const result = await authService.login(mockCredentials);
+          console.log('✅ モック認証成功:', result);
         
-        const result = await authService.login(mockCredentials);
-        
-        // Convert mock response to expected format
-        return {
-          user: {
-            id: result.user.id,
-            email: `${result.user.id}@mock.local`,
-            app_metadata: {},
-            user_metadata: { nickname: result.user.nickname },
-            aud: 'authenticated',
-            created_at: result.user.createdAt,
-          } as User,
-          session: {
-            access_token: result.accessToken,
-            refresh_token: result.refreshToken,
-            expires_in: 3600,
-            token_type: 'bearer',
+          // Convert mock response to expected format
+          const convertedResult = {
             user: {
               id: result.user.id,
               email: `${result.user.id}@mock.local`,
@@ -105,16 +114,42 @@ export const signInWithMaternalBook = createAsyncThunk(
               aud: 'authenticated',
               created_at: result.user.createdAt,
             } as User,
-          } as Session,
-          profile: {
-            id: result.user.id,
-            nickname: result.user.nickname,
-            created_at: result.user.createdAt,
-          },
-        };
+            session: {
+              access_token: result.accessToken,
+              refresh_token: result.refreshToken,
+              expires_in: 3600,
+              token_type: 'bearer',
+              user: {
+                id: result.user.id,
+                email: `${result.user.id}@mock.local`,
+                app_metadata: {},
+                user_metadata: { nickname: result.user.nickname },
+                aud: 'authenticated',
+                created_at: result.user.createdAt,
+              } as User,
+            } as Session,
+            profile: {
+              id: result.user.id,
+              nickname: result.user.nickname,
+              created_at: result.user.createdAt,
+            },
+          };
+          
+          console.log('🎉 モック認証結果変換完了:', convertedResult);
+          return convertedResult;
+        } catch (mockError) {
+          console.error('💥 モック認証でエラー発生:', mockError);
+          throw mockError;
+        }
       }
     } catch (error) {
+      console.error('🔴 authSlice 最終エラーキャッチ:', error);
+      console.error('エラーの型:', typeof error);
+      console.error('エラーメッセージ:', (error as any)?.message);
+      console.error('エラースタック:', (error as any)?.stack);
+      
       const errorMessage = error instanceof Error ? error.message : '予期しないエラーが発生しました';
+      console.error('リジェクト値:', errorMessage);
       return rejectWithValue(errorMessage);
     }
   }
