@@ -72,12 +72,16 @@ export class AuthService {
   }
 
   private async mockLogin(data: LoginRequest): Promise<LoginResponse> {
-    console.log('🎭 mockLogin 開始');
-    console.log('遅延開始:', new Date().toISOString());
+    if (this.featureFlags.isDebugModeEnabled()) {
+      console.log('🎭 mockLogin 開始');
+      console.log('遅延開始:', new Date().toISOString());
+    }
     
-    await this.delay(1000);
+    await this.delay(100);  // 高速化
     
-    console.log('遅延完了:', new Date().toISOString());
+    if (this.featureFlags.isDebugModeEnabled()) {
+      console.log('遅延完了:', new Date().toISOString());
+    }
     
     const mockResponse: LoginResponse = {
       accessToken: 'mock_access_token_' + Date.now(),
@@ -89,22 +93,32 @@ export class AuthService {
       },
     };
 
-    console.log('📦 モックレスポンス作成:', mockResponse);
+    if (this.featureFlags.isDebugModeEnabled()) {
+      console.log('📦 モックレスポンス作成:', mockResponse);
+    }
     
     try {
-      console.log('💾 トークン保存開始');
+      if (this.featureFlags.isDebugModeEnabled()) {
+        console.log('💾 トークン保存開始');
+      }
       await this.saveTokens(mockResponse.accessToken, mockResponse.refreshToken);
-      console.log('✅ トークン保存完了');
       
-      console.log('👤 ユーザー保存開始');
+      if (this.featureFlags.isDebugModeEnabled()) {
+        console.log('👤 ユーザー保存開始');
+      }
       await this.saveUser(mockResponse.user);
-      console.log('✅ ユーザー保存完了');
+      
+      if (this.featureFlags.isDebugModeEnabled()) {
+        console.log('✅ 保存完了');
+      }
     } catch (error) {
       console.error('💥 保存エラー:', error);
       throw error;
     }
 
-    console.log('🎉 mockLogin 完了');
+    if (this.featureFlags.isDebugModeEnabled()) {
+      console.log('🎉 mockLogin 完了');
+    }
     return mockResponse;
   }
 
@@ -162,19 +176,29 @@ export class AuthService {
   }
 
   private async saveTokens(accessToken: string, refreshToken: string): Promise<void> {
-    const tokenData: TokenData = {
-      accessToken,
-      refreshToken,
-      expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
-    };
+    try {
+      const tokenData: TokenData = {
+        accessToken,
+        refreshToken,
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
+      };
 
-    await AsyncStorage.setItem(TOKEN_KEY, JSON.stringify(tokenData));
-    
-    this.setupAuthInterceptor(accessToken);
+      await AsyncStorage.setItem(TOKEN_KEY, JSON.stringify(tokenData));
+      
+      this.setupAuthInterceptor(accessToken);
+    } catch (error) {
+      console.error('Failed to save tokens:', error);
+      throw new Error('トークンの保存に失敗しました');
+    }
   }
 
   private async saveUser(user: any): Promise<void> {
-    await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+    try {
+      await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+    } catch (error) {
+      console.error('Failed to save user:', error);
+      throw new Error('ユーザー情報の保存に失敗しました');
+    }
   }
 
   private setupAuthInterceptor(token: string): void {

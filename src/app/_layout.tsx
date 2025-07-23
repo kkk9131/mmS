@@ -3,6 +3,8 @@ import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { HandPreferenceProvider } from '@/contexts/HandPreferenceContext';
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { ReduxProvider } from '@/providers/ReduxProvider';
 import { View, ActivityIndicator } from 'react-native';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -10,6 +12,7 @@ import { GlobalErrorNotification } from '@/components/GlobalErrorNotification';
 
 function RootLayoutNav() {
   const { isLoading, isAuthenticated } = useAuth();
+  const { theme, isLightMode } = useTheme();
 
   useEffect(() => {
     if (!isLoading) {
@@ -23,18 +26,21 @@ function RootLayoutNav() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#121212' }}>
-        <ActivityIndicator size="large" color="#ff6b9d" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="login" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="+not-found" />
-    </Stack>
+    <>
+      <StatusBar style={isLightMode ? "dark" : "light"} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="login" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="+not-found" />
+      </Stack>
+    </>
   );
 }
 
@@ -44,11 +50,14 @@ export default function RootLayout() {
   return (
     <ReduxProvider>
       <ErrorBoundary>
-        <AuthProvider>
-          <RootLayoutNav />
-          <StatusBar style="light" />
-          <GlobalErrorNotification />
-        </AuthProvider>
+        <ThemeProvider>
+          <HandPreferenceProvider>
+            <AuthProvider>
+              <RootLayoutNav />
+              <GlobalErrorNotification />
+            </AuthProvider>
+          </HandPreferenceProvider>
+        </ThemeProvider>
       </ErrorBoundary>
     </ReduxProvider>
   );

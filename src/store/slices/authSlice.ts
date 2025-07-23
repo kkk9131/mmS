@@ -54,18 +54,21 @@ export const signInWithMaternalBook = createAsyncThunk(
     try {
       const featureFlags = FeatureFlagsManager.getInstance();
       
-      console.log('🔑 authSlice signInWithMaternalBook 開始');
-      console.log('フィーチャーフラグ設定:', {
-        isSupabaseEnabled: featureFlags.isSupabaseEnabled(),
-        isApiEnabled: featureFlags.isApiEnabled(),
-        isReduxEnabled: featureFlags.isReduxEnabled(),
-        isDebugModeEnabled: featureFlags.isDebugModeEnabled()
-      });
-      console.log('認証情報:', credentials);
+      if (featureFlags.isDebugModeEnabled()) {
+        console.log('🔑 authSlice signInWithMaternalBook 開始');
+        console.log('フィーチャーフラグ設定:', {
+          isSupabaseEnabled: featureFlags.isSupabaseEnabled(),
+          isApiEnabled: featureFlags.isApiEnabled(),
+          isReduxEnabled: featureFlags.isReduxEnabled(),
+          isDebugModeEnabled: featureFlags.isDebugModeEnabled()
+        });
+        console.log('認証情報:', credentials);
+      }
       
       if (featureFlags.isSupabaseEnabled()) {
         console.log('🔵 Supabase認証を使用');
         
+        try {
           // Use Supabase authentication
           const result: AuthResult = await supabaseAuth.signInWithMaternalBook(credentials);
           console.log('Supabase認証結果:', result);
@@ -96,7 +99,7 @@ export const signInWithMaternalBook = createAsyncThunk(
           // Use mock authentication via AuthService
           const authService = AuthService.getInstance();
           const mockCredentials = {
-            maternalBookNumber: credentials.mothersHandbookNumber || credentials.maternalBookNumber,
+            maternalBookNumber: credentials.mothersHandbookNumber,
             nickname: credentials.nickname,
           };
           

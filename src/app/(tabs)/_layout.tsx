@@ -2,24 +2,26 @@ import { Tabs } from 'expo-router';
 import { Chrome as Home, Bell, User } from 'lucide-react-native';
 import { View, Text } from 'react-native';
 import { useNotificationBadge } from '../../hooks/useNotificationBadge';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function TabLayout() {
   const { unreadCount } = useNotificationBadge();
+  const { theme } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#1a1a1a',
-          borderTopColor: '#333',
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.border,
           borderTopWidth: 1,
           height: 80,
           paddingBottom: 20,
           paddingTop: 10,
         },
-        tabBarActiveTintColor: '#ff6b9d',
-        tabBarInactiveTintColor: '#666',
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.text.disabled,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
@@ -79,6 +81,12 @@ export default function TabLayout() {
           tabBarIcon: ({ size, color }) => (
             <Home size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="post"
+        options={{
+          href: null, // タブナビゲーションから非表示
         }}
       />
     </Tabs>

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Keyboa
 import { ArrowLeft, Send, Users, Settings, Hash, Info, Heart, MessageCircle, Clock, User } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface RoomMessage {
   id: string;
@@ -76,6 +77,7 @@ const mockRoomMembers: RoomMember[] = [
 ];
 
 export default function RoomScreen() {
+  const { theme } = useTheme();
   const { roomId = '1', roomName = '夜泣き対策' } = useLocalSearchParams<{ roomId: string; roomName: string }>();
   const [messages, setMessages] = useState<RoomMessage[]>(mockRoomMessages);
   const [inputText, setInputText] = useState('');
@@ -123,23 +125,208 @@ export default function RoomScreen() {
     Alert.alert('ルーム設定', 'ルーム設定画面を開きます');
   };
 
+  // Dynamic styles with theme colors
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 16,
+      backgroundColor: theme.colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    roomName: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+      marginLeft: 8,
+    },
+    memberCount: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+      marginLeft: 4,
+      marginRight: 8,
+    },
+    onlineCount: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+    },
+    roomDescription: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 12,
+      backgroundColor: theme.colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    descriptionText: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      marginLeft: 8,
+      flex: 1,
+      lineHeight: 20,
+    },
+    messageItem: {
+      backgroundColor: theme.colors.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    authorName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+      marginLeft: 6,
+    },
+    messageTime: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+    },
+    messageContent: {
+      fontSize: 16,
+      color: theme.colors.text.primary,
+      lineHeight: 22,
+      marginBottom: 8,
+    },
+    messageTag: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      marginRight: 8,
+      marginBottom: 4,
+    },
+    messageActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    messageActionLiked: {
+      backgroundColor: `${theme.colors.primary}20`,
+    },
+    actionText: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      marginLeft: 4,
+    },
+    actionTextLiked: {
+      color: theme.colors.primary,
+    },
+    inputContainer: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      padding: 16,
+      backgroundColor: theme.colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    textInput: {
+      flex: 1,
+      backgroundColor: theme.colors.card,
+      borderRadius: 20,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      fontSize: 16,
+      color: theme.colors.text.primary,
+      maxHeight: 100,
+      marginRight: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    sendButton: {
+      backgroundColor: theme.colors.primary,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sendButtonDisabled: {
+      backgroundColor: theme.colors.card,
+      opacity: 0.5,
+    },
+    membersPanel: {
+      width: 200,
+      backgroundColor: theme.colors.surface,
+      borderLeftWidth: 1,
+      borderLeftColor: theme.colors.border,
+    },
+    membersPanelTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    membersSectionTitle: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.colors.text.secondary,
+      marginBottom: 8,
+      textTransform: 'uppercase',
+    },
+    memberAvatar: {
+      position: 'relative',
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: theme.colors.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    memberOnlineIndicator: {
+      position: 'absolute',
+      bottom: -2,
+      right: -2,
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: '#4ade80',
+      borderWidth: 2,
+      borderColor: theme.colors.surface,
+    },
+    memberName: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.colors.text.primary,
+    },
+    memberNameOffline: {
+      color: theme.colors.text.secondary,
+      opacity: 0.7,
+    },
+    memberRole: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+      marginTop: 2,
+    },
+  });
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={dynamicStyles.container}>
+      <View style={dynamicStyles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <ArrowLeft size={24} color="#ff6b9d" />
+          <ArrowLeft size={24} color={theme.colors.primary} />
         </TouchableOpacity>
         
         <View style={styles.headerContent}>
           <View style={styles.roomInfo}>
-            <Hash size={20} color="#ff6b9d" />
-            <Text style={styles.roomName}>{roomName}</Text>
+            <Hash size={20} color={theme.colors.primary} />
+            <Text style={dynamicStyles.roomName}>{roomName}</Text>
           </View>
           <View style={styles.roomMeta}>
-            <Users size={16} color="#666" />
-            <Text style={styles.memberCount}>{mockRoomMembers.length}人</Text>
+            <Users size={16} color={theme.colors.text.secondary} />
+            <Text style={dynamicStyles.memberCount}>{mockRoomMembers.length}人</Text>
             <View style={styles.onlineIndicator} />
-            <Text style={styles.onlineCount}>{onlineMembers.length}人オンライン</Text>
+            <Text style={dynamicStyles.onlineCount}>{onlineMembers.length}人オンライン</Text>
           </View>
         </View>
         
@@ -148,20 +335,20 @@ export default function RoomScreen() {
             style={styles.membersButton}
             onPress={() => setShowMembers(!showMembers)}
           >
-            <Users size={20} color="#666" />
+            <Users size={20} color={theme.colors.text.secondary} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.settingsButton}
             onPress={handleRoomSettings}
           >
-            <Settings size={20} color="#666" />
+            <Settings size={20} color={theme.colors.text.secondary} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.roomDescription}>
-        <Info size={16} color="#4a9eff" />
-        <Text style={styles.descriptionText}>
+      <View style={dynamicStyles.roomDescription}>
+        <Info size={16} color={theme.colors.text.secondary} />
+        <Text style={dynamicStyles.descriptionText}>
           夜泣きで悩むママたちの情報交換・相談ルーム。体験談やアドバイスを自由に共有しましょう！
         </Text>
       </View>
@@ -179,84 +366,84 @@ export default function RoomScreen() {
             onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
           >
             {messages.map((message) => (
-              <View key={message.id} style={styles.messageItem}>
+              <View key={message.id} style={dynamicStyles.messageItem}>
                 <View style={styles.messageHeader}>
                   <View style={styles.messageAuthor}>
-                    <User size={16} color="#ff6b9d" />
-                    <Text style={styles.authorName}>{message.author}</Text>
+                    <User size={16} color={theme.colors.primary} />
+                    <Text style={dynamicStyles.authorName}>{message.author}</Text>
                   </View>
-                  <Text style={styles.messageTime}>{message.timestamp}</Text>
+                  <Text style={dynamicStyles.messageTime}>{message.timestamp}</Text>
                 </View>
                 
-                <Text style={styles.messageContent}>{message.content}</Text>
+                <Text style={dynamicStyles.messageContent}>{message.content}</Text>
                 
                 {message.tags.length > 0 && (
                   <View style={styles.messageTags}>
                     {message.tags.map((tag, index) => (
-                      <Text key={index} style={styles.messageTag}>#{tag}</Text>
+                      <Text key={index} style={dynamicStyles.messageTag}>#{tag}</Text>
                     ))}
                   </View>
                 )}
                 
-                <View style={styles.messageActions}>
+                <View style={dynamicStyles.messageActions}>
                   <TouchableOpacity
-                    style={[styles.messageAction, message.isLiked && styles.messageActionLiked]}
+                    style={[styles.messageAction, message.isLiked && dynamicStyles.messageActionLiked]}
                     onPress={() => handleLike(message.id)}
                   >
-                    <Heart size={16} color={message.isLiked ? '#ff6b9d' : '#666'} fill={message.isLiked ? '#ff6b9d' : 'none'} />
-                    <Text style={[styles.actionText, message.isLiked && styles.actionTextLiked]}>
+                    <Heart size={16} color={message.isLiked ? theme.colors.primary : theme.colors.text.disabled} fill={message.isLiked ? theme.colors.primary : 'none'} />
+                    <Text style={[dynamicStyles.actionText, message.isLiked && dynamicStyles.actionTextLiked]}>
                       {message.likes}
                     </Text>
                   </TouchableOpacity>
                   
                   <TouchableOpacity style={styles.messageAction}>
-                    <MessageCircle size={16} color="#666" />
-                    <Text style={styles.actionText}>{message.comments}</Text>
+                    <MessageCircle size={16} color={theme.colors.text.disabled} />
+                    <Text style={dynamicStyles.actionText}>{message.comments}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ))}
           </ScrollView>
 
-          <View style={styles.inputContainer}>
+          <View style={dynamicStyles.inputContainer}>
             <TextInput
-              style={styles.textInput}
+              style={dynamicStyles.textInput}
               placeholder={`#${roomName} に投稿...`}
-              placeholderTextColor="#666"
+              placeholderTextColor={theme.colors.text.secondary}
               value={inputText}
               onChangeText={setInputText}
               multiline
               maxLength={400}
             />
             <TouchableOpacity
-              style={[styles.sendButton, inputText.trim().length === 0 && styles.sendButtonDisabled]}
+              style={[dynamicStyles.sendButton, inputText.trim().length === 0 && dynamicStyles.sendButtonDisabled]}
               onPress={handleSend}
               disabled={inputText.trim().length === 0}
             >
-              <Send size={20} color="#fff" />
+              <Send size={20} color="#ffffff" />
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
 
         {showMembers && (
-          <View style={styles.membersPanel}>
-            <Text style={styles.membersPanelTitle}>メンバー ({mockRoomMembers.length})</Text>
+          <View style={dynamicStyles.membersPanel}>
+            <Text style={dynamicStyles.membersPanelTitle}>メンバー ({mockRoomMembers.length})</Text>
             
             <ScrollView style={styles.membersList} showsVerticalScrollIndicator={false}>
               {onlineMembers.length > 0 && (
                 <View style={styles.membersSection}>
-                  <Text style={styles.membersSectionTitle}>オンライン - {onlineMembers.length}</Text>
+                  <Text style={dynamicStyles.membersSectionTitle}>オンライン - {onlineMembers.length}</Text>
                   {onlineMembers.map((member) => (
                     <TouchableOpacity key={member.id} style={styles.memberItem}>
                       <View style={styles.memberInfo}>
-                        <View style={styles.memberAvatar}>
-                          <User size={20} color="#ff6b9d" />
-                          <View style={styles.memberOnlineIndicator} />
+                        <View style={dynamicStyles.memberAvatar}>
+                          <User size={20} color={theme.colors.primary} />
+                          <View style={dynamicStyles.memberOnlineIndicator} />
                         </View>
                         <View style={styles.memberDetails}>
-                          <Text style={styles.memberName}>{member.name}</Text>
+                          <Text style={dynamicStyles.memberName}>{member.name}</Text>
                           {member.role === 'admin' && (
-                            <Text style={styles.memberRole}>管理者</Text>
+                            <Text style={dynamicStyles.memberRole}>管理者</Text>
                           )}
                         </View>
                       </View>
@@ -267,17 +454,17 @@ export default function RoomScreen() {
               
               {offlineMembers.length > 0 && (
                 <View style={styles.membersSection}>
-                  <Text style={styles.membersSectionTitle}>オフライン - {offlineMembers.length}</Text>
+                  <Text style={dynamicStyles.membersSectionTitle}>オフライン - {offlineMembers.length}</Text>
                   {offlineMembers.map((member) => (
                     <TouchableOpacity key={member.id} style={styles.memberItem}>
                       <View style={styles.memberInfo}>
-                        <View style={styles.memberAvatar}>
-                          <User size={20} color="#666" />
+                        <View style={dynamicStyles.memberAvatar}>
+                          <User size={20} color={theme.colors.primary} />
                         </View>
                         <View style={styles.memberDetails}>
-                          <Text style={[styles.memberName, styles.memberNameOffline]}>{member.name}</Text>
+                          <Text style={[dynamicStyles.memberName, dynamicStyles.memberNameOffline]}>{member.name}</Text>
                           {member.role === 'admin' && (
-                            <Text style={styles.memberRole}>管理者</Text>
+                            <Text style={dynamicStyles.memberRole}>管理者</Text>
                           )}
                         </View>
                       </View>
@@ -294,19 +481,6 @@ export default function RoomScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#121212',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#1a1a1a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
   backButton: {
     padding: 8,
     borderRadius: 8,
@@ -321,21 +495,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
-  roomName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#e0e0e0',
-    marginLeft: 8,
-  },
   roomMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  memberCount: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 4,
-    marginRight: 8,
   },
   onlineIndicator: {
     width: 6,
@@ -343,10 +505,6 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: '#4ade80',
     marginRight: 4,
-  },
-  onlineCount: {
-    fontSize: 12,
-    color: '#4ade80',
   },
   headerActions: {
     flexDirection: 'row',
@@ -361,21 +519,6 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
   },
-  roomDescription: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#1a1a1a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  descriptionText: {
-    fontSize: 14,
-    color: '#aaa',
-    marginLeft: 8,
-    flex: 1,
-    lineHeight: 20,
-  },
   mainContent: {
     flex: 1,
     flexDirection: 'row',
@@ -389,14 +532,6 @@ const styles = StyleSheet.create({
   messagesContent: {
     padding: 16,
   },
-  messageItem: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
   messageHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -407,39 +542,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  authorName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ff6b9d',
-    marginLeft: 6,
-  },
-  messageTime: {
-    fontSize: 12,
-    color: '#666',
-  },
-  messageContent: {
-    fontSize: 16,
-    color: '#e0e0e0',
-    lineHeight: 22,
-    marginBottom: 8,
-  },
   messageTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginBottom: 8,
-  },
-  messageTag: {
-    fontSize: 14,
-    color: '#4a9eff',
-    marginRight: 8,
-    marginBottom: 4,
-  },
-  messageActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
   },
   messageAction: {
     flexDirection: 'row',
@@ -452,75 +558,11 @@ const styles = StyleSheet.create({
     minHeight: 32,
     justifyContent: 'center',
   },
-  messageActionLiked: {
-    backgroundColor: '#ff6b9d20',
-  },
-  actionText: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 4,
-  },
-  actionTextLiked: {
-    color: '#ff6b9d',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    padding: 16,
-    backgroundColor: '#1a1a1a',
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-  },
-  textInput: {
-    flex: 1,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#e0e0e0',
-    maxHeight: 100,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  sendButton: {
-    backgroundColor: '#ff6b9d',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendButtonDisabled: {
-    backgroundColor: '#666',
-  },
-  membersPanel: {
-    width: 200,
-    backgroundColor: '#1a1a1a',
-    borderLeftWidth: 1,
-    borderLeftColor: '#333',
-  },
-  membersPanelTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#e0e0e0',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
   membersList: {
     flex: 1,
   },
   membersSection: {
     padding: 12,
-  },
-  membersSectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#888',
-    marginBottom: 8,
-    textTransform: 'uppercase',
   },
   memberItem: {
     paddingVertical: 8,
@@ -532,41 +574,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  memberAvatar: {
-    position: 'relative',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#2a2a2a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  memberOnlineIndicator: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#4ade80',
-    borderWidth: 2,
-    borderColor: '#1a1a1a',
-  },
   memberDetails: {
     flex: 1,
-  },
-  memberName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#e0e0e0',
-  },
-  memberNameOffline: {
-    color: '#666',
-  },
-  memberRole: {
-    fontSize: 12,
-    color: '#ff6b9d',
-    marginTop: 2,
   },
 });

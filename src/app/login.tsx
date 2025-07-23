@@ -7,11 +7,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { signInWithMaternalBook, clearError } from '../store/slices/authSlice';
 import { FeatureFlagsManager } from '../services/featureFlags';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function LoginScreen() {
   const [maternalBookNumber, setMaternalBookNumber] = useState('');
   const [nickname, setNickname] = useState('');
   const [localError, setLocalError] = useState('');
+  const { theme } = useTheme();
   
   // Refs for input focusing (Web compatibility)
   const maternalBookRef = useRef<TextInput>(null);
@@ -54,6 +56,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     console.log('🚀 ログイン開始');
+    console.log('プラットフォーム:', Platform.OS);
     console.log('Redux有効:', isReduxEnabled);
     console.log('Supabase有効:', featureFlags.isSupabaseEnabled());
     console.log('デバッグモード:', featureFlags.isDebugModeEnabled());
@@ -90,7 +93,7 @@ export default function LoginScreen() {
         
         // Use Redux for login
         const result = await dispatch(signInWithMaternalBook({
-          maternalBookNumber: maternalBookNumber.trim(),
+          mothersHandbookNumber: maternalBookNumber.trim(),
           nickname: nickname.trim(),
         }));
         
@@ -150,14 +153,120 @@ export default function LoginScreen() {
   };
 
   // Web-specific: Add click handler to focus on inputs
-  const handleInputContainerPress = (inputRef: React.RefObject<TextInput>) => {
+  const handleInputContainerPress = (inputRef: React.RefObject<TextInput | null>) => {
     if (Platform.OS === 'web' && inputRef.current) {
       inputRef.current.focus();
     }
   };
 
+  // 動的スタイル
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    title: {
+      fontSize: 36,
+      fontWeight: 'bold',
+      color: theme.colors.primary,
+      marginTop: 16,
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontSize: 16,
+      color: theme.colors.text.secondary,
+      textAlign: 'center',
+    },
+    welcomeTitle: {
+      fontSize: 24,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+      textAlign: 'center',
+      marginBottom: 12,
+    },
+    welcomeText: {
+      fontSize: 16,
+      color: theme.colors.text.secondary,
+      textAlign: 'center',
+      lineHeight: 24,
+    },
+    formTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+      marginBottom: 24,
+      textAlign: 'center',
+    },
+    inputLabel: {
+      fontSize: 16,
+      color: theme.colors.text.primary,
+      marginBottom: 8,
+      fontWeight: '500',
+    },
+    textInput: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 8,
+      padding: 16,
+      fontSize: 16,
+      color: theme.colors.text.primary,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      minHeight: 48,
+    },
+    inputHelper: {
+      fontSize: 12,
+      color: theme.colors.text.disabled,
+      marginTop: 6,
+      lineHeight: 16,
+    },
+    infoSection: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 12,
+      padding: 20,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    infoTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.colors.primary,
+      marginBottom: 12,
+    },
+    infoText: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      lineHeight: 20,
+    },
+    footerText: {
+      fontSize: 12,
+      color: theme.colors.text.disabled,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    versionText: {
+      fontSize: 10,
+      color: theme.colors.text.disabled,
+      textAlign: 'center',
+    },
+    devHelper: {
+      backgroundColor: theme.colors.card,
+      borderRadius: 8,
+      padding: 16,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    devHelperText: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+      lineHeight: 18,
+      marginBottom: 12,
+    },
+  });
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={dynamicStyles.container}>
       <TouchableWithoutFeedback onPress={dismissKeyboard}>
         <ScrollView 
           style={styles.scrollView}
@@ -166,27 +275,27 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-        <Heart size={48} color="#ff6b9d" fill="#ff6b9d" />
-        <Text style={styles.title}>Mamaspace</Text>
-        <Text style={styles.subtitle}>ママの共感コミュニティ</Text>
+        <Heart size={48} color={theme.colors.primary} fill={theme.colors.primary} />
+        <Text style={dynamicStyles.title}>Mamapace</Text>
+        <Text style={dynamicStyles.subtitle}>ママの共感コミュニティ</Text>
       </View>
 
       <View style={styles.welcomeSection}>
-        <Text style={styles.welcomeTitle}>おかえりなさい</Text>
-        <Text style={styles.welcomeText}>
+        <Text style={dynamicStyles.welcomeTitle}>おかえりなさい</Text>
+        <Text style={dynamicStyles.welcomeText}>
           深夜でも早朝でも、いつでもママたちがあなたを待っています。
           今日も一日お疲れさまでした。
         </Text>
       </View>
 
       <View style={styles.formSection}>
-        <Text style={styles.formTitle}>匿名ログイン</Text>
+        <Text style={dynamicStyles.formTitle}>匿名ログイン</Text>
         
         {/* Development Mode Helper */}
         {featureFlags.isDebugModeEnabled() && (
-          <View style={styles.devHelper}>
+          <View style={dynamicStyles.devHelper}>
             <Text style={styles.devHelperTitle}>🚀 開発モード - テスト用ログイン</Text>
-            <Text style={styles.devHelperText}>
+            <Text style={dynamicStyles.devHelperText}>
               母子手帳番号: 任意の8文字以上{'\n'}
               ニックネーム: 任意の2-20文字{'\n'}
               例: 12345678, テストユーザー
@@ -205,15 +314,15 @@ export default function LoginScreen() {
         
         <TouchableWithoutFeedback onPress={() => handleInputContainerPress(maternalBookRef)}>
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>母子手帳番号</Text>
+            <Text style={dynamicStyles.inputLabel}>母子手帳番号</Text>
           <TextInput
             ref={maternalBookRef}
-            style={[styles.textInput, Platform.OS === 'web' && styles.webTextInput]}
+            style={dynamicStyles.textInput}
             placeholder="例: 1234-5678-901"
-            placeholderTextColor="#666"
+            placeholderTextColor={theme.colors.text.disabled}
             value={maternalBookNumber}
             onChangeText={setMaternalBookNumber}
-            keyboardType={Platform.OS === 'web' ? 'default' : 'numeric'}
+            keyboardType="default"
             maxLength={15}
             returnKeyType="next"
             onSubmitEditing={() => {
@@ -222,12 +331,12 @@ export default function LoginScreen() {
               }
             }}
             blurOnSubmit={false}
-            autoComplete={Platform.OS === 'web' ? 'off' : 'none'}
+            autoComplete="off"
             autoCorrect={false}
             autoCapitalize="none"
             selectTextOnFocus={Platform.OS === 'web'}
           />
-            <Text style={styles.inputHelper}>
+            <Text style={dynamicStyles.inputHelper}>
               自治体発行の母子手帳に記載されている番号を入力してください
             </Text>
           </View>
@@ -235,24 +344,24 @@ export default function LoginScreen() {
 
         <TouchableWithoutFeedback onPress={() => handleInputContainerPress(nicknameRef)}>
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>ニックネーム</Text>
+            <Text style={dynamicStyles.inputLabel}>ニックネーム</Text>
           <TextInput
             ref={nicknameRef}
-            style={[styles.textInput, Platform.OS === 'web' && styles.webTextInput]}
+            style={dynamicStyles.textInput}
             placeholder="例: みさき"
-            placeholderTextColor="#666"
+            placeholderTextColor={theme.colors.text.disabled}
             value={nickname}
             onChangeText={setNickname}
             maxLength={20}
             returnKeyType="done"
             onSubmitEditing={handleLogin}
             blurOnSubmit={true}
-            autoComplete={Platform.OS === 'web' ? 'off' : 'none'}
+            autoComplete="off"
             autoCorrect={false}
             autoCapitalize="words"
             selectTextOnFocus={Platform.OS === 'web'}
           />
-            <Text style={styles.inputHelper}>
+            <Text style={dynamicStyles.inputHelper}>
               コミュニティ内で表示される名前（2-20文字）
             </Text>
           </View>
@@ -283,9 +392,9 @@ export default function LoginScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.infoSection}>
-        <Text style={styles.infoTitle}>Mamapaceについて</Text>
-        <Text style={styles.infoText}>
+      <View style={dynamicStyles.infoSection}>
+        <Text style={dynamicStyles.infoTitle}>Mamapaceについて</Text>
+        <Text style={dynamicStyles.infoText}>
           • 完全匿名でご利用いただけます{'\n'}
           • メールアドレスや電話番号は不要です{'\n'}
           • 24時間いつでも安心して投稿できます{'\n'}
@@ -295,10 +404,10 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>
+        <Text style={dynamicStyles.footerText}>
           プライバシーポリシー | 利用規約 | お問い合わせ
         </Text>
-        <Text style={styles.versionText}>
+        <Text style={dynamicStyles.versionText}>
           Version 1.0.0 | Made with ♡ for moms
         </Text>
           </View>
@@ -452,13 +561,6 @@ const styles = StyleSheet.create({
   },
   loginButtonDisabled: {
     opacity: 0.7,
-  },
-  // Web-specific styles
-  webTextInput: {
-    outlineStyle: 'none', // Remove default web outline
-    border: 'none', // Remove default web border
-    boxSizing: 'border-box',
-    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
   // Development helper styles
   devHelper: {

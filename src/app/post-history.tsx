@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } 
 import { ArrowLeft, Heart, MessageCircle, Calendar, Clock } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface MyPost {
   id: string;
@@ -63,6 +64,7 @@ const mockMyPosts: MyPost[] = [
 ];
 
 export default function PostHistoryScreen() {
+  const { theme } = useTheme();
   const [posts, setPosts] = useState<MyPost[]>(mockMyPosts);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -97,11 +99,166 @@ export default function PostHistoryScreen() {
   const totalLikes = posts.reduce((sum, post) => sum + post.likes, 0);
   const totalComments = posts.reduce((sum, post) => sum + post.comments, 0);
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    backButton: {
+      padding: 8,
+      borderRadius: 8,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+    },
+    headerRight: {
+      width: 40,
+    },
+    statsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      padding: 20,
+      backgroundColor: theme.colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    statItem: {
+      alignItems: 'center',
+    },
+    statNumber: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: theme.colors.primary,
+      marginBottom: 4,
+    },
+    statLabel: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+    },
+    content: {
+      flex: 1,
+    },
+    emptyState: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 40,
+    },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+      marginTop: 16,
+      marginBottom: 8,
+    },
+    emptyDescription: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    postContainer: {
+      backgroundColor: theme.colors.surface,
+      margin: 10,
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    postHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    postDate: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    dateText: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      marginLeft: 6,
+    },
+    postTime: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    timeText: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      marginLeft: 6,
+    },
+    postContent: {
+      fontSize: 16,
+      color: theme.colors.text.primary,
+      lineHeight: 24,
+      marginBottom: 12,
+    },
+    tagsContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginBottom: 12,
+    },
+    tag: {
+      fontSize: 14,
+      color: '#4a9eff',
+      marginRight: 8,
+      marginBottom: 4,
+    },
+    aiResponseContainer: {
+      backgroundColor: theme.colors.card,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 12,
+      borderLeftWidth: 3,
+      borderLeftColor: theme.colors.primary,
+    },
+    aiResponseLabel: {
+      fontSize: 12,
+      color: theme.colors.primary,
+      fontWeight: '500',
+      marginBottom: 4,
+    },
+    aiResponseText: {
+      fontSize: 14,
+      color: theme.colors.text.primary,
+      lineHeight: 20,
+    },
+    postStats: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    statGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginRight: 20,
+    },
+    statText: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      marginLeft: 6,
+    },
+  });
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <ArrowLeft size={24} color="#ff6b9d" />
+          <ArrowLeft size={24} color={theme.colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>投稿履歴</Text>
         <Text style={styles.headerTitle}>ポスト履歴</Text>
@@ -126,12 +283,12 @@ export default function PostHistoryScreen() {
       <ScrollView
         style={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff6b9d" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
         }
       >
         {posts.length === 0 ? (
           <View style={styles.emptyState}>
-            <MessageCircle size={48} color="#666" />
+            <MessageCircle size={48} color={theme.colors.text.disabled} />
             <Text style={styles.emptyTitle}>ポストがありません</Text>
             <Text style={styles.emptyDescription}>
               最初のポストを作成してみませんか？
@@ -142,11 +299,11 @@ export default function PostHistoryScreen() {
             <View key={post.id} style={styles.postContainer}>
               <View style={styles.postHeader}>
                 <View style={styles.postDate}>
-                  <Calendar size={16} color="#666" />
+                  <Calendar size={16} color={theme.colors.text.disabled} />
                   <Text style={styles.dateText}>{formatDate(post.timestamp)}</Text>
                 </View>
                 <View style={styles.postTime}>
-                  <Clock size={16} color="#666" />
+                  <Clock size={16} color={theme.colors.text.disabled} />
                   <Text style={styles.timeText}>{post.timestamp.split(' ')[1]}</Text>
                 </View>
               </View>
@@ -168,7 +325,7 @@ export default function PostHistoryScreen() {
               
               <View style={styles.postStats}>
                 <View style={styles.statGroup}>
-                  <Heart size={16} color="#ff6b9d" />
+                  <Heart size={16} color={theme.colors.primary} />
                   <Text style={styles.statText}>{post.likes} 共感</Text>
                 </View>
                 <View style={styles.statGroup}>
@@ -184,157 +341,3 @@ export default function PostHistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#121212',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#e0e0e0',
-  },
-  headerRight: {
-    width: 40,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 20,
-    backgroundColor: '#1a1a1a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ff6b9d',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#888',
-  },
-  content: {
-    flex: 1,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#e0e0e0',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyDescription: {
-    fontSize: 14,
-    color: '#888',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  postContainer: {
-    backgroundColor: '#1a1a1a',
-    margin: 10,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  postHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  postDate: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dateText: {
-    fontSize: 14,
-    color: '#888',
-    marginLeft: 6,
-  },
-  postTime: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timeText: {
-    fontSize: 14,
-    color: '#888',
-    marginLeft: 6,
-  },
-  postContent: {
-    fontSize: 16,
-    color: '#e0e0e0',
-    lineHeight: 24,
-    marginBottom: 12,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
-  },
-  tag: {
-    fontSize: 14,
-    color: '#4a9eff',
-    marginRight: 8,
-    marginBottom: 4,
-  },
-  aiResponseContainer: {
-    backgroundColor: '#2a2a2a',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: '#ff6b9d',
-  },
-  aiResponseLabel: {
-    fontSize: 12,
-    color: '#ff6b9d',
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  aiResponseText: {
-    fontSize: 14,
-    color: '#e0e0e0',
-    lineHeight: 20,
-  },
-  postStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-  },
-  statGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  statText: {
-    fontSize: 14,
-    color: '#888',
-    marginLeft: 6,
-  },
-});

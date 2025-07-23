@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import { MessageCircle, Hash, Users, Plus, X, Search } from 'lucide-react-native';
 import { router } from 'expo-router';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface SidebarProps {
     visible: boolean;
@@ -27,6 +28,7 @@ const mockRooms: Room[] = [
 
 const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
     const [rooms, setRooms] = useState<Room[]>(mockRooms);
+    const { theme } = useTheme();
 
     const joinedRooms = rooms.filter(room => room.isJoined);
     const availableRooms = rooms.filter(room => !room.isJoined);
@@ -53,6 +55,115 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
         onClose();
     };
 
+    // 動的スタイル
+    const dynamicStyles = StyleSheet.create({
+        sidebar: {
+            width: '85%',
+            height: '100%',
+            backgroundColor: theme.colors.surface,
+            borderRightWidth: 1,
+            borderRightColor: theme.colors.border,
+        },
+        header: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: 20,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.border,
+            paddingTop: 60,
+        },
+        headerTitle: {
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: theme.colors.primary,
+        },
+        sectionTitle: {
+            fontSize: 18,
+            fontWeight: '600',
+            color: theme.colors.text.primary,
+            marginLeft: 8,
+        },
+        sectionDescription: {
+            fontSize: 14,
+            color: theme.colors.text.secondary,
+            marginLeft: 28,
+            marginBottom: 12,
+        },
+        emptyText: {
+            fontSize: 14,
+            color: theme.colors.text.disabled,
+            fontStyle: 'italic',
+            marginLeft: 28,
+        },
+        roomItem: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            borderRadius: 8,
+            backgroundColor: theme.colors.card,
+            marginBottom: 4,
+            minHeight: 48,
+        },
+        roomName: {
+            fontSize: 16,
+            color: theme.colors.text.primary,
+            marginLeft: 8,
+        },
+        memberCount: {
+            fontSize: 12,
+            color: theme.colors.text.disabled,
+            marginLeft: 4,
+            marginRight: 8,
+        },
+        createRoomDescription: {
+            fontSize: 12,
+            color: theme.colors.text.secondary,
+            lineHeight: 16,
+            paddingHorizontal: 4,
+        },
+        footer: {
+            padding: 16,
+            borderTopWidth: 1,
+            borderTopColor: theme.colors.border,
+        },
+        searchButton: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: theme.colors.card,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 8,
+            justifyContent: 'center',
+        },
+        searchText: {
+            fontSize: 16,
+            color: theme.colors.text.secondary,
+            marginLeft: 8,
+        },
+        specialRoomDescription: {
+            fontSize: 12,
+            color: theme.colors.text.secondary,
+            lineHeight: 16,
+            paddingHorizontal: 4,
+        },
+        menuItem: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderTopWidth: 1,
+            borderTopColor: theme.colors.border,
+        },
+        menuText: {
+            fontSize: 16,
+            color: theme.colors.text.primary,
+            marginLeft: 8,
+        },
+    });
+
     return (
         <Modal
             animationType="slide"
@@ -61,11 +172,11 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
             onRequestClose={onClose}
         >
             <View style={styles.modalOverlay}>
-                <View style={styles.sidebar}>
-                    <View style={styles.header}>
-                        <Text style={styles.headerTitle}>Mamapace</Text>
+                <View style={dynamicStyles.sidebar}>
+                    <View style={dynamicStyles.header}>
+                        <Text style={dynamicStyles.headerTitle}>Mamapace</Text>
                         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                            <X size={24} color="#ff6b9d" />
+                            <X size={24} color={theme.colors.primary} />
                         </TouchableOpacity>
                     </View>
 
@@ -82,7 +193,7 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
                                 <MessageCircle size={20} color="#fff" />
                                 <Text style={styles.specialRoomText}>愚痴もたまにはさ。</Text>
                             </TouchableOpacity>
-                            <Text style={styles.specialRoomDescription}>
+                            <Text style={dynamicStyles.specialRoomDescription}>
                                 匿名で愚痴をポスト。1時間で自動削除されます
                             </Text>
                         </View>
@@ -94,9 +205,9 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
                                 onPress={navigateToDirectMessages}
                             >
                                 <MessageCircle size={20} color="#4a9eff" />
-                                <Text style={styles.sectionTitle}>チャット</Text>
+                                <Text style={dynamicStyles.sectionTitle}>チャット</Text>
                             </TouchableOpacity>
-                            <Text style={styles.sectionDescription}>
+                            <Text style={dynamicStyles.sectionDescription}>
                                 他のママと直接やり取りができます
                             </Text>
                         </View>
@@ -104,27 +215,27 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
                         {/* Joined Rooms Section */}
                         <View style={styles.section}>
                             <View style={styles.sectionHeader}>
-                                <Hash size={20} color="#ff6b9d" />
-                                <Text style={styles.sectionTitle}>参加しているルーム</Text>
+                                <Hash size={20} color={theme.colors.primary} />
+                                <Text style={dynamicStyles.sectionTitle}>参加しているルーム</Text>
                             </View>
 
                             {joinedRooms.length === 0 ? (
-                                <Text style={styles.emptyText}>参加しているルームはありません</Text>
+                                <Text style={dynamicStyles.emptyText}>参加しているルームはありません</Text>
                             ) : (
                                 joinedRooms.map((room) => (
                                     <TouchableOpacity
                                         key={room.id}
-                                        style={styles.roomItem}
+                                        style={dynamicStyles.roomItem}
                                         onPress={() => navigateToRoom(room.id)}
                                     >
                                         <View style={styles.roomInfo}>
-                                            <Hash size={16} color="#ff6b9d" />
-                                            <Text style={styles.roomName}>{room.name}</Text>
+                                            <Hash size={16} color={theme.colors.primary} />
+                                            <Text style={dynamicStyles.roomName}>{room.name}</Text>
                                             {room.isActive && <View style={styles.activeDot} />}
                                         </View>
                                         <View style={styles.roomMeta}>
-                                            <Users size={14} color="#666" />
-                                            <Text style={styles.memberCount}>{room.memberCount}</Text>
+                                            <Users size={14} color={theme.colors.text.disabled} />
+                                            <Text style={dynamicStyles.memberCount}>{room.memberCount}</Text>
                                         </View>
                                     </TouchableOpacity>
                                 ))
@@ -135,13 +246,13 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
                         <View style={styles.section}>
                             <View style={styles.sectionHeader}>
                                 <Users size={20} color="#4a9eff" />
-                                <Text style={styles.sectionTitle}>ルーム</Text>
+                                <Text style={dynamicStyles.sectionTitle}>ルーム</Text>
                             </View>
 
                             {availableRooms.map((room) => (
                                 <TouchableOpacity
                                     key={room.id}
-                                    style={styles.roomItem}
+                                    style={dynamicStyles.roomItem}
                                     onPress={() => {
                                         router.push({
                                             pathname: '/room',
@@ -151,18 +262,18 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
                                     }}
                                 >
                                     <View style={styles.roomInfo}>
-                                        <Hash size={16} color="#666" />
-                                        <Text style={styles.roomName}>{room.name}</Text>
+                                        <Hash size={16} color={theme.colors.text.disabled} />
+                                        <Text style={dynamicStyles.roomName}>{room.name}</Text>
                                         {room.isActive && <View style={styles.activeDot} />}
                                     </View>
                                     <View style={styles.roomMeta}>
-                                        <Users size={14} color="#666" />
-                                        <Text style={styles.memberCount}>{room.memberCount}</Text>
+                                        <Users size={14} color={theme.colors.text.disabled} />
+                                        <Text style={dynamicStyles.memberCount}>{room.memberCount}</Text>
                                         <TouchableOpacity
                                             style={styles.joinButton}
                                             onPress={() => toggleRoomJoin(room.id)}
                                         >
-                                            <Plus size={16} color="#ff6b9d" />
+                                            <Plus size={16} color={theme.colors.primary} />
                                         </TouchableOpacity>
                                     </View>
                                 </TouchableOpacity>
@@ -175,28 +286,18 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
                                 <Plus size={20} color="#fff" />
                                 <Text style={styles.createRoomText}>新しいルームを作成</Text>
                             </TouchableOpacity>
-                            <Text style={styles.createRoomDescription}>
+                            <Text style={dynamicStyles.createRoomDescription}>
                                 同じ悩みを持つママたちのためのルームを作成できます
                             </Text>
                         </View>
                     </ScrollView>
 
-                    <View style={styles.footer}>
-                        <TouchableOpacity style={styles.searchButton}>
-                            <Search size={20} color="#666" />
-                            <Text style={styles.searchText}>ルームを検索</Text>
+                    <View style={dynamicStyles.footer}>
+                        <TouchableOpacity style={dynamicStyles.searchButton}>
+                            <Search size={20} color={theme.colors.text.secondary} />
+                            <Text style={dynamicStyles.searchText}>ルームを検索</Text>
                         </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                        style={styles.menuItem}
-                        onPress={() => {
-                            router.push('/chat-list');
-                            onClose();
-                        }}
-                    >
-                        <MessageCircle size={16} color="#4a9eff" />
-                        <Text style={styles.menuText}>チャット一覧</Text>
-                    </TouchableOpacity>
                 </View>
             </View>
         </Modal>
