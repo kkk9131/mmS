@@ -72,10 +72,15 @@ export default function PostScreen() {
   }, []);
 
   const handlePost = async () => {
-    console.log('📨 === handlePost関数開始 ===');
-    console.log('投稿テキスト:', JSON.stringify(postText));
-    console.log('文字数:', postText.trim().length);
-    console.log('現在の状態:', { isOverLimit, isPosting, currentUser: !!currentUser });
+    console.log('🚀🚀🚀 === handlePost関数開始 === 🚀🚀🚀');
+    console.log('📨 投稿テキスト:', JSON.stringify(postText));
+    console.log('📊 文字数:', postText.trim().length);
+    console.log('📋 現在の状態:', { isOverLimit, isPosting, currentUser: !!currentUser });
+    
+    // 即座にアラートでも確認
+    if (Platform.OS === 'web') {
+      console.log('🌐 Web環境での実行を確認');
+    }
     
     if (postText.trim().length === 0) {
       console.log('❌ 投稿内容が空です');
@@ -122,8 +127,10 @@ export default function PostScreen() {
     
     // 投稿処理の実行
     const executePost = async () => {
-      console.log('🚀 投稿処理開始');
+      console.log('🔥🔥🔥 === executePost関数開始 === 🔥🔥🔥');
+      console.log('🎯 setIsPosting(true)を実行します');
       setIsPosting(true);
+      console.log('✅ setIsPosting(true)完了');
       try {
         console.log('📨 投稿作成開始');
         console.log('=================== 投稿作成処理 ===================');
@@ -436,7 +443,10 @@ export default function PostScreen() {
             // Web用のDOMイベント - 型アサーションで回避
             {...(Platform.OS === 'web' && {
               onClick: () => {
-                console.log('👆 Web View onClickイベント');
+                console.log('🚨🚨🚨 === Web View onClickイベント === 🚨🚨🚨');
+                console.warn('CLICK EVENT TRIGGERED!!!'); // warn も使用
+                console.error('BUTTON CLICKED!!!'); // error も使用
+                
                 console.log('状態:', { isOverLimit, isPosting, postText: postText.trim().length });
                 console.log('条件チェック:', {
                   '!isOverLimit': !isOverLimit,
@@ -446,6 +456,7 @@ export default function PostScreen() {
                 
                 if (!isOverLimit && !isPosting) {
                   console.log('✅ 条件OK - handlePostを呼び出します');
+                  console.warn('ABOUT TO CALL handlePost()!!!');
                   try {
                     handlePost();
                     console.log('✅ handlePost呼び出し完了');
