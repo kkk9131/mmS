@@ -512,6 +512,12 @@ export class PostsService {
         const state = store.getState();
         const session = state.auth?.session;
         
+        console.log('=================== カスタム認証状態確認 ===================');
+        console.log('🔍 Session exists:', !!session);
+        console.log('🔍 Session details:', session);
+        console.log('🔍 Access token exists:', !!(session && session.access_token));
+        console.log('==========================================================');
+        
         if (session && session.access_token) {
           console.log('🔧 カスタム認証セッションを設定中...');
           try {
@@ -523,12 +529,19 @@ export class PostsService {
             
             if (setSessionError) {
               console.warn('⚠️ セッション設定エラー:', setSessionError);
+              console.warn('⚠️ セッション設定エラー詳細:', JSON.stringify(setSessionError, null, 2));
             } else {
               console.log('✅ Supabaseセッション設定完了');
+              
+              // セッション設定後の状態を確認
+              const { data: currentSession } = await client.auth.getSession();
+              console.log('🔍 設定後のSupabaseセッション:', currentSession);
             }
           } catch (sessionSetError) {
             console.warn('⚠️ セッション設定で例外:', sessionSetError);
           }
+        } else {
+          console.warn('⚠️ カスタム認証セッションまたはアクセストークンが見つかりません');
         }
         
         const postData: PostInsert = {
@@ -541,9 +554,27 @@ export class PostsService {
         };
 
         console.log('🔍 Creating post with data:', postData);
+        
+        // Supabase接続テストを追加
+        console.log('=================== Supabase接続テスト ===================');
+        try {
+          const { data: testData, error: testError } = await client
+            .from('users')
+            .select('id')
+            .limit(1);
+          
+          if (testError) {
+            console.error('❌ Supabase接続テストエラー:', testError);
+          } else {
+            console.log('✅ Supabase接続テスト成功:', testData);
+          }
+        } catch (testConnectionError) {
+          console.error('❌ Supabase接続テスト例外:', testConnectionError);
+        }
+        console.log('=======================================================');
 
         // 投稿を作成 - カスタム認証の場合はRPCファンクションを使用
-        console.log('💡 RPC関数を使用して投稿を作成します');
+        console.log('💡 投稿作成処理を開始します');
         
         // まず通常の方法を試す
         let post, error;
@@ -586,14 +617,22 @@ export class PostsService {
         }
 
       if (error) {
-        console.error('Supabase post creation error:', error);
-        console.error('Error details:', {
+        console.error('=================== Supabase投稿作成エラー詳細 ===================');
+        console.error('❌ Supabase post creation error:', error);
+        console.error('❌ Error type:', typeof error);
+        console.error('❌ Error constructor:', error.constructor.name);
+        console.error('❌ Error details:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
-          code: error.code
+          code: error.code,
+          status: error.status,
+          statusCode: error.statusCode,
+          full_error: error
         });
-        throw new Error(`Failed to create post: ${error.message}`);
+        console.error('❌ Error JSON:', JSON.stringify(error, null, 2));
+        console.error('===============================================================');
+        throw new Error(`Failed to create post: ${error.message || 'Unknown Supabase error'}`);
       }
 
       console.log('✅ Post created successfully:', post);
