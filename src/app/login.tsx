@@ -53,6 +53,11 @@ export default function LoginScreen() {
   }, [auth.isAuthenticated, auth.isLoading]);
 
   const handleLogin = async () => {
+    console.log('🚀 ログイン開始');
+    console.log('Redux有効:', isReduxEnabled);
+    console.log('Supabase有効:', featureFlags.isSupabaseEnabled());
+    console.log('デバッグモード:', featureFlags.isDebugModeEnabled());
+    
     // Input validation
     if (!maternalBookNumber.trim()) {
       setLocalError('母子手帳番号を入力してください');
@@ -76,27 +81,28 @@ export default function LoginScreen() {
 
     // Clear any previous errors
     setLocalError('');
+    console.log('✅ バリデーション完了');
     
     try {
       if (isReduxEnabled) {
+        console.log('🔄 Redux認証開始');
+        console.log('認証情報:', { maternalBookNumber: maternalBookNumber.trim(), nickname: nickname.trim() });
+        
         // Use Redux for login
         const result = await dispatch(signInWithMaternalBook({
           maternalBookNumber: maternalBookNumber.trim(),
           nickname: nickname.trim(),
         }));
         
+        console.log('📊 Redux結果:', result);
+        
         if (signInWithMaternalBook.fulfilled.match(result)) {
-          if (featureFlags.isDebugModeEnabled()) {
-            console.log('Redux login successful', result.payload);
-          }
+          console.log('✅ Redux login successful', result.payload);
           // Navigation is handled by useEffect when auth.isAuthenticated changes
         } else {
-          // Error handling is done in Redux state
-          if (featureFlags.isDebugModeEnabled()) {
-            console.error('Redux login failed:', result.payload);
-            console.error('Redux error type:', result.type);
-            console.error('Full result:', result);
-          }
+          console.error('❌ Redux login failed:', result.payload);
+          console.error('エラータイプ:', result.type);
+          console.error('完全な結果:', result);
           
           // Set local error if Redux error is not displayed
           if (!auth.error) {
@@ -104,19 +110,20 @@ export default function LoginScreen() {
           }
         }
       } else {
+        console.log('🔄 Context認証開始');
+        
         // Fallback to AuthContext
         await contextLogin(maternalBookNumber.trim(), nickname.trim());
 
-        if (featureFlags.isDebugModeEnabled()) {
-          console.log('Context login successful');
-        }
-
+        console.log('✅ Context login successful');
         router.replace('/(tabs)');
       }
     } catch (error: any) {
-      if (featureFlags.isDebugModeEnabled()) {
-        console.error('Login failed:', error);
-      }
+      console.error('💥 予期しないエラー:', error);
+      console.error('エラーの型:', typeof error);
+      console.error('エラーメッセージ:', error?.message);
+      console.error('エラースタック:', error?.stack);
+      console.error('エラーオブジェクト全体:', error);
 
       // For non-Redux errors, set local error
       if (!isReduxEnabled) {
@@ -127,8 +134,11 @@ export default function LoginScreen() {
         } else if (error.type === 'timeout') {
           setLocalError('接続がタイムアウトしました。もう一度お試しください。');
         } else {
-          setLocalError('ログインに失敗しました。もう一度お試しください。');
+          setLocalError(`予期しないエラーが発生しました: ${error?.message || error}`);
         }
+      } else {
+        // Redux使用時でもローカルエラーを設定
+        setLocalError(`予期しないエラーが発生しました: ${error?.message || error}`);
       }
     }
   };

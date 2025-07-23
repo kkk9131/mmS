@@ -45,10 +45,16 @@ export class AuthService {
 
   public async login(data: LoginRequest): Promise<LoginResponse> {
     try {
+      console.log('🔐 AuthService.login 開始');
+      console.log('API有効:', this.featureFlags.isApiEnabled());
+      console.log('ログインデータ:', data);
+      
       if (!this.featureFlags.isApiEnabled()) {
+        console.log('📱 モック認証を使用');
         return this.mockLogin(data);
       }
 
+      console.log('🌐 実際のAPI認証を使用');
       const response = await this.httpClient.post<LoginResponse>('/auth/login', data);
       
       if (response.data.accessToken && response.data.refreshToken) {
@@ -58,15 +64,20 @@ export class AuthService {
 
       return response.data;
     } catch (error) {
-      if (this.featureFlags.isDebugModeEnabled()) {
-        console.error('Login error:', error);
-      }
+      console.error('💥 AuthService.login エラー:', error);
+      console.error('エラータイプ:', typeof error);
+      console.error('エラーメッセージ:', (error as any)?.message);
       throw error;
     }
   }
 
   private async mockLogin(data: LoginRequest): Promise<LoginResponse> {
+    console.log('🎭 mockLogin 開始');
+    console.log('遅延開始:', new Date().toISOString());
+    
     await this.delay(1000);
+    
+    console.log('遅延完了:', new Date().toISOString());
     
     const mockResponse: LoginResponse = {
       accessToken: 'mock_access_token_' + Date.now(),
@@ -78,9 +89,22 @@ export class AuthService {
       },
     };
 
-    await this.saveTokens(mockResponse.accessToken, mockResponse.refreshToken);
-    await this.saveUser(mockResponse.user);
+    console.log('📦 モックレスポンス作成:', mockResponse);
+    
+    try {
+      console.log('💾 トークン保存開始');
+      await this.saveTokens(mockResponse.accessToken, mockResponse.refreshToken);
+      console.log('✅ トークン保存完了');
+      
+      console.log('👤 ユーザー保存開始');
+      await this.saveUser(mockResponse.user);
+      console.log('✅ ユーザー保存完了');
+    } catch (error) {
+      console.error('💥 保存エラー:', error);
+      throw error;
+    }
 
+    console.log('🎉 mockLogin 完了');
     return mockResponse;
   }
 
