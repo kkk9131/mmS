@@ -81,19 +81,26 @@ export default function LoginScreen() {
       if (isReduxEnabled) {
         // Use Redux for login
         const result = await dispatch(signInWithMaternalBook({
-          mothersHandbookNumber: maternalBookNumber.trim(),
+          maternalBookNumber: maternalBookNumber.trim(),
           nickname: nickname.trim(),
         }));
         
         if (signInWithMaternalBook.fulfilled.match(result)) {
           if (featureFlags.isDebugModeEnabled()) {
-            console.log('Redux login successful');
+            console.log('Redux login successful', result.payload);
           }
           // Navigation is handled by useEffect when auth.isAuthenticated changes
         } else {
           // Error handling is done in Redux state
           if (featureFlags.isDebugModeEnabled()) {
             console.error('Redux login failed:', result.payload);
+            console.error('Redux error type:', result.type);
+            console.error('Full result:', result);
+          }
+          
+          // Set local error if Redux error is not displayed
+          if (!auth.error) {
+            setLocalError(typeof result.payload === 'string' ? result.payload : 'ログインに失敗しました');
           }
         }
       } else {

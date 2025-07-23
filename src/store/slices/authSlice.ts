@@ -2,6 +2,8 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { User as DatabaseUser } from '../../types/supabase';
 import { supabaseAuth, MaternalBookCredentials, AuthResult } from '../../services/supabase/auth';
+import { AuthService } from '../../services/api/auth';
+import { FeatureFlagsManager } from '../../services/featureFlags';
 
 // Helper function to convert auth errors to user-friendly messages
 const getAuthErrorMessage = (error: AuthError): string => {
@@ -50,22 +52,67 @@ export const signInWithMaternalBook = createAsyncThunk(
   'auth/signInWithMaternalBook',
   async (credentials: MaternalBookCredentials, { rejectWithValue }) => {
     try {
-      const result: AuthResult = await supabaseAuth.signInWithMaternalBook(credentials);
+      const featureFlags = FeatureFlagsManager.getInstance();
       
-      if (result.error) {
-        // Map Supabase errors to user-friendly messages
-        const errorMessage = getAuthErrorMessage(result.error);
-        return rejectWithValue(errorMessage);
-      }
+      if (featureFlags.isSupabaseEnabled()) {
+        // Use Supabase authentication
+        const result: AuthResult = await supabaseAuth.signInWithMaternalBook(credentials);
+        
+        if (result.error) {
+          // Map Supabase errors to user-friendly messages
+          const errorMessage = getAuthErrorMessage(result.error);
+          return rejectWithValue(errorMessage);
+        }
 
-      // Get user profile
-      const profile = await supabaseAuth.getUserProfile();
-      
-      return {
-        user: result.user,
-        session: result.session,
-        profile,
-      };
+        // Get user profile
+        const profile = await supabaseAuth.getUserProfile();
+        
+        return {
+          user: result.user,
+          session: result.session,
+          profile,
+        };
+      } else {
+        // Use mock authentication via AuthService
+        const authService = AuthService.getInstance();
+        const mockCredentials = {
+          maternalBookNumber: credentials.mothersHandbookNumber || credentials.maternalBookNumber,
+          nickname: credentials.nickname,
+        };
+        
+        const result = await authService.login(mockCredentials);
+        
+        // Convert mock response to expected format
+        return {
+          user: {
+            id: result.user.id,
+            email: `${result.user.id}@mock.local`,
+            app_metadata: {},
+            user_metadata: { nickname: result.user.nickname },
+            aud: 'authenticated',
+            created_at: result.user.createdAt,
+          } as User,
+          session: {
+            access_token: result.accessToken,
+            refresh_token: result.refreshToken,
+            expires_in: 3600,
+            token_type: 'bearer',
+            user: {
+              id: result.user.id,
+              email: `${result.user.id}@mock.local`,
+              app_metadata: {},
+              user_metadata: { nickname: result.user.nickname },
+              aud: 'authenticated',
+              created_at: result.user.createdAt,
+            } as User,
+          } as Session,
+          profile: {
+            id: result.user.id,
+            nickname: result.user.nickname,
+            created_at: result.user.createdAt,
+          },
+        };
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '予期しないエラーが発生しました';
       return rejectWithValue(errorMessage);
@@ -77,10 +124,18 @@ export const signOut = createAsyncThunk(
   'auth/signOut',
   async (_, { rejectWithValue }) => {
     try {
-      const { error } = await supabaseAuth.signOut();
+      const featureFlags = FeatureFlagsManager.getInstance();
       
-      if (error) {
-        return rejectWithValue(error.message);
+      if (featureFlags.isSupabaseEnabled()) {
+        const { error } = await supabaseAuth.signOut();
+        
+        if (error) {
+          return rejectWithValue(error.message);
+        }
+      } else {
+        // Use mock authentication logout
+        const authService = AuthService.getInstance();
+        await authService.logout();
       }
       
       return true;
@@ -94,15 +149,66 @@ export const getCurrentUser = createAsyncThunk(
   'auth/getCurrentUser',
   async (_, { rejectWithValue }) => {
     try {
-      const user = await supabaseAuth.getCurrentUser();
-      const session = await supabaseAuth.getCurrentSession();
-      const profile = user ? await supabaseAuth.getUserProfile() : null;
+      const featureFlags = FeatureFlagsManager.getInstance();
       
-      return {
-        user,
-        session,
-        profile,
-      };
+      if (featureFlags.isSupabaseEnabled()) {
+        const user = await supabaseAuth.getCurrentUser();
+        const session = await supabaseAuth.getCurrentSession();
+        const profile = user ? await supabaseAuth.getUserProfile() : null;
+        
+        return {
+          user,
+          session,
+          profile,
+        };
+      } else {
+        // Use mock authentication
+        const authService = AuthService.getInstance();
+        const hasValidToken = await authService.checkAuthStatus();
+        
+        if (hasValidToken) {
+          const storedUser = await authService.getStoredUser();
+          const tokens = await authService.getStoredTokens();
+          
+          if (storedUser && tokens) {
+            return {
+              user: {
+                id: storedUser.id,
+                email: `${storedUser.id}@mock.local`,
+                app_metadata: {},
+                user_metadata: { nickname: storedUser.nickname },
+                aud: 'authenticated',
+                created_at: storedUser.createdAt,
+              } as User,
+              session: {
+                access_token: tokens.accessToken,
+                refresh_token: tokens.refreshToken,
+                expires_in: 3600,
+                token_type: 'bearer',
+                user: {
+                  id: storedUser.id,
+                  email: `${storedUser.id}@mock.local`,
+                  app_metadata: {},
+                  user_metadata: { nickname: storedUser.nickname },
+                  aud: 'authenticated',
+                  created_at: storedUser.createdAt,
+                } as User,
+              } as Session,
+              profile: {
+                id: storedUser.id,
+                nickname: storedUser.nickname,
+                created_at: storedUser.createdAt,
+              },
+            };
+          }
+        }
+        
+        return {
+          user: null,
+          session: null,
+          profile: null,
+        };
+      }
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
     }
