@@ -290,30 +290,79 @@ export default function PostScreen() {
       </TouchableWithoutFeedback>
 
       <View style={dynamicStyles.footer}>
-        <TouchableOpacity
-          style={[
-            dynamicStyles.postButton, 
-            (isOverLimit || isPosting) && dynamicStyles.postButtonDisabled
-          ]}
-          onPress={handlePost}
-          disabled={isOverLimit || isPosting}
-          activeOpacity={0.7}
-          // Web版用の追加プロパティ
-          onPressIn={() => console.log('👆 投稿ボタン: Press In')}
-          onPressOut={() => console.log('👆 投稿ボタン: Press Out')}
-        >
-          {isPosting ? (
-            <>
-              <ActivityIndicator size={20} color="#fff" />
-              <Text style={styles.postButtonText}>投稿中...</Text>
-            </>
-          ) : (
-            <>
-              <Send size={20} color="#fff" />
-              <Text style={styles.postButtonText}>投稿する</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {Platform.OS === 'web' ? (
+          // Web版用のボタン（HTML button要素を使用）
+          <View
+            style={[
+              dynamicStyles.postButton, 
+              (isOverLimit || isPosting) && dynamicStyles.postButtonDisabled
+            ]}
+            // @ts-ignore - Web専用プロパティ
+            onClick={isOverLimit || isPosting ? undefined : handlePost}
+            // @ts-ignore - Web専用プロパティ
+            disabled={isOverLimit || isPosting}
+            // @ts-ignore - Web専用プロパティ
+            role="button"
+            // @ts-ignore - Web専用プロパティ
+            tabIndex={0}
+            // @ts-ignore - Web専用プロパティ
+            style={{
+              ...StyleSheet.flatten([
+                dynamicStyles.postButton, 
+                (isOverLimit || isPosting) && dynamicStyles.postButtonDisabled
+              ]),
+              cursor: (isOverLimit || isPosting) ? 'not-allowed' : 'pointer',
+              userSelect: 'none'
+            }}
+            onStartShouldSetResponder={() => {
+              console.log('👆 Web投稿ボタン: Responder Start');
+              return true;
+            }}
+            onResponderGrant={() => {
+              console.log('👆 Web投稿ボタン: Responder Grant');
+              if (!isOverLimit && !isPosting) {
+                handlePost();
+              }
+            }}
+          >
+            {isPosting ? (
+              <>
+                <ActivityIndicator size={20} color="#fff" />
+                <Text style={styles.postButtonText}>ポスト中...</Text>
+              </>
+            ) : (
+              <>
+                <Send size={20} color="#fff" />
+                <Text style={styles.postButtonText}>ポスト</Text>
+              </>
+            )}
+          </View>
+        ) : (
+          // モバイル版用のTouchableOpacity
+          <TouchableOpacity
+            style={[
+              dynamicStyles.postButton, 
+              (isOverLimit || isPosting) && dynamicStyles.postButtonDisabled
+            ]}
+            onPress={handlePost}
+            disabled={isOverLimit || isPosting}
+            activeOpacity={0.7}
+            onPressIn={() => console.log('👆 投稿ボタン: Press In')}
+            onPressOut={() => console.log('👆 投稿ボタン: Press Out')}
+          >
+            {isPosting ? (
+              <>
+                <ActivityIndicator size={20} color="#fff" />
+                <Text style={styles.postButtonText}>ポスト中...</Text>
+              </>
+            ) : (
+              <>
+                <Send size={20} color="#fff" />
+                <Text style={styles.postButtonText}>ポスト</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
