@@ -93,6 +93,14 @@ export default function PostScreen() {
     
     console.log('✅ 文字数チェック通過');
 
+    // FeatureFlagsとPostsServiceの状態確認
+    console.log('=================== post.tsx デバッグ情報 ===================');
+    console.log('🔍 featureFlags.isSupabaseEnabled():', featureFlags.isSupabaseEnabled());
+    console.log('🔍 featureFlags.isReduxEnabled():', featureFlags.isReduxEnabled());
+    console.log('🔍 currentUser:', currentUser);
+    console.log('🔍 PostsService instance exists:', !!postsService);
+    console.log('============================================================');
+
     console.log('✅ Alert表示直前');
     const empathyMessage = aiEmpathyEnabled ? '\n\n※ ママの味方からの共感メッセージが届きます' : '';
     
@@ -118,13 +126,21 @@ export default function PostScreen() {
       setIsPosting(true);
       try {
         console.log('📨 投稿作成開始');
+        console.log('=================== 投稿作成処理 ===================');
+        console.log('🔍 currentUser exists:', !!currentUser);
+        console.log('🔍 currentUser details:', currentUser);
+        console.log('🔍 isSupabaseEnabled:', featureFlags.isSupabaseEnabled());
+        console.log('🔍 isReduxEnabled:', featureFlags.isReduxEnabled());
+        console.log('🔍 使用する投稿作成方法:', featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled() ? 'RTK Query' : 'PostsService');
+        console.log('==================================================');
         
         if (!currentUser) {
+          console.error('❌ ユーザー未認証エラー');
           throw new Error('ユーザーが認証されていません');
         }
         
         if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
-          console.log('🔵 RTK Queryで投稿作成');
+          console.log('🔵 RTK Queryで投稿作成を試行');
           // Use RTK Query for post creation
           const result = await createPost({
             content: postText.trim(),
@@ -142,11 +158,20 @@ export default function PostScreen() {
           
           console.log('✅ RTK Query投稿作成成功:', result.data);
         } else {
-          console.log('🟡 PostsServiceで投稿作成');
-          // Fallback to PostsService
-          await postsService.createPost({
-            content: postText.trim()
-          });
+          console.log('🟡 PostsServiceで投稿作成を試行');
+          console.log('🔍 postText.trim():', JSON.stringify(postText.trim()));
+          console.log('🔍 PostsService method:', postsService.createPost);
+          
+          try {
+            // Fallback to PostsService
+            const result = await postsService.createPost({
+              content: postText.trim()
+            });
+            console.log('✅ PostsService投稿作成成功:', result);
+          } catch (postsServiceError) {
+            console.error('❌ PostsService投稿作成エラー:', postsServiceError);
+            throw postsServiceError;
+          }
         }
         
         console.log('✅ 投稿作成成功');
