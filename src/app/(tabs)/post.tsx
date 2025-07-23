@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch, ScrollView, Keyboard, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch, ScrollView, Keyboard, TouchableWithoutFeedback, ActivityIndicator, Platform } from 'react-native';
 import { Send, Heart, Bot } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -11,6 +11,7 @@ export default function PostScreen() {
   const [postText, setPostText] = useState('');
   const [aiEmpathyEnabled, setAiEmpathyEnabled] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
+  const textInputRef = useRef<TextInput>(null);
 
   const maxCharacters = 600;
   const characterCount = postText.length;
@@ -20,6 +21,28 @@ export default function PostScreen() {
   const dismissKeyboard = () => {
     Keyboard.dismiss();
   };
+
+  // Web版でのフォーカス処理
+  const handleTextInputPress = () => {
+    console.log('📝 TextInput area clicked');
+    if (Platform.OS === 'web' && textInputRef.current) {
+      console.log('🔍 Web: Focusing TextInput');
+      textInputRef.current.focus();
+    }
+  };
+
+  // 画面読み込み時にフォーカス（Web版対応）
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const timer = setTimeout(() => {
+        if (textInputRef.current) {
+          console.log('🚀 Auto-focusing TextInput on web');
+          textInputRef.current.focus();
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const handlePost = async () => {
     if (postText.trim().length === 0) {
@@ -186,17 +209,29 @@ export default function PostScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
-        <TextInput
-          style={[dynamicStyles.textInput, isOverLimit && dynamicStyles.textInputError]}
-          placeholder="今日はどんな一日でしたか？ママたちと共有しませんか..."
-          placeholderTextColor={theme.colors.text.secondary}
-          multiline
-          value={postText}
-          onChangeText={setPostText}
-          maxLength={maxCharacters}
-          returnKeyType="done"
-          onSubmitEditing={dismissKeyboard}
-        />
+            {/* Web版対応: タッチ可能な領域でTextInputを囲む */}
+            <TouchableWithoutFeedback onPress={handleTextInputPress}>
+              <View style={styles.textInputContainer}>
+                <TextInput
+                  ref={textInputRef}
+                  style={[dynamicStyles.textInput, isOverLimit && dynamicStyles.textInputError]}
+                  placeholder="今日はどんな一日でしたか？ママたちと共有しませんか..."
+                  placeholderTextColor={theme.colors.text.secondary}
+                  multiline
+                  value={postText}
+                  onChangeText={setPostText}
+                  maxLength={maxCharacters}
+                  returnKeyType="done"
+                  onSubmitEditing={dismissKeyboard}
+                  // Web版用の追加プロパティ
+                  autoFocus={Platform.OS === 'web'}
+                  selectTextOnFocus={Platform.OS === 'web'}
+                  // スタイル改善
+                  textAlignVertical="top"
+                  scrollEnabled={true}
+                />
+              </View>
+            </TouchableWithoutFeedback>
         
         <View style={styles.inputFooter}>
           <Text style={[
@@ -271,6 +306,11 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+  },
+  textInputContainer: {
+    flex: 1,
+    minHeight: 200,
+    marginBottom: 16,
   },
   inputFooter: {
     alignItems: 'flex-end',
