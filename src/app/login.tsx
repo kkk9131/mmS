@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Keyboard, TouchableWithoutFeedback, Platform } from 'react-native';
 import { Heart, ArrowRight } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -12,6 +12,10 @@ export default function LoginScreen() {
   const [maternalBookNumber, setMaternalBookNumber] = useState('');
   const [nickname, setNickname] = useState('');
   const [localError, setLocalError] = useState('');
+  
+  // Refs for input focusing (Web compatibility)
+  const maternalBookRef = useRef<TextInput>(null);
+  const nicknameRef = useRef<TextInput>(null);
   
   // Redux state and actions
   const dispatch = useAppDispatch();
@@ -123,7 +127,16 @@ export default function LoginScreen() {
   };
 
   const dismissKeyboard = () => {
-    Keyboard.dismiss();
+    if (Platform.OS !== 'web') {
+      Keyboard.dismiss();
+    }
+  };
+
+  // Web-specific: Add click handler to focus on inputs
+  const handleInputContainerPress = (inputRef: React.RefObject<TextInput>) => {
+    if (Platform.OS === 'web' && inputRef.current) {
+      inputRef.current.focus();
+    }
   };
 
   return (
@@ -152,31 +165,42 @@ export default function LoginScreen() {
       <View style={styles.formSection}>
         <Text style={styles.formTitle}>匿名ログイン</Text>
         
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>母子手帳番号</Text>
+        <TouchableWithoutFeedback onPress={() => handleInputContainerPress(maternalBookRef)}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>母子手帳番号</Text>
           <TextInput
-            style={styles.textInput}
+            ref={maternalBookRef}
+            style={[styles.textInput, Platform.OS === 'web' && styles.webTextInput]}
             placeholder="例: 1234-5678-901"
             placeholderTextColor="#666"
             value={maternalBookNumber}
             onChangeText={setMaternalBookNumber}
-            keyboardType="numeric"
+            keyboardType={Platform.OS === 'web' ? 'default' : 'numeric'}
             maxLength={15}
             returnKeyType="next"
             onSubmitEditing={() => {
-              // Focus next input (nickname)
+              if (nicknameRef.current) {
+                nicknameRef.current.focus();
+              }
             }}
             blurOnSubmit={false}
+            autoComplete={Platform.OS === 'web' ? 'off' : 'none'}
+            autoCorrect={false}
+            autoCapitalize="none"
+            selectTextOnFocus={Platform.OS === 'web'}
           />
-          <Text style={styles.inputHelper}>
-            自治体発行の母子手帳に記載されている番号を入力してください
-          </Text>
-        </View>
+            <Text style={styles.inputHelper}>
+              自治体発行の母子手帳に記載されている番号を入力してください
+            </Text>
+          </View>
+        </TouchableWithoutFeedback>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>ニックネーム</Text>
+        <TouchableWithoutFeedback onPress={() => handleInputContainerPress(nicknameRef)}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>ニックネーム</Text>
           <TextInput
-            style={styles.textInput}
+            ref={nicknameRef}
+            style={[styles.textInput, Platform.OS === 'web' && styles.webTextInput]}
             placeholder="例: みさき"
             placeholderTextColor="#666"
             value={nickname}
@@ -185,11 +209,16 @@ export default function LoginScreen() {
             returnKeyType="done"
             onSubmitEditing={handleLogin}
             blurOnSubmit={true}
+            autoComplete={Platform.OS === 'web' ? 'off' : 'none'}
+            autoCorrect={false}
+            autoCapitalize="words"
+            selectTextOnFocus={Platform.OS === 'web'}
           />
-          <Text style={styles.inputHelper}>
-            コミュニティ内で表示される名前（2-20文字）
-          </Text>
-        </View>
+            <Text style={styles.inputHelper}>
+              コミュニティ内で表示される名前（2-20文字）
+            </Text>
+          </View>
+        </TouchableWithoutFeedback>
 
         {/* Show error from Redux state or local state */}
         {((isReduxEnabled && auth.error) || localError) ? (
@@ -385,5 +414,12 @@ const styles = StyleSheet.create({
   },
   loginButtonDisabled: {
     opacity: 0.7,
+  },
+  // Web-specific styles
+  webTextInput: {
+    outlineStyle: 'none', // Remove default web outline
+    border: 'none', // Remove default web border
+    boxSizing: 'border-box',
+    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
 });
