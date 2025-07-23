@@ -1,7 +1,7 @@
 {
   "name": "mamapace",
   "main": "expo-router/entry",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "scripts": {
     "dev": "EXPO_NO_TELEMETRY=1 expo start --clear",
@@ -11,19 +11,37 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx}\" \"*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx}\" \"*.{ts,tsx,js,jsx,json,md}\"",
     "type-check": "tsc --noEmit --strict",
-    "audit": "npm audit --audit-level=moderate"
+    "audit": "npm audit --audit-level=moderate",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "security:audit": "npx tsx src/scripts/security-audit.ts",
+    "security:auth-test": "npx tsx src/scripts/auth-security-test.ts",
+    "db:setup-rls": "cat src/scripts/setup-rls-policies.sql | supabase db reset --db-url",
+    "db:optimize": "cat src/scripts/database-optimization.sql | supabase db reset --db-url",
+    "performance:test": "npx tsx src/scripts/performance-test.ts",
+    "performance:realtime": "npx tsx src/scripts/realtime-performance-test.ts",
+    "production:init": "npx tsx -e \"import('./src/config/production').then(m => m.initializeProductionEnvironment())\"",
+    "feature-flags:test": "npx tsx src/scripts/feature-flag-rollback-test.ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
     "@lucide/lab": "^0.1.2",
     "@react-native-async-storage/async-storage": "^2.1.0",
-    "axios": "^1.6.0",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
+    "@reduxjs/toolkit": "^2.8.2",
+    "@supabase/supabase-js": "^2.52.0",
+    "axios": "^1.6.0",
     "expo": "^53.0.0",
     "expo-blur": "~14.1.3",
     "expo-camera": "~16.1.5",
     "expo-constants": "~17.1.3",
+    "expo-crypto": "^14.1.5",
     "expo-font": "~13.2.2",
     "expo-haptics": "~14.1.3",
     "expo-linear-gradient": "~14.1.3",
@@ -45,14 +63,25 @@
     "react-native-svg": "15.11.2",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-web": "^0.20.0",
-    "react-native-webview": "13.13.5"
+    "react-native-webview": "13.13.5",
+    "react-redux": "^9.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@jest/globals": "^30.0.5",
+    "@playwright/test": "^1.54.1",
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-hooks": "^8.0.1",
+    "@testing-library/react-native": "^13.2.0",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.0.10",
-    "typescript": "~5.8.3",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~9.2.0",
-    "prettier": "^3.0.0"
+    "jest": "^30.0.5",
+    "playwright": "^1.54.1",
+    "prettier": "^3.0.0",
+    "ts-jest": "^29.4.0",
+    "tsx": "^4.20.3",
+    "typescript": "~5.8.3"
   }
 }

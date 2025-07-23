@@ -11,6 +11,9 @@ describe('HttpClient', () => {
   let mockFeatureFlags: jest.Mocked<FeatureFlagsManager>;
 
   beforeEach(() => {
+    // Reset the singleton instance
+    (HttpClient as any).instance = null;
+
     mockConfigManager = {
       getConfig: jest.fn().mockReturnValue({
         baseURL: 'http://localhost:3048/api',
@@ -27,11 +30,13 @@ describe('HttpClient', () => {
     (ApiConfigManager.getInstance as jest.Mock).mockReturnValue(mockConfigManager);
     (FeatureFlagsManager.getInstance as jest.Mock).mockReturnValue(mockFeatureFlags);
 
-    httpClient = new HttpClient();
+    httpClient = HttpClient.getInstance();
   });
 
   afterEach(() => {
     jest.clearAllMocks();
+    // Reset the singleton instance
+    (HttpClient as any).instance = null;
   });
 
   describe('initialization', () => {

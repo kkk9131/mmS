@@ -88,8 +88,8 @@ export class AuthService {
     try {
       await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
       
-      const authInterceptor = this.httpClient.getAxiosInstance().interceptors.request.handlers.find(
-        handler => handler?.fulfilled?.name === 'addAuthToken'
+      const authInterceptor = (this.httpClient.getAxiosInstance().interceptors.request as any).handlers?.find(
+        (handler: any) => handler?.fulfilled?.name === 'addAuthToken'
       );
       if (authInterceptor) {
         this.httpClient.getAxiosInstance().interceptors.request.eject(authInterceptor as any);

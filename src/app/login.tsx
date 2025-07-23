@@ -1,68 +1,124 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { Heart, ArrowRight } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
+import { useAppDispatch, useAppSelector } from '../hooks/redux';
+import { signInWithMaternalBook, clearError } from '../store/slices/authSlice';
 import { FeatureFlagsManager } from '../services/featureFlags';
 
 export default function LoginScreen() {
   const [maternalBookNumber, setMaternalBookNumber] = useState('');
   const [nickname, setNickname] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [localError, setLocalError] = useState('');
   
-  const { login } = useAuth();
+  // Redux state and actions
+  const dispatch = useAppDispatch();
+  const auth = useAppSelector((state) => state.auth);
   const featureFlags = FeatureFlagsManager.getInstance();
+  const isReduxEnabled = featureFlags.isReduxEnabled();
+  
+  // Fallback to AuthContext if Redux is disabled
+  const { login: contextLogin } = useAuth();
+  
+  // Clear error when component unmounts or when input changes
+  useEffect(() => {
+    return () => {
+      if (isReduxEnabled) {
+        dispatch(clearError());
+      }
+    };
+  }, [dispatch, isReduxEnabled]);
+  
+  // Clear local error when inputs change
+  useEffect(() => {
+    if (localError) {
+      setLocalError('');
+    }
+    if (isReduxEnabled && auth.error) {
+      dispatch(clearError());
+    }
+  }, [maternalBookNumber, nickname, localError, auth.error, dispatch, isReduxEnabled]);
+  
+  // Navigate to home when authentication is successful
+  useEffect(() => {
+    if (auth.isAuthenticated && !auth.isLoading) {
+      router.replace('/(tabs)');
+    }
+  }, [auth.isAuthenticated, auth.isLoading]);
 
   const handleLogin = async () => {
+    // Input validation
     if (!maternalBookNumber.trim()) {
-      setError('母子手帳番号を入力してください');
+      setLocalError('母子手帳番号を入力してください');
       return;
     }
     
     if (!nickname.trim()) {
-      setError('ニックネームを入力してください');
+      setLocalError('ニックネームを入力してください');
       return;
     }
 
     if (maternalBookNumber.length < 8) {
-      setError('母子手帳番号は正しい形式で入力してください');
+      setLocalError('母子手帳番号は正しい形式で入力してください');
       return;
     }
 
     if (nickname.length < 2 || nickname.length > 20) {
-      setError('ニックネームは2文字以上20文字以下で入力してください');
+      setLocalError('ニックネームは2文字以上20文字以下で入力してください');
       return;
     }
 
-    setError('');
-    setIsLoading(true);
-
+    // Clear any previous errors
+    setLocalError('');
+    
     try {
-      await login(maternalBookNumber.trim(), nickname.trim());
+      if (isReduxEnabled) {
+        // Use Redux for login
+        const result = await dispatch(signInWithMaternalBook({
+          mothersHandbookNumber: maternalBookNumber.trim(),
+          nickname: nickname.trim(),
+        }));
+        
+        if (signInWithMaternalBook.fulfilled.match(result)) {
+          if (featureFlags.isDebugModeEnabled()) {
+            console.log('Redux login successful');
+          }
+          // Navigation is handled by useEffect when auth.isAuthenticated changes
+        } else {
+          // Error handling is done in Redux state
+          if (featureFlags.isDebugModeEnabled()) {
+            console.error('Redux login failed:', result.payload);
+          }
+        }
+      } else {
+        // Fallback to AuthContext
+        await contextLogin(maternalBookNumber.trim(), nickname.trim());
 
-      if (featureFlags.isDebugModeEnabled()) {
-        console.log('Login successful');
+        if (featureFlags.isDebugModeEnabled()) {
+          console.log('Context login successful');
+        }
+
+        router.replace('/(tabs)');
       }
-
-      router.replace('/(tabs)');
     } catch (error: any) {
       if (featureFlags.isDebugModeEnabled()) {
         console.error('Login failed:', error);
       }
 
-      if (error.type === 'network') {
-        setError('ネットワークエラーが発生しました。接続を確認してください。');
-      } else if (error.status === 401) {
-        setError('認証に失敗しました。入力内容を確認してください。');
-      } else if (error.type === 'timeout') {
-        setError('接続がタイムアウトしました。もう一度お試しください。');
-      } else {
-        setError('ログインに失敗しました。もう一度お試しください。');
+      // For non-Redux errors, set local error
+      if (!isReduxEnabled) {
+        if (error.type === 'network') {
+          setLocalError('ネットワークエラーが発生しました。接続を確認してください。');
+        } else if (error.status === 401) {
+          setLocalError('認証に失敗しました。入力内容を確認してください。');
+        } else if (error.type === 'timeout') {
+          setLocalError('接続がタイムアウトしました。もう一度お試しください。');
+        } else {
+          setLocalError('ログインに失敗しました。もう一度お試しください。');
+        }
       }
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -135,18 +191,21 @@ export default function LoginScreen() {
           </Text>
         </View>
 
-        {error ? (
+        {/* Show error from Redux state or local state */}
+        {((isReduxEnabled && auth.error) || localError) ? (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.errorText}>
+              {isReduxEnabled ? auth.error : localError}
+            </Text>
           </View>
         ) : null}
 
         <TouchableOpacity 
-          style={[styles.loginButton, isLoading && styles.loginButtonDisabled]} 
+          style={[styles.loginButton, ((isReduxEnabled && auth.isLoading) || (!isReduxEnabled && false)) && styles.loginButtonDisabled]} 
           onPress={handleLogin}
-          disabled={isLoading}
+          disabled={isReduxEnabled ? auth.isLoading : false}
         >
-          {isLoading ? (
+          {(isReduxEnabled && auth.isLoading) ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <>

@@ -29,7 +29,7 @@ export class ApiClient {
     this.requestInterceptor = new RequestInterceptor();
     this.responseInterceptor = new ResponseInterceptor();
     this.authInterceptor = new AuthInterceptor();
-    this.httpClient = new HttpClient();
+    this.httpClient = (HttpClient as any).getInstance();
     this.mockSystem = MockSystem.getInstance();
     this.connectionTest = new ConnectionTest();
   }
@@ -82,7 +82,7 @@ export class ApiClient {
     const axiosInstance = this.httpClient.getAxiosInstance();
 
     axiosInstance.interceptors.request.use(
-      this.requestInterceptor.handle,
+      (this.requestInterceptor.handle as any),
       this.requestInterceptor.handleError
     );
 

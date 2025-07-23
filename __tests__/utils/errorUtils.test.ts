@@ -19,7 +19,14 @@ describe('ErrorUtils', () => {
       isRetryableError: jest.fn(),
       createErrorSummary: jest.fn(),
       getRetryDelay: jest.fn(),
-    } as jest.Mocked<ApiErrorHandler>;
+      featureFlags: jest.fn() as any,
+      classifyError: jest.fn(),
+      extractErrorMessage: jest.fn(),
+      extractErrorCode: jest.fn(),
+      shouldRetry: jest.fn(),
+      logError: jest.fn(),
+      createRetryConfig: jest.fn(),
+    } as unknown as jest.Mocked<ApiErrorHandler>;
 
     MockedApiErrorHandler.mockImplementation(() => mockErrorHandler);
   });

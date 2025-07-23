@@ -1,4 +1,4 @@
-import '@testing-library/jest-native/extend-expect';
+// @testing-library/react-native v12.4+ には組み込みのJestマッチャーがあるため、jest-nativeは不要
 
 // React Native AsyncStorage のモック
 jest.mock('@react-native-async-storage/async-storage', () => ({

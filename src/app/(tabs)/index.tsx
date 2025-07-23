@@ -4,7 +4,10 @@ import { Heart, MessageCircle, MoveHorizontal as MoreHorizontal, Menu, Plus } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Sidebar from '../../components/Sidebar';
-import { PostsService } from '../../services/PostsService';
+import { useAppDispatch, useAppSelector } from '../../hooks/redux';
+import { postsApi } from '../../store/api/postsApi';
+import { useRealtimePosts } from '../../hooks/useRealtimePosts';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { Post, Comment } from '../../types/posts';
 
 interface PostWithLocalState extends Post {
@@ -18,139 +21,119 @@ const mockAiResponses: { [postId: string]: string } = {
 };
 
 export default function HomeScreen() {
-  const [posts, setPosts] = useState<PostWithLocalState[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  
+  // UI State
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState<PostWithLocalState | null>(null);
-  const [selectedPostComments, setSelectedPostComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [dominantHand, setDominantHand] = useState<'right' | 'left'>('right');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-
-  const postsService = PostsService.getInstance();
+  
+  // RTK Query - Posts data with pagination
+  const {
+    data: postsData,
+    error: postsError,
+    isLoading: postsLoading,
+    isFetching: postsFetching,
+    refetch: refetchPosts,
+  } = postsApi.useGetPostsQuery({
+    limit: 20, // Load more items per page
+    offset: 0,
+  });
+  
+  // Comments query for selected post
+  const {
+    data: commentsData,
+    isLoading: commentsLoading,
+    refetch: refetchComments,
+  } = postsApi.useGetCommentsQuery(
+    selectedPost ? selectedPost.id : '',
+    { skip: !selectedPost }
+  );
+  
+  // RTK Query mutations
+  const [likePost] = postsApi.useToggleLikeMutation();
+  const [unlikePost] = postsApi.useToggleLikeMutation();
+  const [createComment] = postsApi.useCreateCommentMutation();
+  
+  // Real-time subscriptions
+  const realtimePosts = useRealtimePosts({
+    autoSubscribe: true,
+    conflictResolution: 'latest',
+    debug: __DEV__,
+    onError: (error, context) => {
+      console.error(`[RealtimePosts] ${context}:`, error);
+    }
+  });
+  
+  const realtimeNotifications = useRealtimeNotifications({
+    autoSubscribe: true,
+    enableSound: true,
+    enableVibration: true,
+    showInForeground: false, // Don't show notifications on home screen
+    debug: __DEV__,
+    onError: (error, context) => {
+      console.error(`[RealtimeNotifications] ${context}:`, error);
+    }
+  });
 
   // 空いた手の側を計算（利き手の逆側）
   const freeHandSide = dominantHand === 'right' ? 'left' : 'right';
-
-  const loadPosts = async (page: number = 1, isRefresh: boolean = false) => {
-    try {
-      if (isRefresh) {
-        setError(null);
-      }
-
-      const response = await postsService.getPosts({
-        page,
-        limit: 10,
-        sortBy: 'createdAt',
-        order: 'desc'
-      });
-
-      const postsWithAi = response.posts.map(post => ({
-        ...post,
-        aiResponse: mockAiResponses[post.id]
-      }));
-
-      if (isRefresh || page === 1) {
-        setPosts(postsWithAi);
-      } else {
-        setPosts(prev => [...prev, ...postsWithAi]);
-      }
-
-      setHasMore(response.pagination.hasNext);
-      setCurrentPage(page);
-    } catch (error: any) {
-      console.error('投稿の読み込みに失敗しました:', error);
-      setError('投稿の読み込みに失敗しました。');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadComments = async (postId: string) => {
-    try {
-      const response = await postsService.getComments(postId, {
-        page: 1,
-        limit: 50,
-        sortBy: 'createdAt',
-        order: 'asc'
-      });
-      setSelectedPostComments(response.comments);
-    } catch (error) {
-      console.error('コメントの読み込みに失敗しました:', error);
-      setSelectedPostComments([]);
-    }
-  };
-
-  useEffect(() => {
-    loadPosts();
-  }, []);
+  
+  // Transform posts data with AI responses
+  const posts: any[] = (Array.isArray(postsData) ? postsData : (postsData as any)?.posts || [])?.map((post: any) => ({
+    ...post,
+    aiResponse: mockAiResponses[post.id]
+  })) || [];
+  
+  const comments = Array.isArray(commentsData) ? commentsData : (commentsData as any)?.comments || [];
+  const hasMore = (postsData as any)?.pagination?.hasNext || false;
+  const loading = postsLoading;
+  const refreshing = postsFetching && !postsLoading;
+  const error = postsError ? '投稿の読み込みに失敗しました。' : null;
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    await loadPosts(1, true);
-    setRefreshing(false);
+    await refetchPosts();
   };
 
   const handleLike = async (postId: string) => {
     const post = posts.find(p => p.id === postId);
     if (!post) return;
 
-    const wasLiked = post.isLiked;
-
-    // 楽観的更新
-    setPosts(posts.map(p =>
-      p.id === postId
-        ? { ...p, isLiked: !p.isLiked, likesCount: p.isLiked ? p.likesCount - 1 : p.likesCount + 1 }
-        : p
-    ));
-
     try {
-      if (wasLiked) {
-        await postsService.unlikePost(postId);
+      if (post.isLiked) {
+        // RTK Query automatically handles optimistic updates
+        await unlikePost({ postId, userId: 'current-user' }).unwrap();
       } else {
-        await postsService.likePost(postId);
+        await likePost({ postId, userId: 'current-user' }).unwrap();
       }
     } catch (error) {
-      // エラー時はロールバック
-      setPosts(posts.map(p =>
-        p.id === postId
-          ? { ...p, isLiked: wasLiked, likesCount: wasLiked ? p.likesCount + 1 : p.likesCount - 1 }
-          : p
-      ));
+      console.error('いいねの処理に失敗しました:', error);
       Alert.alert('エラー', 'いいねの処理に失敗しました。');
     }
   };
 
-  const handleCommentPress = async (post: PostWithLocalState) => {
+  const handleCommentPress = (post: PostWithLocalState) => {
     setSelectedPost(post);
     setCommentModalVisible(true);
-    await loadComments(post.id);
+    // Comments will be loaded automatically via useGetCommentsQuery
   };
 
   const handleCommentSubmit = async () => {
     if (!selectedPost || commentText.trim().length === 0) return;
 
     try {
-      const newComment = await postsService.createComment(selectedPost.id, {
-        content: commentText.trim()
-      });
-
-      // コメント一覧を更新
-      setSelectedPostComments(prev => [...prev, newComment]);
-
-      // 投稿のコメント数を更新
-      setPosts(posts.map(post =>
-        post.id === selectedPost.id
-          ? { ...post, commentsCount: post.commentsCount + 1 }
-          : post
-      ));
-
+      await createComment({
+        post_id: selectedPost.id,
+        content: commentText.trim(),
+        user_id: 'current-user'
+      }).unwrap();
+      
       setCommentText('');
+      // Comments will be updated automatically via real-time or RTK Query cache
     } catch (error) {
+      console.error('コメントの投稿に失敗しました:', error);
       Alert.alert('エラー', 'コメントの投稿に失敗しました。');
     }
   };
@@ -254,7 +237,7 @@ export default function HomeScreen() {
       ) : error && posts.length === 0 ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => loadPosts()}>
+          <TouchableOpacity style={styles.retryButton} onPress={() => refetchPosts()}>
             <Text style={styles.retryButtonText}>再試行</Text>
           </TouchableOpacity>
         </View>
@@ -267,22 +250,7 @@ export default function HomeScreen() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff6b9d" />
           }
-          onEndReached={() => {
-            if (hasMore && !loading) {
-              loadPosts(currentPage + 1, false);
-            }
-          }}
           onEndReachedThreshold={0.1}
-          ListFooterComponent={() => {
-            if (hasMore && posts.length > 0) {
-              return (
-                <View style={styles.footerLoading}>
-                  <ActivityIndicator size="small" color="#ff6b9d" />
-                </View>
-              );
-            }
-            return null;
-          }}
         />
       )}
 
@@ -331,7 +299,7 @@ export default function HomeScreen() {
                 </View>
 
                 <FlatList
-                  data={selectedPostComments}
+                  data={comments}
                   keyExtractor={(comment) => comment.id}
                   style={styles.commentsList}
                   renderItem={({ item: comment }) => (

@@ -25,7 +25,7 @@ export function useNotificationBadge() {
     fetchUnreadCount();
 
     // 30秒ごとに未読数を更新
-    intervalRef.current = setInterval(fetchUnreadCount, 30000);
+    intervalRef.current = setInterval(fetchUnreadCount, 30000) as any;
   };
 
   const stopPolling = () => {

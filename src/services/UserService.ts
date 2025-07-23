@@ -1,5 +1,11 @@
 import { HttpClient } from './api/httpClient';
 import { FeatureFlagsManager } from './featureFlags';
+import { supabaseClient } from './supabase/client';
+import {
+  User as SupabaseUser,
+  UserUpdate,
+  UserInsert,
+} from '../types/supabase';
 import {
   User,
   UserProfile,
@@ -32,11 +38,61 @@ export class UserService {
     return UserService.instance;
   }
 
+  // RTK Query integration helper
+  public shouldUseRTKQuery(): boolean {
+    return this.featureFlags.isReduxEnabled() && this.featureFlags.isSupabaseEnabled();
+  }
+
+  // Enhanced error handling with retry logic
+  private async withRetry<T>(operation: () => Promise<T>, maxRetries: number = 3): Promise<T> {
+    let lastError: Error;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        if (attempt === maxRetries) {
+          console.error(`Operation failed after ${maxRetries} attempts:`, lastError);
+          throw lastError;
+        }
+
+        const delay = Math.pow(2, attempt - 1) * 1000;
+        console.warn(`Attempt ${attempt} failed, retrying in ${delay}ms:`, lastError.message);
+        await this.delay(delay);
+      }
+    }
+
+    throw lastError!;
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private async ensureSupabaseConnection(): Promise<void> {
+    if (!supabaseClient.isInitialized()) {
+      throw new Error('Supabase client is not initialized');
+    }
+
+    const status = await supabaseClient.testConnection();
+    if (!status.isConnected) {
+      throw new Error(`Supabase connection failed: ${status.error || 'Unknown error'}`);
+    }
+  }
+
   /**
    * 自分のプロフィール情報を取得
    */
   public async getMyProfile(): Promise<UserProfile> {
-    if (this.featureFlags.isApiEnabled()) {
+    if (this.shouldUseRTKQuery()) {
+      console.info('RTK Query is available - consider using useGetUserQuery hook for better caching');
+    }
+
+    if (this.featureFlags.isSupabaseEnabled()) {
+      return this.getSupabaseMyProfile();
+    } else if (this.featureFlags.isApiEnabled()) {
       const cacheKey = 'my-profile';
       const cached = this.getFromCache(cacheKey);
       if (cached && cached.data) {
@@ -64,7 +120,9 @@ export class UserService {
    * プロフィール情報を更新
    */
   public async updateProfile(data: UpdateProfileData): Promise<UserProfile> {
-    if (this.featureFlags.isApiEnabled()) {
+    if (this.featureFlags.isSupabaseEnabled()) {
+      return this.updateSupabaseProfile(data);
+    } else if (this.featureFlags.isApiEnabled()) {
       try {
         const response: ApiResponse<UserProfile> = await this.httpClient.put<UserProfile>('/users/me', data);
 
@@ -85,7 +143,9 @@ export class UserService {
    * 他ユーザーの情報を取得
    */
   public async getUserById(userId: string): Promise<User> {
-    if (this.featureFlags.isApiEnabled()) {
+    if (this.featureFlags.isSupabaseEnabled()) {
+      return this.getSupabaseUserById(userId);
+    } else if (this.featureFlags.isApiEnabled()) {
       const cacheKey = `user-${userId}`;
       const cached = this.getFromCache(cacheKey);
       if (cached && cached.data) {
@@ -109,7 +169,9 @@ export class UserService {
    * ユーザー検索
    */
   public async searchUsers(query: string, page: number = 1, limit: number = 20): Promise<UserSearchResult> {
-    if (this.featureFlags.isApiEnabled()) {
+    if (this.featureFlags.isSupabaseEnabled()) {
+      return this.searchSupabaseUsers(query, page, limit);
+    } else if (this.featureFlags.isApiEnabled()) {
       const params = new URLSearchParams({
         q: query,
         page: page.toString(),
@@ -168,6 +230,337 @@ export class UserService {
     } else {
       this.userCache.delete('my-profile');
     }
+  }
+
+  // === Supabase機能 ===
+
+  private async getSupabaseMyProfile(): Promise<UserProfile> {
+    await this.ensureSupabaseConnection();
+    const currentUser = await supabaseClient.getCurrentUser();
+
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
+
+    return this.withRetry(async () => {
+      const client = supabaseClient.getClient();
+
+      try {
+        const { data: user, error } = await client
+          .from('users')
+          .select('*')
+          .eq('id', currentUser.id)
+          .single();
+
+        if (error) {
+          throw new Error(`Failed to fetch profile: ${error.message}`);
+        }
+
+        // Get counts
+        const [postsCount, followersCount, followingCount] = await Promise.all([
+          this.getSupabasePostsCount(currentUser.id),
+          this.getSupabaseFollowersCount(currentUser.id),
+          this.getSupabaseFollowingCount(currentUser.id),
+        ]);
+
+        const userProfile: UserProfile = {
+          id: user.id,
+          nickname: user.nickname,
+          bio: user.bio || '',
+          avatar: user.avatar_url || '',
+          followersCount,
+          followingCount,
+          postsCount,
+          email: currentUser.email || '',
+          motherBookNumber: user.maternal_book_number,
+          createdAt: user.created_at || new Date().toISOString(),
+          updatedAt: user.updated_at || new Date().toISOString(),
+          preferences: {
+            darkMode: false,
+            handedness: 'right',
+            language: 'ja',
+            notifications: {
+              likes: true,
+              comments: true,
+              follows: true,
+              messages: true,
+              pushEnabled: true,
+            },
+          },
+          privacy: user.privacy_settings || {
+            profileVisibility: 'public',
+            showFollowersCount: true,
+            showFollowingCount: true,
+            allowMessages: true,
+          },
+        };
+
+        this.setCache('my-profile', userProfile);
+        return userProfile;
+      } catch (error) {
+        console.error('Failed to fetch profile from Supabase:', error);
+        throw error;
+      }
+    });
+  }
+
+  private async updateSupabaseProfile(data: UpdateProfileData): Promise<UserProfile> {
+    await this.ensureSupabaseConnection();
+    const currentUser = await supabaseClient.getCurrentUser();
+
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
+
+    return this.withRetry(async () => {
+      const client = supabaseClient.getClient();
+
+      try {
+        const updateData: UserUpdate = {
+          nickname: data.nickname,
+          bio: data.bio,
+          avatar_url: data.avatar,
+          privacy_settings: data.privacy,
+          updated_at: new Date().toISOString(),
+        };
+
+        const { data: updatedUser, error } = await client
+          .from('users')
+          .update(updateData)
+          .eq('id', currentUser.id)
+          .select('*')
+          .single();
+
+        if (error) {
+          throw new Error(`Failed to update profile: ${error.message}`);
+        }
+
+        // Get updated counts
+        const [postsCount, followersCount, followingCount] = await Promise.all([
+          this.getSupabasePostsCount(currentUser.id),
+          this.getSupabaseFollowersCount(currentUser.id),
+          this.getSupabaseFollowingCount(currentUser.id),
+        ]);
+
+        const userProfile: UserProfile = {
+          id: updatedUser.id,
+          nickname: updatedUser.nickname,
+          bio: updatedUser.bio || '',
+          avatar: updatedUser.avatar_url || '',
+          followersCount,
+          followingCount,
+          postsCount,
+          email: currentUser.email || '',
+          motherBookNumber: updatedUser.maternal_book_number,
+          createdAt: updatedUser.created_at || new Date().toISOString(),
+          updatedAt: updatedUser.updated_at || new Date().toISOString(),
+          preferences: {
+            darkMode: false,
+            handedness: 'right',
+            language: 'ja',
+            notifications: {
+              likes: true,
+              comments: true,
+              follows: true,
+              messages: true,
+              pushEnabled: true,
+            },
+          },
+          privacy: updatedUser.privacy_settings || {
+            profileVisibility: 'public',
+            showFollowersCount: true,
+            showFollowingCount: true,
+            allowMessages: true,
+          },
+        };
+
+        // Update cache
+        this.setCache('my-profile', userProfile);
+        this.clearUserCache(currentUser.id);
+
+        return userProfile;
+      } catch (error) {
+        console.error('Failed to update profile in Supabase:', error);
+        throw error;
+      }
+    });
+  }
+
+  private async getSupabaseUserById(userId: string): Promise<User> {
+    await this.ensureSupabaseConnection();
+    const cacheKey = `user-${userId}`;
+    const cached = this.getFromCache(cacheKey);
+    if (cached && cached.data) {
+      return cached.data as User;
+    }
+
+    return this.withRetry(async () => {
+      const client = supabaseClient.getClient();
+      const currentUser = await supabaseClient.getCurrentUser();
+
+      try {
+        const { data: user, error } = await client
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        if (error) {
+          throw new Error(`Failed to fetch user: ${error.message}`);
+        }
+
+        // Get counts and follow status
+        const [postsCount, followersCount, followingCount, isFollowing] = await Promise.all([
+          this.getSupabasePostsCount(userId),
+          this.getSupabaseFollowersCount(userId),
+          this.getSupabaseFollowingCount(userId),
+          currentUser ? this.getSupabaseFollowStatus(currentUser.id, userId) : Promise.resolve(false),
+        ]);
+
+        const userData: User = {
+          id: user.id,
+          nickname: user.nickname,
+          bio: user.bio || '',
+          avatar: user.avatar_url || '',
+          followersCount,
+          followingCount,
+          postsCount,
+          isFollowing,
+          createdAt: user.created_at || new Date().toISOString(),
+          updatedAt: user.updated_at || new Date().toISOString(),
+        };
+
+        this.setCache(cacheKey, userData);
+        return userData;
+      } catch (error) {
+        console.error(`Failed to fetch user ${userId} from Supabase:`, error);
+        throw error;
+      }
+    });
+  }
+
+  private async searchSupabaseUsers(query: string, page: number, limit: number): Promise<UserSearchResult> {
+    await this.ensureSupabaseConnection();
+
+    return this.withRetry(async () => {
+      const client = supabaseClient.getClient();
+      const currentUser = await supabaseClient.getCurrentUser();
+      const offset = (page - 1) * limit;
+
+      try {
+        // Search users by nickname (case-insensitive)
+        const { data: users, error, count } = await client
+          .from('users')
+          .select('*', { count: 'exact' })
+          .ilike('nickname', `%${query}%`)
+          .neq('id', currentUser?.id || '') // Exclude current user
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
+
+        if (error) {
+          throw new Error(`Failed to search users: ${error.message}`);
+        }
+
+        const searchResults = await Promise.all(
+          (users || []).map(async (user) => {
+            const [postsCount, followersCount, followingCount, isFollowing] = await Promise.all([
+              this.getSupabasePostsCount(user.id),
+              this.getSupabaseFollowersCount(user.id),
+              this.getSupabaseFollowingCount(user.id),
+              currentUser ? this.getSupabaseFollowStatus(currentUser.id, user.id) : Promise.resolve(false),
+            ]);
+
+            return {
+              id: user.id,
+              nickname: user.nickname,
+              bio: user.bio || '',
+              avatar: user.avatar_url || '',
+              followersCount,
+              followingCount,
+              postsCount,
+              isFollowing,
+              createdAt: user.created_at || new Date().toISOString(),
+              updatedAt: user.updated_at || new Date().toISOString(),
+            };
+          })
+        );
+
+        const total = count || 0;
+        const hasMore = offset + limit < total;
+
+        return {
+          users: searchResults,
+          total,
+          hasMore,
+          nextCursor: hasMore ? `page-${page + 1}` : undefined,
+        };
+      } catch (error) {
+        console.error('Failed to search users in Supabase:', error);
+        throw error;
+      }
+    });
+  }
+
+  private async getSupabasePostsCount(userId: string): Promise<number> {
+    const client = supabaseClient.getClient();
+    const { count, error } = await client
+      .from('posts')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    if (error) {
+      console.warn(`Failed to get posts count for user ${userId}:`, error);
+      return 0;
+    }
+
+    return count || 0;
+  }
+
+  private async getSupabaseFollowersCount(userId: string): Promise<number> {
+    const client = supabaseClient.getClient();
+    const { count, error } = await client
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('following_id', userId);
+
+    if (error) {
+      console.warn(`Failed to get followers count for user ${userId}:`, error);
+      return 0;
+    }
+
+    return count || 0;
+  }
+
+  private async getSupabaseFollowingCount(userId: string): Promise<number> {
+    const client = supabaseClient.getClient();
+    const { count, error } = await client
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('follower_id', userId);
+
+    if (error) {
+      console.warn(`Failed to get following count for user ${userId}:`, error);
+      return 0;
+    }
+
+    return count || 0;
+  }
+
+  private async getSupabaseFollowStatus(currentUserId: string, targetUserId: string): Promise<boolean> {
+    const client = supabaseClient.getClient();
+    const { data, error } = await client
+      .from('follows')
+      .select('id')
+      .eq('follower_id', currentUserId)
+      .eq('following_id', targetUserId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.warn(`Failed to get follow status:`, error);
+      return false;
+    }
+
+    return !!data;
   }
 
   // === モック機能 ===
