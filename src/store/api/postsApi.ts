@@ -167,20 +167,52 @@ export const postsApi = supabaseApi.injectEndpoints({
 
     // Create post with enhanced optimistic updates
     createPost: builder.mutation<PostWithExtras, PostInsert>({
-      query: (post) => ({
-        table: 'posts',
-        method: 'insert',
-        data: post,
-        query: `
-          *,
-          users:user_id (
-            id,
-            nickname,
-            avatar_url,
-            is_anonymous
-          )
-        `,
-      }),
+      queryFn: async (post, { getState }) => {
+        console.log('🔥🔥🔥 RTK Query createPost queryFn 開始 🔥🔥🔥');
+        console.log('📝 投稿データ:', post);
+        
+        try {
+          const { supabaseClient } = await import('../../services/supabase/client');
+          const client = supabaseClient.getClient();
+          
+          console.log('🔍 Supabase client取得完了');
+          
+          const { data, error } = await client
+            .from('posts')
+            .insert(post)
+            .select(`
+              *,
+              users:user_id (
+                id,
+                nickname,
+                avatar_url,
+                is_anonymous
+              )
+            `)
+            .single();
+            
+          console.log('📤 Supabase INSERT実行完了');
+          console.log('✅ data:', data);
+          console.log('❌ error:', error);
+          
+          if (error) {
+            console.error('💥💥💥 Supabase INSERT エラー詳細 💥💥💥');
+            console.error('Error message:', error.message);
+            console.error('Error details:', error.details);
+            console.error('Error hint:', error.hint);
+            console.error('Error code:', error.code);
+            console.error('Full error:', error);
+            return { error: { message: error.message, details: error } };
+          }
+          
+          console.log('✅ RTK Query createPost 成功');
+          return { data };
+        } catch (error) {
+          console.error('💥💥💥 RTK Query createPost 例外 💥💥💥');
+          console.error('Exception:', error);
+          return { error: { message: 'Unexpected error', details: error } };
+        }
+      },
       invalidatesTags: (result, error, newPost) => [
         ...postTags.list(),
         { type: 'Post' as const, id: `USER_${newPost.user_id}` },
@@ -648,7 +680,7 @@ export const postsApi = supabaseApi.injectEndpoints({
       ],
     }),
   }),
-  overrideExisting: false,
+  overrideExisting: true,
 });
 
 // Export hooks for usage in components
