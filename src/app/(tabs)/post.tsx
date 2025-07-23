@@ -1,10 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch, ScrollView, Keyboard, TouchableWithoutFeedback, ActivityIndicator, Platform } from 'react-native';
+// @ts-ignore - For web DOM events support
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      button: any;
+    }
+  }
+}
+
+// ViewのWeb用型拡張
+interface WebViewProps {
+  onClick?: () => void;
+  onMouseDown?: () => void;
+  onMouseUp?: () => void;
+}
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch, ScrollView, Keyboard, TouchableWithoutFeedback, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { Send, Heart, Bot } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { PostsService } from '../../services/PostsService';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useCreatePostMutation } from '../../store/api/postsApi';
+import { FeatureFlagsManager } from '../../services/featureFlags';
+import { useAppSelector } from '../../hooks/redux';
 
 export default function PostScreen() {
   const { theme } = useTheme();
@@ -17,18 +35,18 @@ export default function PostScreen() {
   const characterCount = postText.length;
   const isOverLimit = characterCount > maxCharacters;
   const postsService = PostsService.getInstance();
+  
+  // RTK Query hooks for post creation
+  const [createPost] = useCreatePostMutation();
+  const featureFlags = FeatureFlagsManager.getInstance();
+  
+  // Get current user from Redux state
+  const currentUser = useAppSelector((state) => state.auth.user);
 
-  // デバッグ: ボタンの有効/無効状態をログ出力
-  useEffect(() => {
-    console.log('🔘 投稿ボタン状態:', {
-      isOverLimit,
-      isPosting,
-      disabled: isOverLimit || isPosting,
-      characterCount,
-      maxCharacters,
-      hasText: postText.trim().length > 0
-    });
-  }, [isOverLimit, isPosting, characterCount, postText]);
+  // デバッグログを完全に削除
+  // useEffect(() => {
+  //   console.log('🔘 投稿ボタン状態:', { disabled: isOverLimit || isPosting });
+  // }, [isOverLimit, isPosting]);
 
   const dismissKeyboard = () => {
     Keyboard.dismiss();
@@ -36,9 +54,7 @@ export default function PostScreen() {
 
   // Web版でのフォーカス処理
   const handleTextInputPress = () => {
-    console.log('📝 TextInput area clicked');
     if (Platform.OS === 'web' && textInputRef.current) {
-      console.log('🔍 Web: Focusing TextInput');
       textInputRef.current.focus();
     }
   };
@@ -48,7 +64,6 @@ export default function PostScreen() {
     if (Platform.OS === 'web') {
       const timer = setTimeout(() => {
         if (textInputRef.current) {
-          console.log('🚀 Auto-focusing TextInput on web');
           textInputRef.current.focus();
         }
       }, 500);
@@ -57,11 +72,10 @@ export default function PostScreen() {
   }, []);
 
   const handlePost = async () => {
-    console.log('📮 投稿ボタンが押されました');
-    console.log('投稿テキスト:', postText);
-    console.log('文字数:', characterCount);
-    console.log('制限超過:', isOverLimit);
-    console.log('投稿中:', isPosting);
+    console.log('📨 === handlePost関数開始 ===');
+    console.log('投稿テキスト:', JSON.stringify(postText));
+    console.log('文字数:', postText.trim().length);
+    console.log('現在の状態:', { isOverLimit, isPosting, currentUser: !!currentUser });
     
     if (postText.trim().length === 0) {
       console.log('❌ 投稿内容が空です');
@@ -69,45 +83,134 @@ export default function PostScreen() {
       return;
     }
     
+    console.log('✅ 投稿内容チェック通過');
+    
     if (isOverLimit) {
+      console.log('❌ 文字数上限超過');
       Alert.alert('エラー', `文字数が上限を超えています (${characterCount}/${maxCharacters})`);
       return;
     }
+    
+    console.log('✅ 文字数チェック通過');
 
+    console.log('✅ Alert表示直前');
     const empathyMessage = aiEmpathyEnabled ? '\n\n※ ママの味方からの共感メッセージが届きます' : '';
     
-    Alert.alert(
-      '投稿確認',
-      `投稿しますか？${empathyMessage}`,
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        { 
-          text: '投稿する', 
-          onPress: async () => {
-            setIsPosting(true);
-            try {
-              await postsService.createPost({
-                content: postText.trim()
-              });
-              
-              Alert.alert('投稿完了', '投稿が正常に送信されました', [
-                { 
-                  text: 'OK', 
-                  onPress: () => {
-                    setPostText('');
-                    router.back();
-                  }
-                }
-              ]);
-            } catch (error) {
-              Alert.alert('エラー', '投稿の送信に失敗しました。もう一度お試しください。');
-            } finally {
-              setIsPosting(false);
-            }
-          }
+    console.log('🔔 Alert.alertを表示します');
+    
+    // Web版でのAlert.alert問題を回避するため、直接投稿処理を実行
+    if (Platform.OS === 'web') {
+      console.log('🌐 Web版: 直接投稿処理を実行');
+      // Web版では確認ダイアログをスキップして直接投稿
+      const shouldProceed = window.confirm(`投稿しますか？${empathyMessage}`);
+      
+      if (!shouldProceed) {
+        console.log('❌ ユーザーがキャンセルしました');
+        return;
+      }
+      
+      console.log('✅ ユーザーが投稿を確認しました');
+    }
+    
+    // 投稿処理の実行
+    const executePost = async () => {
+      console.log('🚀 投稿処理開始');
+      setIsPosting(true);
+      try {
+        console.log('📨 投稿作成開始');
+        
+        if (!currentUser) {
+          throw new Error('ユーザーが認証されていません');
         }
-      ]
-    );
+        
+        if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
+          console.log('🔵 RTK Queryで投稿作成');
+          // Use RTK Query for post creation
+          const result = await createPost({
+            content: postText.trim(),
+            user_id: currentUser.id,
+            is_anonymous: false,
+            image_url: null,
+            likes_count: 0,
+            comments_count: 0
+          });
+          
+          if ('error' in result) {
+            console.error('❌ RTK Query投稿作成エラー:', result.error);
+            throw new Error('投稿の作成に失敗しました');
+          }
+          
+          console.log('✅ RTK Query投稿作成成功:', result.data);
+        } else {
+          console.log('🟡 PostsServiceで投稿作成');
+          // Fallback to PostsService
+          await postsService.createPost({
+            content: postText.trim()
+          });
+        }
+        
+        console.log('✅ 投稿作成成功');
+        
+        // Web版での成功メッセージ
+        if (Platform.OS === 'web') {
+          alert('投稿が正常に送信されました！');
+        } else {
+          Alert.alert('投稿完了', '投稿が正常に送信されました', [
+            { 
+              text: 'OK', 
+              onPress: () => {
+                setPostText('');
+                router.back();
+              }
+            }
+          ]);
+        }
+        
+        // 投稿後のクリーンアップ
+        setPostText('');
+        router.back();
+        
+      } catch (error) {
+        console.error('❌ 投稿エラー:', error);
+        
+        // エラーの詳細をログ出力
+        if (error && typeof error === 'object') {
+          console.error('エラー詳細:', {
+            message: (error as any).message,
+            stack: (error as any).stack,
+            error: error
+          });
+        }
+        
+        const errorMessage = error instanceof Error ? error.message : '投稿の送信に失敗しました。もう一度お試しください。';
+        
+        if (Platform.OS === 'web') {
+          alert(`投稿エラー: ${errorMessage}`);
+        } else {
+          Alert.alert('エラー', errorMessage);
+        }
+      } finally {
+        setIsPosting(false);
+      }
+    };
+    
+    // モバイル版の場合は従来のAlert.alertを使用
+    if (Platform.OS !== 'web') {
+      Alert.alert(
+        '投稿確認',
+        `投稿しますか？${empathyMessage}`,
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          { 
+            text: '投稿する', 
+            onPress: executePost
+          }
+        ]
+      );
+    } else {
+      // Web版はすでに実行済み
+      await executePost();
+    }
   };
 
   // Dynamic styles with theme colors
@@ -291,39 +394,46 @@ export default function PostScreen() {
 
       <View style={dynamicStyles.footer}>
         {Platform.OS === 'web' ? (
-          // Web版用のボタン（HTML button要素を使用）
+          // Web版用のボタン（シンプル版）
           <View
             style={[
               dynamicStyles.postButton, 
-              (isOverLimit || isPosting) && dynamicStyles.postButtonDisabled
-            ]}
-            // @ts-ignore - Web専用プロパティ
-            onClick={isOverLimit || isPosting ? undefined : handlePost}
-            // @ts-ignore - Web専用プロパティ
-            disabled={isOverLimit || isPosting}
-            // @ts-ignore - Web専用プロパティ
-            role="button"
-            // @ts-ignore - Web専用プロパティ
-            tabIndex={0}
-            // @ts-ignore - Web専用プロパティ
-            style={{
-              ...StyleSheet.flatten([
-                dynamicStyles.postButton, 
-                (isOverLimit || isPosting) && dynamicStyles.postButtonDisabled
-              ]),
-              cursor: (isOverLimit || isPosting) ? 'not-allowed' : 'pointer',
-              userSelect: 'none'
-            }}
-            onStartShouldSetResponder={() => {
-              console.log('👆 Web投稿ボタン: Responder Start');
-              return true;
-            }}
-            onResponderGrant={() => {
-              console.log('👆 Web投稿ボタン: Responder Grant');
-              if (!isOverLimit && !isPosting) {
-                handlePost();
+              (isOverLimit || isPosting) && dynamicStyles.postButtonDisabled,
+              // Web専用スタイル
+              { 
+                ...(Platform.OS === 'web' && {
+                  cursor: (isOverLimit || isPosting) ? 'not-allowed' : 'pointer',
+                  userSelect: 'none',
+                  pointerEvents: (isOverLimit || isPosting) ? 'none' : 'auto'
+                } as any)
               }
-            }}
+            ]}
+            // Web用のDOMイベント - 型アサーションで回避
+            {...(Platform.OS === 'web' && {
+              onClick: () => {
+                console.log('👆 Web View onClickイベント');
+                console.log('状態:', { isOverLimit, isPosting, postText: postText.trim().length });
+                console.log('条件チェック:', {
+                  '!isOverLimit': !isOverLimit,
+                  '!isPosting': !isPosting,
+                  '両方true': !isOverLimit && !isPosting
+                });
+                
+                if (!isOverLimit && !isPosting) {
+                  console.log('✅ 条件OK - handlePostを呼び出します');
+                  try {
+                    handlePost();
+                    console.log('✅ handlePost呼び出し完了');
+                  } catch (error) {
+                    console.error('❌ handlePost呼び出しエラー:', error);
+                  }
+                } else {
+                  console.log(`❌ ボタンが無効化されています - isOverLimit: ${isOverLimit}, isPosting: ${isPosting}`);
+                }
+              },
+              onMouseDown: () => console.log('👆 View: Mouse Down'),
+              onMouseUp: () => console.log('👆 View: Mouse Up')
+            })}
           >
             {isPosting ? (
               <>
@@ -347,8 +457,6 @@ export default function PostScreen() {
             onPress={handlePost}
             disabled={isOverLimit || isPosting}
             activeOpacity={0.7}
-            onPressIn={() => console.log('👆 投稿ボタン: Press In')}
-            onPressOut={() => console.log('👆 投稿ボタン: Press Out')}
           >
             {isPosting ? (
               <>

@@ -475,9 +475,21 @@ export class PostsService {
 
   private async createSupabasePost(data: CreatePostRequest): Promise<Post> {
     await this.ensureSupabaseConnection();
-    const currentUser = await supabaseClient.getCurrentUser();
+    
+    // For custom auth, get user ID from Redux state instead of Supabase client
+    let currentUserId: string | null = null;
+    
+    // Use Redux store to get current user (for custom auth)
+    try {
+      const { store } = await import('../store');
+      const state = store.getState();
+      currentUserId = state.auth?.user?.id || null;
+      console.log('🔍 Current user ID from Redux:', currentUserId);
+    } catch (error) {
+      console.error('❌ Failed to get user ID from Redux:', error);
+    }
 
-    if (!currentUser) {
+    if (!currentUserId) {
       throw new Error('User not authenticated');
     }
 
@@ -487,32 +499,62 @@ export class PostsService {
       try {
       const postData: PostInsert = {
         content: data.content,
-        user_id: currentUser.id,
+        user_id: currentUserId,
         image_url: data.images?.[0] || null,
         is_anonymous: false,
         likes_count: 0,
         comments_count: 0,
       };
 
+      console.log('🔍 Creating post with data:', postData);
+
+      // まずは投稿をusersテーブルのJOINなしで作成
       const { data: post, error } = await client
         .from('posts')
         .insert(postData)
-        .select(`
-          *,
-          users!inner (
-            id,
-            nickname,
-            avatar_url
-          )
-        `)
+        .select()
         .single();
 
       if (error) {
         console.error('Supabase post creation error:', error);
+        console.error('Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw new Error(`Failed to create post: ${error.message}`);
       }
 
-      const user = Array.isArray(post.users) ? post.users[0] : post.users;
+      console.log('✅ Post created successfully:', post);
+
+      // 投稿作成後、ユーザー情報を別途取得
+      let user = null;
+      try {
+        const { data: userData, error: userError } = await client
+          .from('users')
+          .select('id, nickname, avatar_url')
+          .eq('id', currentUserId)
+          .single();
+
+        if (userError) {
+          console.warn('Failed to fetch user data:', userError);
+          user = {
+            id: currentUserId,
+            nickname: 'Unknown',
+            avatar_url: 'https://via.placeholder.com/40'
+          };
+        } else {
+          user = userData;
+        }
+      } catch (userFetchError) {
+        console.warn('Error fetching user data:', userFetchError);
+        user = {
+          id: currentUserId,
+          nickname: 'Unknown',
+          avatar_url: 'https://via.placeholder.com/40'
+        };
+      }
 
       return {
         id: post.id,
