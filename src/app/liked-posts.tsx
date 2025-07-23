@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } 
 import { ArrowLeft, Heart, MessageCircle, Calendar, Clock, User } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface LikedPost {
   id: string;
@@ -75,8 +76,105 @@ const mockLikedPosts: LikedPost[] = [
 ];
 
 export default function LikedPostsScreen() {
+  const { theme } = useTheme();
   const [likedPosts, setLikedPosts] = useState<LikedPost[]>(mockLikedPosts);
   const [refreshing, setRefreshing] = useState(false);
+
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.colors.textPrimary,
+    },
+    statsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      padding: 20,
+      backgroundColor: theme.colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    statLabel: {
+      fontSize: 12,
+      color: theme.colors.textSecondary,
+    },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.colors.textPrimary,
+      marginTop: 16,
+      marginBottom: 8,
+    },
+    emptyDescription: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    postContainer: {
+      backgroundColor: theme.colors.surface,
+      margin: 10,
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    dateText: {
+      fontSize: 12,
+      color: theme.colors.textSecondary,
+      marginLeft: 4,
+    },
+    postContent: {
+      fontSize: 16,
+      color: theme.colors.textPrimary,
+      lineHeight: 24,
+      marginBottom: 12,
+    },
+    aiResponseContainer: {
+      backgroundColor: theme.colors.surfaceVariant,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 12,
+      borderLeftWidth: 3,
+      borderLeftColor: '#ff6b9d',
+    },
+    aiResponseText: {
+      fontSize: 14,
+      color: theme.colors.textPrimary,
+      lineHeight: 20,
+    },
+    postStats: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+      marginBottom: 8,
+    },
+    statText: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      marginLeft: 6,
+    },
+    likedAtText: {
+      fontSize: 12,
+      color: theme.colors.textSecondary,
+      marginLeft: 4,
+      fontStyle: 'italic',
+    },
+  });
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -110,27 +208,27 @@ export default function LikedPostsScreen() {
   const totalComments = likedPosts.reduce((sum, post) => sum + post.comments, 0);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={dynamicStyles.container}>
+      <View style={dynamicStyles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <ArrowLeft size={24} color="#ff6b9d" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>共感したポスト</Text>
+        <Text style={dynamicStyles.headerTitle}>共感したポスト</Text>
         <View style={styles.headerRight} />
       </View>
 
-      <View style={styles.statsContainer}>
+      <View style={dynamicStyles.statsContainer}>
         <View style={styles.statItem}>
           <Text style={styles.statNumber}>{likedPosts.length}</Text>
-          <Text style={styles.statLabel}>共感したポスト</Text>
+          <Text style={dynamicStyles.statLabel}>共感したポスト</Text>
         </View>
         <View style={styles.statItem}>
           <Text style={styles.statNumber}>{totalLikes}</Text>
-          <Text style={styles.statLabel}>総共感数</Text>
+          <Text style={dynamicStyles.statLabel}>総共感数</Text>
         </View>
         <View style={styles.statItem}>
           <Text style={styles.statNumber}>{totalComments}</Text>
-          <Text style={styles.statLabel}>総コメント数</Text>
+          <Text style={dynamicStyles.statLabel}>総コメント数</Text>
         </View>
       </View>
 
@@ -143,14 +241,14 @@ export default function LikedPostsScreen() {
         {likedPosts.length === 0 ? (
           <View style={styles.emptyState}>
             <Heart size={48} color="#666" />
-            <Text style={styles.emptyTitle}>共感したポストがありません</Text>
-            <Text style={styles.emptyDescription}>
+            <Text style={dynamicStyles.emptyTitle}>共感したポストがありません</Text>
+            <Text style={dynamicStyles.emptyDescription}>
               気になるポストに共感してみませんか？
             </Text>
           </View>
         ) : (
           likedPosts.map((post) => (
-            <View key={post.id} style={styles.postContainer}>
+            <View key={post.id} style={dynamicStyles.postContainer}>
               <View style={styles.postHeader}>
                 <View style={styles.authorInfo}>
                   <User size={16} color="#ff6b9d" />
@@ -158,11 +256,11 @@ export default function LikedPostsScreen() {
                 </View>
                 <View style={styles.postDate}>
                   <Calendar size={14} color="#666" />
-                  <Text style={styles.dateText}>{formatDate(post.timestamp)}</Text>
+                  <Text style={dynamicStyles.dateText}>{formatDate(post.timestamp)}</Text>
                 </View>
               </View>
               
-              <Text style={styles.postContent}>{post.content}</Text>
+              <Text style={dynamicStyles.postContent}>{post.content}</Text>
               
               <View style={styles.tagsContainer}>
                 {post.tags.map((tag, index) => (
@@ -171,26 +269,26 @@ export default function LikedPostsScreen() {
               </View>
               
               {post.aiResponse && (
-                <View style={styles.aiResponseContainer}>
+                <View style={dynamicStyles.aiResponseContainer}>
                   <Text style={styles.aiResponseLabel}>ママの味方</Text>
-                  <Text style={styles.aiResponseText}>{post.aiResponse}</Text>
+                  <Text style={dynamicStyles.aiResponseText}>{post.aiResponse}</Text>
                 </View>
               )}
               
-              <View style={styles.postStats}>
+              <View style={dynamicStyles.postStats}>
                 <View style={styles.statGroup}>
                   <Heart size={16} color="#ff6b9d" fill="#ff6b9d" />
                   <Text style={styles.statTextLiked}>{post.likes} 共感</Text>
                 </View>
                 <View style={styles.statGroup}>
                   <MessageCircle size={16} color="#4a9eff" />
-                  <Text style={styles.statText}>{post.comments} コメント</Text>
+                  <Text style={dynamicStyles.statText}>{post.comments} コメント</Text>
                 </View>
               </View>
               
               <View style={styles.likedAtContainer}>
                 <Clock size={12} color="#666" />
-                <Text style={styles.likedAtText}>
+                <Text style={dynamicStyles.likedAtText}>
                   {formatDate(post.likedAt)} に共感
                 </Text>
               </View>
@@ -203,37 +301,12 @@ export default function LikedPostsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#121212',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
   backButton: {
     padding: 8,
     borderRadius: 8,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#e0e0e0',
-  },
   headerRight: {
     width: 40,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 20,
-    backgroundColor: '#1a1a1a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
   },
   statItem: {
     alignItems: 'center',
@@ -244,10 +317,6 @@ const styles = StyleSheet.create({
     color: '#ff6b9d',
     marginBottom: 4,
   },
-  statLabel: {
-    fontSize: 12,
-    color: '#888',
-  },
   content: {
     flex: 1,
   },
@@ -256,27 +325,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#e0e0e0',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyDescription: {
-    fontSize: 14,
-    color: '#888',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  postContainer: {
-    backgroundColor: '#1a1a1a',
-    margin: 10,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#333',
   },
   postHeader: {
     flexDirection: 'row',
@@ -298,17 +346,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  dateText: {
-    fontSize: 12,
-    color: '#888',
-    marginLeft: 4,
-  },
-  postContent: {
-    fontSize: 16,
-    color: '#e0e0e0',
-    lineHeight: 24,
-    marginBottom: 12,
-  },
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -320,42 +357,16 @@ const styles = StyleSheet.create({
     marginRight: 8,
     marginBottom: 4,
   },
-  aiResponseContainer: {
-    backgroundColor: '#2a2a2a',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: '#ff6b9d',
-  },
   aiResponseLabel: {
     fontSize: 12,
     color: '#ff6b9d',
     fontWeight: '500',
     marginBottom: 4,
   },
-  aiResponseText: {
-    fontSize: 14,
-    color: '#e0e0e0',
-    lineHeight: 20,
-  },
-  postStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-    marginBottom: 8,
-  },
   statGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 20,
-  },
-  statText: {
-    fontSize: 14,
-    color: '#888',
-    marginLeft: 6,
   },
   statTextLiked: {
     fontSize: 14,
@@ -366,11 +377,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-  },
-  likedAtText: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 4,
-    fontStyle: 'italic',
   },
 });

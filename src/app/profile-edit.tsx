@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { UserService } from '../services/UserService';
 import { UpdateProfileData } from '../types/users';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface ProfileData {
   nickname: string;
@@ -26,6 +27,7 @@ const prefectures = [
 ];
 
 export default function ProfileEditScreen() {
+  const { theme } = useTheme();
   const [profileData, setProfileData] = useState<ProfileData>({
     nickname: '',
     bio: '',
@@ -173,36 +175,258 @@ export default function ProfileEditScreen() {
     Keyboard.dismiss();
   };
 
+  // Dynamic styles with theme colors
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+    },
+    avatarContainer: {
+      position: 'relative',
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      backgroundColor: theme.colors.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 12,
+    },
+    editAvatarButton: {
+      position: 'absolute',
+      bottom: 0,
+      right: 0,
+      backgroundColor: theme.colors.primary,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 3,
+      borderColor: theme.colors.background,
+    },
+    avatarText: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+    },
+    inputLabel: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: theme.colors.text.primary,
+      marginBottom: 8,
+    },
+    textInput: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 8,
+      padding: 16,
+      fontSize: 16,
+      color: theme.colors.text.primary,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      minHeight: 48,
+    },
+    inputHelper: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+      marginTop: 6,
+    },
+    locationSelector: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface,
+      borderRadius: 8,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      minHeight: 48,
+    },
+    locationText: {
+      fontSize: 16,
+      color: theme.colors.text.primary,
+      marginLeft: 8,
+    },
+    locationPicker: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 8,
+      marginTop: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      maxHeight: 200,
+    },
+    locationItem: {
+      padding: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    selectedLocation: {
+      backgroundColor: `${theme.colors.primary}20`,
+    },
+    locationItemText: {
+      fontSize: 16,
+      color: theme.colors.text.primary,
+    },
+    selectedLocationText: {
+      color: theme.colors.primary,
+      fontWeight: '500',
+    },
+    readOnlyInput: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: theme.colors.card,
+      borderRadius: 8,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      minHeight: 48,
+    },
+    readOnlyText: {
+      fontSize: 16,
+      color: theme.colors.text.secondary,
+    },
+    privacyOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: theme.colors.surface,
+      borderRadius: 8,
+      padding: 16,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    selectedPrivacy: {
+      backgroundColor: `${theme.colors.primary}20`,
+      borderColor: theme.colors.primary,
+    },
+    privacyLabel: {
+      fontSize: 16,
+      color: theme.colors.text.primary,
+      marginBottom: 4,
+    },
+    selectedPrivacyLabel: {
+      color: theme.colors.primary,
+      fontWeight: '500',
+    },
+    privacyDesc: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+    },
+    radioButton: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: theme.colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    selectedRadio: {
+      borderColor: theme.colors.primary,
+    },
+    radioInner: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: theme.colors.primary,
+    },
+    securitySection: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 12,
+      padding: 16,
+      marginTop: 16,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderLeftWidth: 3,
+      borderLeftColor: theme.colors.accent,
+    },
+    securityTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.accent,
+      marginBottom: 8,
+    },
+    securityText: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      lineHeight: 20,
+    },
+    savePrompt: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: theme.colors.surface,
+      padding: 16,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    savePromptText: {
+      fontSize: 16,
+      color: theme.colors.text.primary,
+    },
+    savePromptButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.primary,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    loadingContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 40,
+    },
+    loadingText: {
+      fontSize: 16,
+      color: theme.colors.text.secondary,
+      textAlign: 'center',
+    },
+  });
+
   // ローディング状態の表示
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <SafeAreaView style={dynamicStyles.container}>
+        <View style={dynamicStyles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <ArrowLeft size={24} color="#ff6b9d" />
+            <ArrowLeft size={24} color={theme.colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>プロフィール編集</Text>
+          <Text style={dynamicStyles.headerTitle}>プロフィール編集</Text>
         </View>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>プロフィール情報を読み込んでいます...</Text>
+        <View style={dynamicStyles.loadingContainer}>
+          <Text style={dynamicStyles.loadingText}>プロフィール情報を読み込んでいます...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={dynamicStyles.container}>
+      <View style={dynamicStyles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <ArrowLeft size={24} color="#ff6b9d" />
+          <ArrowLeft size={24} color={theme.colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>プロフィール編集</Text>
+        <Text style={dynamicStyles.headerTitle}>プロフィール編集</Text>
         <TouchableOpacity
           onPress={handleSave}
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           disabled={saving}
         >
-          <Save size={24} color={saving ? "#999" : "#ff6b9d"} />
+          <Save size={24} color={saving ? theme.colors.text.disabled : theme.colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -214,78 +438,78 @@ export default function ProfileEditScreen() {
         >
           {/* プロフィール画像セクション */}
           <View style={styles.avatarSection}>
-            <View style={styles.avatarContainer}>
-              <User size={60} color="#ff6b9d" />
-              <TouchableOpacity style={styles.editAvatarButton}>
+            <View style={dynamicStyles.avatarContainer}>
+              <User size={60} color={theme.colors.primary} />
+              <TouchableOpacity style={dynamicStyles.editAvatarButton}>
                 <Edit3 size={16} color="#fff" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.avatarText}>プロフィール画像を変更</Text>
+            <Text style={dynamicStyles.avatarText}>プロフィール画像を変更</Text>
           </View>
 
           {/* ニックネーム */}
           <View style={styles.inputSection}>
-            <Text style={styles.inputLabel}>ニックネーム</Text>
+            <Text style={dynamicStyles.inputLabel}>ニックネーム</Text>
             <TextInput
-              style={styles.textInput}
+              style={dynamicStyles.textInput}
               value={profileData.nickname}
               onChangeText={(text) => updateProfile('nickname', text)}
               placeholder="ニックネームを入力"
-              placeholderTextColor="#666"
+              placeholderTextColor={theme.colors.text.secondary}
               maxLength={20}
               returnKeyType="next"
               onSubmitEditing={dismissKeyboard}
             />
-            <Text style={styles.inputHelper}>
+            <Text style={dynamicStyles.inputHelper}>
               {profileData.nickname.length}/20文字
             </Text>
           </View>
 
           {/* 自己紹介 */}
           <View style={styles.inputSection}>
-            <Text style={styles.inputLabel}>自己紹介</Text>
+            <Text style={dynamicStyles.inputLabel}>自己紹介</Text>
             <TextInput
-              style={[styles.textInput, styles.bioInput]}
+              style={[dynamicStyles.textInput, styles.bioInput]}
               value={profileData.bio}
               onChangeText={(text) => updateProfile('bio', text)}
               placeholder="自己紹介を入力してください"
-              placeholderTextColor="#666"
+              placeholderTextColor={theme.colors.text.secondary}
               multiline
               maxLength={200}
               returnKeyType="done"
               onSubmitEditing={dismissKeyboard}
             />
-            <Text style={styles.inputHelper}>
+            <Text style={dynamicStyles.inputHelper}>
               {profileData.bio.length}/200文字
             </Text>
           </View>
 
           {/* 居住地域 */}
           <View style={styles.inputSection}>
-            <Text style={styles.inputLabel}>居住地域</Text>
+            <Text style={dynamicStyles.inputLabel}>居住地域</Text>
             <TouchableOpacity
-              style={styles.locationSelector}
+              style={dynamicStyles.locationSelector}
               onPress={() => setShowLocationPicker(!showLocationPicker)}
             >
-              <MapPin size={20} color="#666" />
-              <Text style={styles.locationText}>{profileData.location}</Text>
+              <MapPin size={20} color={theme.colors.text.secondary} />
+              <Text style={dynamicStyles.locationText}>{profileData.location}</Text>
             </TouchableOpacity>
 
             {showLocationPicker && (
-              <View style={styles.locationPicker}>
+              <View style={dynamicStyles.locationPicker}>
                 <ScrollView style={styles.locationList} nestedScrollEnabled>
                   {prefectures.map((prefecture, index) => (
                     <TouchableOpacity
                       key={index}
                       style={[
-                        styles.locationItem,
-                        profileData.location === prefecture && styles.selectedLocation
+                        dynamicStyles.locationItem,
+                        profileData.location === prefecture && dynamicStyles.selectedLocation
                       ]}
                       onPress={() => handleLocationSelect(prefecture)}
                     >
                       <Text style={[
-                        styles.locationItemText,
-                        profileData.location === prefecture && styles.selectedLocationText
+                        dynamicStyles.locationItemText,
+                        profileData.location === prefecture && dynamicStyles.selectedLocationText
                       ]}>
                         {prefecture}
                       </Text>
@@ -298,19 +522,19 @@ export default function ProfileEditScreen() {
 
           {/* 母子手帳番号 */}
           <View style={styles.inputSection}>
-            <Text style={styles.inputLabel}>母子手帳番号</Text>
-            <View style={styles.readOnlyInput}>
-              <Text style={styles.readOnlyText}>{profileData.maternalBookNumber}</Text>
-              <AlertCircle size={16} color="#666" />
+            <Text style={dynamicStyles.inputLabel}>母子手帳番号</Text>
+            <View style={dynamicStyles.readOnlyInput}>
+              <Text style={dynamicStyles.readOnlyText}>{profileData.maternalBookNumber}</Text>
+              <AlertCircle size={16} color={theme.colors.text.secondary} />
             </View>
-            <Text style={styles.inputHelper}>
+            <Text style={dynamicStyles.inputHelper}>
               セキュリティ上の理由により変更できません
             </Text>
           </View>
 
           {/* プライバシー設定 */}
           <View style={styles.inputSection}>
-            <Text style={styles.inputLabel}>プロフィール公開範囲</Text>
+            <Text style={dynamicStyles.inputLabel}>プロフィール公開範囲</Text>
             <View style={styles.privacyOptions}>
               {[
                 { key: 'public', label: '全体に公開', desc: '誰でも閲覧可能' },
@@ -320,26 +544,26 @@ export default function ProfileEditScreen() {
                 <TouchableOpacity
                   key={option.key}
                   style={[
-                    styles.privacyOption,
-                    profileData.privacyLevel === option.key && styles.selectedPrivacy
+                    dynamicStyles.privacyOption,
+                    profileData.privacyLevel === option.key && dynamicStyles.selectedPrivacy
                   ]}
                   onPress={() => updateProfile('privacyLevel', option.key)}
                 >
                   <View style={styles.privacyInfo}>
                     <Text style={[
-                      styles.privacyLabel,
-                      profileData.privacyLevel === option.key && styles.selectedPrivacyLabel
+                      dynamicStyles.privacyLabel,
+                      profileData.privacyLevel === option.key && dynamicStyles.selectedPrivacyLabel
                     ]}>
                       {option.label}
                     </Text>
-                    <Text style={styles.privacyDesc}>{option.desc}</Text>
+                    <Text style={dynamicStyles.privacyDesc}>{option.desc}</Text>
                   </View>
                   <View style={[
-                    styles.radioButton,
-                    profileData.privacyLevel === option.key && styles.selectedRadio
+                    dynamicStyles.radioButton,
+                    profileData.privacyLevel === option.key && dynamicStyles.selectedRadio
                   ]}>
                     {profileData.privacyLevel === option.key && (
-                      <View style={styles.radioInner} />
+                      <View style={dynamicStyles.radioInner} />
                     )}
                   </View>
                 </TouchableOpacity>
@@ -348,9 +572,9 @@ export default function ProfileEditScreen() {
           </View>
 
           {/* セキュリティ情報 */}
-          <View style={styles.securitySection}>
-            <Text style={styles.securityTitle}>セキュリティ情報</Text>
-            <Text style={styles.securityText}>
+          <View style={dynamicStyles.securitySection}>
+            <Text style={dynamicStyles.securityTitle}>セキュリティ情報</Text>
+            <Text style={dynamicStyles.securityText}>
               • 母子手帳番号は暗号化されて保存されます{'\n'}
               • 個人を特定できる情報は表示されません{'\n'}
               • プロフィール情報は安全に管理されます
@@ -360,9 +584,9 @@ export default function ProfileEditScreen() {
       </TouchableWithoutFeedback>
 
       {hasChanges && (
-        <View style={styles.savePrompt}>
-          <Text style={styles.savePromptText}>変更があります</Text>
-          <TouchableOpacity onPress={handleSave} style={styles.savePromptButton}>
+        <View style={dynamicStyles.savePrompt}>
+          <Text style={dynamicStyles.savePromptText}>変更があります</Text>
+          <TouchableOpacity onPress={handleSave} style={dynamicStyles.savePromptButton}>
             <Save size={16} color="#fff" />
             <Text style={styles.savePromptButtonText}>保存</Text>
           </TouchableOpacity>
@@ -373,26 +597,9 @@ export default function ProfileEditScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#121212',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
   backButton: {
     padding: 8,
     borderRadius: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#e0e0e0',
   },
   saveButton: {
     padding: 8,
@@ -406,228 +613,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 32,
   },
-  avatarContainer: {
-    position: 'relative',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#2a2a2a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  editAvatarButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#ff6b9d',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#121212',
-  },
-  avatarText: {
-    fontSize: 14,
-    color: '#888',
-  },
   inputSection: {
     marginBottom: 24,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#e0e0e0',
-    marginBottom: 8,
-  },
-  textInput: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    color: '#e0e0e0',
-    borderWidth: 1,
-    borderColor: '#333',
-    minHeight: 48,
   },
   bioInput: {
     minHeight: 100,
     textAlignVertical: 'top',
   },
-  inputHelper: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 6,
-  },
-  locationSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#333',
-    minHeight: 48,
-  },
-  locationText: {
-    fontSize: 16,
-    color: '#e0e0e0',
-    marginLeft: 8,
-  },
-  locationPicker: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#333',
-    maxHeight: 200,
-  },
   locationList: {
     maxHeight: 200,
-  },
-  locationItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  selectedLocation: {
-    backgroundColor: '#ff6b9d20',
-  },
-  locationItemText: {
-    fontSize: 16,
-    color: '#e0e0e0',
-  },
-  selectedLocationText: {
-    color: '#ff6b9d',
-    fontWeight: '500',
-  },
-  readOnlyInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#333',
-    minHeight: 48,
-  },
-  readOnlyText: {
-    fontSize: 16,
-    color: '#888',
   },
   privacyOptions: {
     marginTop: 8,
   },
-  privacyOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  selectedPrivacy: {
-    backgroundColor: '#ff6b9d20',
-    borderColor: '#ff6b9d',
-  },
   privacyInfo: {
     flex: 1,
-  },
-  privacyLabel: {
-    fontSize: 16,
-    color: '#e0e0e0',
-    marginBottom: 4,
-  },
-  selectedPrivacyLabel: {
-    color: '#ff6b9d',
-    fontWeight: '500',
-  },
-  privacyDesc: {
-    fontSize: 12,
-    color: '#888',
-  },
-  radioButton: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#333',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectedRadio: {
-    borderColor: '#ff6b9d',
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#ff6b9d',
-  },
-  securitySection: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#333',
-    borderLeftWidth: 3,
-    borderLeftColor: '#4a9eff',
-  },
-  securityTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4a9eff',
-    marginBottom: 8,
-  },
-  securityText: {
-    fontSize: 14,
-    color: '#aaa',
-    lineHeight: 20,
-  },
-  savePrompt: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#1a1a1a',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-  },
-  savePromptText: {
-    fontSize: 16,
-    color: '#e0e0e0',
-  },
-  savePromptButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ff6b9d',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
   },
   savePromptButtonText: {
     fontSize: 16,
     color: '#fff',
     fontWeight: '600',
     marginLeft: 6,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#888',
-    textAlign: 'center',
   },
   saveButtonDisabled: {
     opacity: 0.5,

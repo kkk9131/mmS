@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { ArrowLeft, Search, User, UserPlus, UserMinus, MessageCircle, Heart } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { FollowService } from '../services/FollowService';
-import { FollowUser as FollowUserFromService, FollowListResponse } from '../types/follow';
+import { FollowUser as FollowUserFromService } from '../types/follow';
+import { useTheme } from '../contexts/ThemeContext';
 
 // 既存UIとの互換性のために、表示用の型を定義
 interface DisplayFollowUser {
@@ -106,6 +107,7 @@ const mockFollowers: DisplayFollowUser[] = [
 ];
 
 export default function FollowListScreen() {
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState<'following' | 'followers'>('following');
   const [following, setFollowing] = useState<DisplayFollowUser[]>([]);
   const [followers, setFollowers] = useState<DisplayFollowUser[]>([]);
@@ -276,6 +278,220 @@ export default function FollowListScreen() {
     }
   };
 
+  const styles = {
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'space-between' as const,
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    backButton: {
+      padding: 8,
+      borderRadius: 8,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '600' as const,
+      color: theme.colors.text.primary,
+    },
+    searchButton: {
+      padding: 8,
+      borderRadius: 8,
+    },
+    tabContainer: {
+      flexDirection: 'row' as const,
+      backgroundColor: theme.colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: 16,
+      alignItems: 'center' as const,
+    },
+    activeTab: {
+      borderBottomWidth: 2,
+      borderBottomColor: theme.colors.primary,
+    },
+    tabText: {
+      fontSize: 16,
+      color: theme.colors.text.disabled,
+      fontWeight: '500' as const,
+    },
+    activeTabText: {
+      color: theme.colors.primary,
+      fontWeight: '600' as const,
+    },
+    userList: {
+      flex: 1,
+    },
+    emptyState: {
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+      padding: 40,
+      minHeight: 200,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '600' as const,
+      color: theme.colors.text.primary,
+      marginTop: 16,
+      marginBottom: 8,
+    },
+    emptyDescription: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      textAlign: 'center' as const,
+      lineHeight: 20,
+    },
+    userItem: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'space-between' as const,
+      padding: 16,
+      backgroundColor: theme.colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    userInfo: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      flex: 1,
+    },
+    avatarContainer: {
+      position: 'relative' as const,
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: theme.colors.card,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      marginRight: 12,
+    },
+    onlineIndicator: {
+      position: 'absolute' as const,
+      bottom: 2,
+      right: 2,
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: '#4ade80',
+      borderWidth: 2,
+      borderColor: theme.colors.surface,
+    },
+    userDetails: {
+      flex: 1,
+    },
+    userHeader: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      marginBottom: 4,
+    },
+    userName: {
+      fontSize: 16,
+      fontWeight: '600' as const,
+      color: theme.colors.text.primary,
+      marginRight: 8,
+    },
+    mutualBadge: {
+      backgroundColor: theme.colors.primary,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 10,
+    },
+    mutualText: {
+      fontSize: 10,
+      color: '#fff',
+      fontWeight: '500' as const,
+    },
+    lastActivity: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+      marginBottom: 4,
+    },
+    recentPost: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+      fontStyle: 'italic' as const,
+    },
+    actionButtons: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+    },
+    chatButton: {
+      padding: 10,
+      borderRadius: 8,
+      backgroundColor: theme.colors.card,
+      marginRight: 8,
+      minWidth: 48,
+      minHeight: 48,
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+    },
+    followButton: {
+      backgroundColor: theme.colors.primary,
+      padding: 10,
+      borderRadius: 8,
+      minWidth: 48,
+      minHeight: 48,
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+    },
+    unfollowButton: {
+      backgroundColor: theme.colors.text.disabled,
+    },
+    followerActions: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+    },
+    removeButton: {
+      backgroundColor: theme.colors.border,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 6,
+      marginLeft: 8,
+    },
+    removeText: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+    },
+    footer: {
+      backgroundColor: theme.colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+      padding: 16,
+    },
+    statsContainer: {
+      alignItems: 'center' as const,
+    },
+    statItem: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+    },
+    statText: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      marginLeft: 8,
+    },
+    loadingContainer: {
+      flex: 1,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      padding: 40,
+    },
+    loadingText: {
+      fontSize: 16,
+      color: theme.colors.text.secondary,
+      textAlign: 'center' as const,
+    },
+  };
+
   const currentUsers = activeTab === 'following' ? following : followers;
 
   // ローディング状態の表示
@@ -284,7 +500,7 @@ export default function FollowListScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <ArrowLeft size={24} color="#ff6b9d" />
+            <ArrowLeft size={24} color={theme.colors.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>フォロー管理</Text>
         </View>
@@ -299,11 +515,11 @@ export default function FollowListScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <ArrowLeft size={24} color="#ff6b9d" />
+          <ArrowLeft size={24} color={theme.colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>フォロー管理</Text>
         <TouchableOpacity style={styles.searchButton}>
-          <Search size={24} color="#666" />
+          <Search size={24} color={theme.colors.text.disabled} />
         </TouchableOpacity>
       </View>
 
@@ -334,7 +550,7 @@ export default function FollowListScreen() {
       >
         {currentUsers.length === 0 ? (
           <View style={styles.emptyState}>
-            <User size={48} color="#666" />
+            <User size={48} color={theme.colors.text.disabled} />
             <Text style={styles.emptyTitle}>
               {activeTab === 'following' ? 'フォロー中のユーザーがいません' : 'フォロワーがいません'}
             </Text>
@@ -350,7 +566,7 @@ export default function FollowListScreen() {
             <View key={user.id} style={styles.userItem}>
               <View style={styles.userInfo}>
                 <View style={styles.avatarContainer}>
-                  <User size={32} color="#ff6b9d" />
+                  <User size={32} color={theme.colors.primary} />
                   {user.isOnline && <View style={styles.onlineIndicator} />}
                 </View>
                 
@@ -420,7 +636,7 @@ export default function FollowListScreen() {
       <View style={styles.footer}>
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <Heart size={16} color="#ff6b9d" />
+            <Heart size={16} color={theme.colors.primary} />
             <Text style={styles.statText}>
               相互フォロー: {following.filter(u => u.mutualFollows).length}人
             </Text>
@@ -431,216 +647,3 @@ export default function FollowListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#121212',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#e0e0e0',
-  },
-  searchButton: {
-    padding: 8,
-    borderRadius: 8,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#1a1a1a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#ff6b9d',
-  },
-  tabText: {
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '500',
-  },
-  activeTabText: {
-    color: '#ff6b9d',
-    fontWeight: '600',
-  },
-  userList: {
-    flex: 1,
-  },
-  emptyState: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-    minHeight: 200,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#e0e0e0',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyDescription: {
-    fontSize: 14,
-    color: '#888',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  userItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#1a1a1a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  avatarContainer: {
-    position: 'relative',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#2a2a2a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#4ade80',
-    borderWidth: 2,
-    borderColor: '#1a1a1a',
-  },
-  userDetails: {
-    flex: 1,
-  },
-  userHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#e0e0e0',
-    marginRight: 8,
-  },
-  mutualBadge: {
-    backgroundColor: '#ff6b9d',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  mutualText: {
-    fontSize: 10,
-    color: '#fff',
-    fontWeight: '500',
-  },
-  lastActivity: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 4,
-  },
-  recentPost: {
-    fontSize: 12,
-    color: '#aaa',
-    fontStyle: 'italic',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  chatButton: {
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: '#2a2a2a',
-    marginRight: 8,
-    minWidth: 48,
-    minHeight: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  followButton: {
-    backgroundColor: '#ff6b9d',
-    padding: 10,
-    borderRadius: 8,
-    minWidth: 48,
-    minHeight: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  unfollowButton: {
-    backgroundColor: '#666',
-  },
-  followerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  removeButton: {
-    backgroundColor: '#333',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginLeft: 8,
-  },
-  removeText: {
-    fontSize: 12,
-    color: '#888',
-  },
-  footer: {
-    backgroundColor: '#1a1a1a',
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-    padding: 16,
-  },
-  statsContainer: {
-    alignItems: 'center',
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statText: {
-    fontSize: 14,
-    color: '#888',
-    marginLeft: 8,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#888',
-    textAlign: 'center',
-  },
-});

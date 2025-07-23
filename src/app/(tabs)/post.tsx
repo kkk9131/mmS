@@ -4,8 +4,10 @@ import { Send, Heart, Bot } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { PostsService } from '../../services/PostsService';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function PostScreen() {
+  const { theme } = useTheme();
   const [postText, setPostText] = useState('');
   const [aiEmpathyEnabled, setAiEmpathyEnabled] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
@@ -66,11 +68,114 @@ export default function PostScreen() {
     );
   };
 
+  // Dynamic styles with theme colors
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    headerTitle: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: theme.colors.primary,
+      textAlign: 'center',
+    },
+    headerSubtitle: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      textAlign: 'center',
+      marginTop: 4,
+    },
+    textInput: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 12,
+      padding: 16,
+      fontSize: 16,
+      color: theme.colors.text.primary,
+      minHeight: 200,
+      textAlignVertical: 'top',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      marginBottom: 16,
+    },
+    textInputError: {
+      borderColor: theme.colors.error,
+    },
+    charCount: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+    },
+    charCountError: {
+      color: theme.colors.error,
+    },
+    infoCard: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 12,
+      padding: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderLeftWidth: 3,
+      borderLeftColor: theme.colors.primary,
+    },
+    infoText: {
+      fontSize: 14,
+      color: theme.colors.text.primary,
+      lineHeight: 20,
+      marginLeft: 12,
+      flex: 1,
+    },
+    optionCard: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    optionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+      marginLeft: 8,
+      flex: 1,
+    },
+    optionDescription: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      lineHeight: 20,
+      marginLeft: 28,
+    },
+    footer: {
+      padding: 16,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    postButton: {
+      backgroundColor: theme.colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      borderRadius: 8,
+      minHeight: 48,
+    },
+    postButtonDisabled: {
+      backgroundColor: theme.colors.text.secondary,
+    },
+  });
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>新規ポスト</Text>
-        <Text style={styles.headerSubtitle}>今の気持ちを共有しませんか？</Text>
+    <SafeAreaView style={dynamicStyles.container}>
+      <View style={dynamicStyles.header}>
+        <Text style={dynamicStyles.headerTitle}>新規ポスト</Text>
+        <Text style={dynamicStyles.headerSubtitle}>今の気持ちを共有しませんか？</Text>
       </View>
 
       <TouchableWithoutFeedback onPress={dismissKeyboard}>
@@ -82,9 +187,9 @@ export default function PostScreen() {
         >
           <View style={styles.content}>
         <TextInput
-          style={[styles.textInput, isOverLimit && styles.textInputError]}
+          style={[dynamicStyles.textInput, isOverLimit && dynamicStyles.textInputError]}
           placeholder="今日はどんな一日でしたか？ママたちと共有しませんか..."
-          placeholderTextColor="#666"
+          placeholderTextColor={theme.colors.text.secondary}
           multiline
           value={postText}
           onChangeText={setPostText}
@@ -95,34 +200,34 @@ export default function PostScreen() {
         
         <View style={styles.inputFooter}>
           <Text style={[
-            styles.charCount,
-            isOverLimit && styles.charCountError
+            dynamicStyles.charCount,
+            isOverLimit && dynamicStyles.charCountError
           ]}>
             {characterCount}/{maxCharacters}
           </Text>
         </View>
 
-        <View style={styles.optionCard}>
+        <View style={dynamicStyles.optionCard}>
           <View style={styles.optionHeader}>
-            <Bot size={20} color="#ff6b9d" />
-            <Text style={styles.optionTitle}>ママの味方</Text>
+            <Bot size={20} color={theme.colors.primary} />
+            <Text style={dynamicStyles.optionTitle}>ママの味方</Text>
             <Switch
               value={aiEmpathyEnabled}
               onValueChange={setAiEmpathyEnabled}
-              trackColor={{ false: '#333', true: '#ff6b9d' }}
-              thumbColor={aiEmpathyEnabled ? '#fff' : '#666'}
+              trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+              thumbColor={aiEmpathyEnabled ? '#fff' : theme.colors.text.secondary}
             />
           </View>
-          <Text style={styles.optionDescription}>
+          <Text style={dynamicStyles.optionDescription}>
             {aiEmpathyEnabled 
               ? 'ポスト後に温かい共感メッセージが届きます' 
               : '今回は共感メッセージを受け取りません'}
           </Text>
         </View>
 
-        <View style={styles.infoCard}>
-          <Heart size={20} color="#ff6b9d" />
-          <Text style={styles.infoText}>
+        <View style={dynamicStyles.infoCard}>
+          <Heart size={20} color={theme.colors.primary} />
+          <Text style={dynamicStyles.infoText}>
             あなたの気持ちや体験を自由に共有してください。ママたちがあなたの投稿に共感してくれます。
           </Text>
           </View>
@@ -130,11 +235,11 @@ export default function PostScreen() {
         </ScrollView>
       </TouchableWithoutFeedback>
 
-      <View style={styles.footer}>
+      <View style={dynamicStyles.footer}>
         <TouchableOpacity
           style={[
-            styles.postButton, 
-            (isOverLimit || isPosting) && styles.postButtonDisabled
+            dynamicStyles.postButton, 
+            (isOverLimit || isPosting) && dynamicStyles.postButtonDisabled
           ]}
           onPress={handlePost}
           disabled={isOverLimit || isPosting}
@@ -157,123 +262,24 @@ export default function PostScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#121212',
-  },
   scrollView: {
     flex: 1,
   },
   scrollViewContent: {
     flexGrow: 1,
   },
-  header: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#ff6b9d',
-    textAlign: 'center',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#888',
-    textAlign: 'center',
-    marginTop: 4,
-  },
   content: {
     flex: 1,
     padding: 20,
-  },
-  textInput: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: '#e0e0e0',
-    minHeight: 200,
-    textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: '#333',
-    marginBottom: 16,
-  },
-  textInputError: {
-    borderColor: '#ff4444',
   },
   inputFooter: {
     alignItems: 'flex-end',
     marginBottom: 20,
   },
-  charCount: {
-    fontSize: 14,
-    color: '#888',
-  },
-  charCountError: {
-    color: '#ff4444',
-  },
-  infoCard: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderLeftWidth: 3,
-    borderLeftColor: '#ff6b9d',
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#e0e0e0',
-    lineHeight: 20,
-    marginLeft: 12,
-    flex: 1,
-  },
-  optionCard: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
   optionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
-  },
-  optionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#e0e0e0',
-    marginLeft: 8,
-    flex: 1,
-  },
-  optionDescription: {
-    fontSize: 14,
-    color: '#888',
-    lineHeight: 20,
-    marginLeft: 28,
-  },
-  footer: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-  },
-  postButton: {
-    backgroundColor: '#ff6b9d',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-    minHeight: 48,
-  },
-  postButtonDisabled: {
-    backgroundColor: '#666',
   },
   postButtonText: {
     fontSize: 16,

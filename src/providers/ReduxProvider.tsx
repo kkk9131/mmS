@@ -26,10 +26,7 @@ const ReduxInitializer: React.FC<{ children: React.ReactNode }> = ({ children })
           supabaseClient.initialize(config);
           
           // Test connection
-          const connectionStatus = await supabaseClient.testConnection();
-          if (featureFlags.isDebugModeEnabled()) {
-            console.log('Supabase connection status:', connectionStatus);
-          }
+          await supabaseClient.testConnection();
         }
 
         // Initialize auth state if Redux is enabled
@@ -38,7 +35,7 @@ const ReduxInitializer: React.FC<{ children: React.ReactNode }> = ({ children })
         }
 
       } catch (error) {
-        console.error('Failed to initialize app:', error);
+        console.error('ReduxProvider初期化失敗:', error);
       }
     };
 
