@@ -18,6 +18,18 @@ export default function PostScreen() {
   const isOverLimit = characterCount > maxCharacters;
   const postsService = PostsService.getInstance();
 
+  // デバッグ: ボタンの有効/無効状態をログ出力
+  useEffect(() => {
+    console.log('🔘 投稿ボタン状態:', {
+      isOverLimit,
+      isPosting,
+      disabled: isOverLimit || isPosting,
+      characterCount,
+      maxCharacters,
+      hasText: postText.trim().length > 0
+    });
+  }, [isOverLimit, isPosting, characterCount, postText]);
+
   const dismissKeyboard = () => {
     Keyboard.dismiss();
   };
@@ -45,7 +57,14 @@ export default function PostScreen() {
   }, []);
 
   const handlePost = async () => {
+    console.log('📮 投稿ボタンが押されました');
+    console.log('投稿テキスト:', postText);
+    console.log('文字数:', characterCount);
+    console.log('制限超過:', isOverLimit);
+    console.log('投稿中:', isPosting);
+    
     if (postText.trim().length === 0) {
+      console.log('❌ 投稿内容が空です');
       Alert.alert('エラー', '投稿内容を入力してください');
       return;
     }
@@ -278,6 +297,10 @@ export default function PostScreen() {
           ]}
           onPress={handlePost}
           disabled={isOverLimit || isPosting}
+          activeOpacity={0.7}
+          // Web版用の追加プロパティ
+          onPressIn={() => console.log('👆 投稿ボタン: Press In')}
+          onPressOut={() => console.log('👆 投稿ボタン: Press Out')}
         >
           {isPosting ? (
             <>
