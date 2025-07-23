@@ -58,29 +58,65 @@ const createOptimisticComment = (comment: CommentInsert, tempId: string): Commen
 // Posts API slice
 export const postsApi = supabaseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // Get posts with pagination and enhanced features
+    // Get posts with pagination and enhanced features using custom function
     getPosts: builder.query<PostWithExtras[], GetPostsParams>({
-      query: ({ limit = 20, offset = 0, userId, sortBy = 'created_at', order = 'desc' }) => ({
-        table: 'posts',
-        method: 'select',
-        query: `
-          *,
-          users:user_id (
-            id,
-            nickname,
-            avatar_url,
-            is_anonymous
-          ),
-          likes_count:likes(count),
-          comments_count:comments(count),
-          user_liked:likes!inner(user_id)
-        `,
-        options: {
-          ...(userId && { eq: { user_id: userId } }),
-          order: { column: sortBy, ascending: order === 'asc' },
-          range: { from: offset, to: offset + limit - 1 },
-        },
-      }),
+      queryFn: async ({ limit = 20, offset = 0, userId }, { getState }) => {
+        try {
+          // Get current user ID from auth state
+          const state = getState() as any;
+          const currentUserId = state.auth?.user?.id || null;
+          
+          console.log('🔍 投稿取得開始:', { 
+            limit, 
+            offset, 
+            userId, 
+            currentUserId,
+            authState: state.auth?.isAuthenticated 
+          });
+
+          // Call custom database function
+          const supabase = (await import('../../services/supabase/client')).supabaseClient.getClient();
+          const { data, error } = await supabase
+            .rpc('get_posts_with_like_status', {
+              requesting_user_id: currentUserId,
+              limit_count: limit,
+              offset_count: offset
+            });
+
+          if (error) {
+            console.error('❌ 投稿取得エラー:', error);
+            throw error;
+          }
+
+          console.log('✅ 投稿取得成功:', data?.length || 0, '件');
+          console.log('取得データサンプル:', data?.[0]);
+
+          // Transform data to match expected interface
+          const transformedData: PostWithExtras[] = (data || []).map((post: any) => ({
+            id: post.id,
+            user_id: post.user_id,
+            content: post.content,
+            image_url: post.image_url,
+            is_anonymous: post.is_anonymous,
+            created_at: post.created_at,
+            updated_at: post.updated_at,
+            likes_count: post.likes_count || 0,
+            comments_count: post.comments_count || 0,
+            user_liked: post.is_liked_by_user || false,
+            users: {
+              id: post.user_id,
+              nickname: post.user_nickname || 'Unknown User',
+              avatar_url: post.user_avatar_url,
+              is_anonymous: post.is_anonymous
+            }
+          }));
+
+          return { data: transformedData };
+        } catch (error) {
+          console.error('💥 投稿取得で予期しないエラー:', error);
+          return { error: { message: 'Failed to fetch posts', error } };
+        }
+      },
       providesTags: (result, error, params) => {
         const tags = postTags.list(params);
         if (result) {
