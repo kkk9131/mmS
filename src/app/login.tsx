@@ -165,6 +165,27 @@ export default function LoginScreen() {
       <View style={styles.formSection}>
         <Text style={styles.formTitle}>匿名ログイン</Text>
         
+        {/* Development Mode Helper */}
+        {featureFlags.isDebugModeEnabled() && (
+          <View style={styles.devHelper}>
+            <Text style={styles.devHelperTitle}>🚀 開発モード - テスト用ログイン</Text>
+            <Text style={styles.devHelperText}>
+              母子手帳番号: 任意の8文字以上{'\n'}
+              ニックネーム: 任意の2-20文字{'\n'}
+              例: 12345678, テストユーザー
+            </Text>
+            <TouchableOpacity 
+              style={styles.devQuickLogin}
+              onPress={() => {
+                setMaternalBookNumber('12345678');
+                setNickname('テストユーザー');
+              }}
+            >
+              <Text style={styles.devQuickLoginText}>クイックログイン</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
         <TouchableWithoutFeedback onPress={() => handleInputContainerPress(maternalBookRef)}>
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>母子手帳番号</Text>
@@ -421,5 +442,38 @@ const styles = StyleSheet.create({
     border: 'none', // Remove default web border
     boxSizing: 'border-box',
     fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
+  // Development helper styles
+  devHelper: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+  devHelperTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4ade80',
+    marginBottom: 8,
+  },
+  devHelperText: {
+    fontSize: 12,
+    color: '#aaa',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  devQuickLogin: {
+    backgroundColor: '#4ade80',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  devQuickLoginText: {
+    fontSize: 12,
+    color: '#000',
+    fontWeight: '600',
   },
 });
