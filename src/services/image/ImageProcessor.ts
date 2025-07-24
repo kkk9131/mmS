@@ -387,12 +387,7 @@ export class ImageProcessor {
       
       // 2. リサイズ
       if (options.resize) {
-        const resized = await this.resize(
-          processedImage,
-          options.resize.width,
-          options.resize.height,
-          options.resize.preserveAspectRatio
-        );
+        const resized = await this.resize(processedImage, options.resize);
         processedImage = resized;
       }
       

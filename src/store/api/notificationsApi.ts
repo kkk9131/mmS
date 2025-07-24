@@ -2,6 +2,7 @@ import { supabaseApi } from './supabaseApi';
 import { Notification, NotificationUpdate, NotificationInsert } from '../../types/supabase';
 import { supabaseClient } from '../../services/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { NotificationType as PushNotificationType } from '../../services/notifications/NotificationHandler';
 
 // Enhanced notification interface with user data
 interface NotificationWithUser extends Notification {
@@ -392,6 +393,96 @@ export const notificationsApi = supabaseApi.injectEndpoints({
         { type: 'Notification', id: `UNREAD_${userId}` },
       ],
     }),
+
+    // プッシュ通知関連のエンドポイント
+
+    // プッシュトークンの登録
+    registerPushToken: builder.mutation<void, void>({
+      queryFn: async () => {
+        try {
+          const { notificationService } = await import('../../services/notifications/NotificationService');
+          const { data: { user } } = await supabaseClient.getClient().auth.getUser();
+          
+          if (!user) {
+            return { error: { message: 'Unauthorized', code: 'AUTH_ERROR' } };
+          }
+
+          await notificationService.initializePushNotifications(user.id);
+          return { data: undefined };
+        } catch (error) {
+          return { error: { message: error.message, code: 'PUSH_TOKEN_ERROR' } };
+        }
+      },
+      invalidatesTags: ['Notification'],
+    }),
+
+    // プッシュ通知権限のリクエスト
+    requestPushPermissions: builder.mutation<boolean, void>({
+      queryFn: async () => {
+        try {
+          const { notificationService } = await import('../../services/notifications/NotificationService');
+          const granted = await notificationService.requestPermissions();
+          return { data: granted };
+        } catch (error) {
+          return { error: { message: error.message, code: 'PERMISSION_ERROR' } };
+        }
+      },
+    }),
+
+    // 通知設定の取得
+    getNotificationSettings: builder.query<any, string>({
+      query: (userId) => ({
+        table: 'notification_settings',
+        method: 'select',
+        options: {
+          eq: { user_id: userId },
+          single: true,
+        },
+      }),
+      providesTags: (result, error, userId) => [
+        { type: 'Notification', id: `SETTINGS_${userId}` },
+      ],
+    }),
+
+    // 通知設定の更新
+    updateNotificationSettings: builder.mutation<void, { userId: string; settings: any }>({
+      query: ({ userId, settings }) => ({
+        table: 'notification_settings',
+        method: 'upsert',
+        data: {
+          user_id: userId,
+          ...settings,
+          updated_at: new Date().toISOString(),
+        },
+      }),
+      invalidatesTags: (result, error, { userId }) => [
+        { type: 'Notification', id: `SETTINGS_${userId}` },
+      ],
+    }),
+
+    // プッシュ通知の送信
+    sendPushNotification: builder.mutation<void, {
+      userId: string;
+      type: PushNotificationType;
+      title: string;
+      message: string;
+      data?: Record<string, any>;
+      actionUrl: string;
+    }>({
+      queryFn: async (params) => {
+        try {
+          const { notificationService } = await import('../../services/notifications/NotificationService');
+          await notificationService.createNotification(params);
+          return { data: undefined };
+        } catch (error) {
+          return { error: { message: error.message, code: 'PUSH_SEND_ERROR' } };
+        }
+      },
+      invalidatesTags: (result, error, { userId }) => [
+        { type: 'Notification', id: `USER_${userId}` },
+        { type: 'Notification', id: `UNREAD_${userId}` },
+      ],
+    }),
   }),
   overrideExisting: false,
 });
@@ -407,6 +498,12 @@ export const {
   useCreateNotificationMutation,
   useBatchMarkAsReadMutation,
   useMarkNotificationsAsReadMutation,
+  // プッシュ通知関連のhooks
+  useRegisterPushTokenMutation,
+  useRequestPushPermissionsMutation,
+  useGetNotificationSettingsQuery,
+  useUpdateNotificationSettingsMutation,
+  useSendPushNotificationMutation,
 } = notificationsApi;
 
 // Export real-time manager for custom hooks
