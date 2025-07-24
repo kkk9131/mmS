@@ -133,10 +133,35 @@ export class SupabaseClientManager {
     }
 
     try {
+      // カスタム認証の場合は、Reduxストアから現在のユーザーを取得
+      const featureFlags = FeatureFlagsManager.getInstance();
+      
+      if (featureFlags.isSupabaseEnabled()) {
+        // カスタム認証モードでは、Reduxストアからユーザー情報を取得
+        try {
+          const { store } = await import('../../store');
+          const state = store.getState();
+          const currentUser = state.auth?.user;
+          
+          if (currentUser) {
+            // カスタム認証のユーザー情報があれば、それを返す
+            return currentUser;
+          }
+        } catch (storeError) {
+          // Reduxストアの取得に失敗した場合は、標準認証を試行
+        }
+      }
+      
+      // 標準Supabase認証を試行
       const { data: { user }, error } = await this.client.auth.getUser();
       
       if (error) {
-        console.error('Failed to get current user:', error.message);
+        // カスタム認証の場合は、このエラーは通常の動作なので警告レベルに変更
+        if (error.message?.includes('session') || error.message?.includes('Auth')) {
+          console.warn('Standard Supabase auth not available (using custom auth):', error.message);
+        } else {
+          console.error('Failed to get current user:', error.message);
+        }
         return null;
       }
       

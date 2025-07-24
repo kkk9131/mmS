@@ -474,45 +474,196 @@ export class PostsService {
   }
 
   private async createSupabasePost(data: CreatePostRequest): Promise<Post> {
+    console.log('🚀 createSupabasePost開始');
     await this.ensureSupabaseConnection();
-    const currentUser = await supabaseClient.getCurrentUser();
+    
+    // Supabaseの現在のセッション状態を確認
+    const client = supabaseClient.getClient();
+    const { data: sessionData, error: sessionError } = await client.auth.getSession();
+    console.log('🔍 Supabase session:', sessionData);
+    if (sessionError) {
+      console.error('❌ Supabase session error:', sessionError);
+    }
+    
+    // For custom auth, get user ID from Redux state instead of Supabase client
+    let currentUserId: string | null = null;
+    
+    // Use Redux store to get current user (for custom auth)
+    try {
+      const { store } = await import('../store');
+      const state = store.getState();
+      currentUserId = state.auth?.user?.id || null;
+      console.log('🔍 Current user ID from Redux:', currentUserId);
+      console.log('🔍 Full auth state:', state.auth);
+    } catch (error) {
+      console.error('❌ Failed to get user ID from Redux:', error);
+    }
 
-    if (!currentUser) {
+    if (!currentUserId) {
       throw new Error('User not authenticated');
     }
 
     return this.withRetry(async () => {
       const client = supabaseClient.getClient();
-
+      
       try {
-      const postData: PostInsert = {
-        content: data.content,
-        user_id: currentUser.id,
-        image_url: data.images?.[0] || null,
-        is_anonymous: false,
-        likes_count: 0,
-        comments_count: 0,
-      };
+        // カスタム認証の場合、投稿作成前にSupabaseセッションを設定
+        const { store } = await import('../store');
+        const state = store.getState();
+        const session = state.auth?.session;
+        
+        console.log('=================== カスタム認証状態確認 ===================');
+        console.log('🔍 Session exists:', !!session);
+        console.log('🔍 Session details:', session);
+        console.log('🔍 Access token exists:', !!(session && session.access_token));
+        console.log('==========================================================');
+        
+        if (session && session.access_token) {
+          console.log('🔧 カスタム認証セッションを設定中...');
+          try {
+            // Supabaseにカスタム認証のセッションを設定
+            const { error: setSessionError } = await client.auth.setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token || session.access_token, // Fallback
+            });
+            
+            if (setSessionError) {
+              console.warn('⚠️ セッション設定エラー:', setSessionError);
+              console.warn('⚠️ セッション設定エラー詳細:', JSON.stringify(setSessionError, null, 2));
+            } else {
+              console.log('✅ Supabaseセッション設定完了');
+              
+              // セッション設定後の状態を確認
+              const { data: currentSession } = await client.auth.getSession();
+              console.log('🔍 設定後のSupabaseセッション:', currentSession);
+            }
+          } catch (sessionSetError) {
+            console.warn('⚠️ セッション設定で例外:', sessionSetError);
+          }
+        } else {
+          console.warn('⚠️ カスタム認証セッションまたはアクセストークンが見つかりません');
+        }
+        
+        const postData: PostInsert = {
+          content: data.content,
+          user_id: currentUserId,
+          image_url: data.images?.[0] || null,
+          is_anonymous: false,
+          likes_count: 0,
+          comments_count: 0,
+        };
 
-      const { data: post, error } = await client
-        .from('posts')
-        .insert(postData)
-        .select(`
-          *,
-          users!inner (
-            id,
-            nickname,
-            avatar_url
-          )
-        `)
-        .single();
+        console.log('🔍 Creating post with data:', postData);
+        
+        // Supabase接続テストを追加
+        console.log('=================== Supabase接続テスト ===================');
+        try {
+          const { data: testData, error: testError } = await client
+            .from('users')
+            .select('id')
+            .limit(1);
+          
+          if (testError) {
+            console.error('❌ Supabase接続テストエラー:', testError);
+          } else {
+            console.log('✅ Supabase接続テスト成功:', testData);
+          }
+        } catch (testConnectionError) {
+          console.error('❌ Supabase接続テスト例外:', testConnectionError);
+        }
+        console.log('=======================================================');
+
+        // 投稿を作成 - カスタム認証の場合はRPCファンクションを使用
+        console.log('💡 投稿作成処理を開始します');
+        
+        // まず通常の方法を試す
+        let post, error;
+        try {
+          const result = await client
+            .from('posts')
+            .insert(postData)
+            .select()
+            .single();
+          post = result.data;
+          error = result.error;
+        } catch (insertError) {
+          console.error('直接INSERT失敗:', insertError);
+          error = insertError;
+        }
+        
+        // 直接INSERTが失敗した場合、RPC関数を試す
+        if (error) {
+          console.log('🔄 直接INSERT失敗、RPC関数を試します');
+          try {
+            const rpcResult = await client.rpc('create_post_custom_auth', {
+              p_content: postData.content,
+              p_user_id: postData.user_id,
+              p_image_url: postData.image_url,
+              p_is_anonymous: postData.is_anonymous
+            });
+            
+            if (rpcResult.error) {
+              console.error('RPC関数エラー:', rpcResult.error);
+              error = rpcResult.error;
+            } else {
+              console.log('✅ RPC関数で投稿作成成功');
+              post = rpcResult.data[0] || rpcResult.data;
+              error = null;
+            }
+          } catch (rpcError) {
+            console.error('RPC関数例外:', rpcError);
+            // RPC関数が存在しない場合はそのまま元のエラーを使用
+          }
+        }
 
       if (error) {
-        console.error('Supabase post creation error:', error);
-        throw new Error(`Failed to create post: ${error.message}`);
+        console.error('=================== Supabase投稿作成エラー詳細 ===================');
+        console.error('❌ Supabase post creation error:', error);
+        console.error('❌ Error type:', typeof error);
+        console.error('❌ Error constructor:', error.constructor.name);
+        console.error('❌ Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          status: error.status,
+          statusCode: error.statusCode,
+          full_error: error
+        });
+        console.error('❌ Error JSON:', JSON.stringify(error, null, 2));
+        console.error('===============================================================');
+        throw new Error(`Failed to create post: ${error.message || 'Unknown Supabase error'}`);
       }
 
-      const user = Array.isArray(post.users) ? post.users[0] : post.users;
+      console.log('✅ Post created successfully:', post);
+
+      // 投稿作成後、ユーザー情報を別途取得
+      let user = null;
+      try {
+        const { data: userData, error: userError } = await client
+          .from('users')
+          .select('id, nickname, avatar_url')
+          .eq('id', currentUserId)
+          .single();
+
+        if (userError) {
+          console.warn('Failed to fetch user data:', userError);
+          user = {
+            id: currentUserId,
+            nickname: 'Unknown',
+            avatar_url: 'https://via.placeholder.com/40'
+          };
+        } else {
+          user = userData;
+        }
+      } catch (userFetchError) {
+        console.warn('Error fetching user data:', userFetchError);
+        user = {
+          id: currentUserId,
+          nickname: 'Unknown',
+          avatar_url: 'https://via.placeholder.com/40'
+        };
+      }
 
       return {
         id: post.id,
