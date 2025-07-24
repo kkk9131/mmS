@@ -23,12 +23,15 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useCreatePostMutation } from '../../store/api/postsApi';
 import { FeatureFlagsManager } from '../../services/featureFlags';
 import { useAppSelector } from '../../hooks/redux';
+import { ImageUploadButton } from '../../components/image/ImageUploadButton';
+import { ProcessedImage } from '../../types/image';
 
 export default function PostScreen() {
   const { theme } = useTheme();
   const [postText, setPostText] = useState('');
   const [aiEmpathyEnabled, setAiEmpathyEnabled] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<ProcessedImage[]>([]);
   const textInputRef = useRef<TextInput>(null);
 
   const maxCharacters = 600;
@@ -70,6 +73,16 @@ export default function PostScreen() {
       return () => clearTimeout(timer);
     }
   }, []);
+
+  // 画像選択ハンドラー
+  const handleImageSelected = (images: ProcessedImage[]) => {
+    setSelectedImages(prev => [...prev, ...images].slice(0, 4)); // 最大4枚まで
+  };
+
+  // 画像削除ハンドラー
+  const handleImageRemoved = (imageId: string) => {
+    setSelectedImages(prev => prev.filter(img => img.id !== imageId));
+  };
 
   const handlePost = async () => {
     console.log('🚀🚀🚀 === handlePost関数開始 === 🚀🚀🚀');
@@ -149,11 +162,18 @@ export default function PostScreen() {
         if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
           console.log('🔵 RTK Queryで投稿作成を試行');
           // Use RTK Query for post creation
+          // 複数画像の場合はJSON文字列として保存
+          const imageUrl = selectedImages.length > 0 
+            ? selectedImages.length === 1 
+              ? selectedImages[0].uri 
+              : JSON.stringify(selectedImages.map(img => img.uri))
+            : null;
+
           const result = await createPost({
             content: postText.trim(),
             user_id: currentUser.id,
             is_anonymous: false,
-            image_url: null,
+            image_url: imageUrl,
             likes_count: 0,
             comments_count: 0
           });
@@ -172,7 +192,8 @@ export default function PostScreen() {
           try {
             // Fallback to PostsService
             const result = await postsService.createPost({
-              content: postText.trim()
+              content: postText.trim(),
+              images: selectedImages.length > 0 ? selectedImages.map(img => img.uri) : undefined
             });
             console.log('✅ PostsService投稿作成成功:', result);
           } catch (postsServiceError) {
@@ -192,6 +213,7 @@ export default function PostScreen() {
               text: 'OK', 
               onPress: () => {
                 setPostText('');
+                setSelectedImages([]);
                 router.back();
               }
             }
@@ -200,6 +222,7 @@ export default function PostScreen() {
         
         // 投稿後のクリーンアップ
         setPostText('');
+        setSelectedImages([]);
         router.back();
         
       } catch (error) {
@@ -413,6 +436,16 @@ export default function PostScreen() {
               : '今回は共感メッセージを受け取りません'}
           </Text>
         </View>
+
+        {/* 画像アップロード機能 */}
+        <ImageUploadButton
+          onImageSelected={handleImageSelected}
+          onImageRemoved={handleImageRemoved}
+          selectedImages={selectedImages}
+          maxImages={4}
+          disabled={isPosting}
+          showPreview={true}
+        />
 
         <View style={dynamicStyles.infoCard}>
           <Heart size={20} color={theme.colors.primary} />
