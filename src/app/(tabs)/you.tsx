@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, ScrollView } from 'react-native';
 import { User, Settings, Heart, MessageCircle, Shield, LogOut, Bell, Plus } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useHandPreference } from '../../contexts/HandPreferenceContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const NOTIFICATION_SETTINGS_KEY = 'notification_settings';
 
 export default function YouScreen() {
   const { handPreference, setHandPreference } = useHandPreference();
@@ -13,6 +16,54 @@ export default function YouScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [followCount, setFollowCount] = useState(67);
   const [followerCount, setFollowerCount] = useState(89);
+
+  // 画面フォーカス時に通知設定を再読み込み
+  useFocusEffect(
+    React.useCallback(() => {
+      loadNotificationSettings();
+    }, [])
+  );
+
+  const loadNotificationSettings = async () => {
+    try {
+      const savedSettings = await AsyncStorage.getItem(NOTIFICATION_SETTINGS_KEY);
+      if (savedSettings) {
+        const settings = JSON.parse(savedSettings);
+        setNotificationsEnabled(settings.pushEnabled ?? true);
+      }
+    } catch (error) {
+      console.error('通知設定の読み込みに失敗:', error);
+    }
+  };
+
+  const handleNotificationToggle = async (enabled: boolean) => {
+    setNotificationsEnabled(enabled);
+    
+    try {
+      // 既存の設定を読み込んで更新
+      const savedSettings = await AsyncStorage.getItem(NOTIFICATION_SETTINGS_KEY);
+      let settings = {};
+      if (savedSettings) {
+        settings = JSON.parse(savedSettings);
+      }
+      
+      // pushEnabledのみ更新
+      const updatedSettings = {
+        ...settings,
+        pushEnabled: enabled,
+        // 無効化された場合は全ての通知を無効化
+        likesEnabled: enabled ? (settings.likesEnabled ?? true) : false,
+        commentsEnabled: enabled ? (settings.commentsEnabled ?? true) : false,
+        followsEnabled: enabled ? (settings.followsEnabled ?? true) : false,
+        messagesEnabled: enabled ? (settings.messagesEnabled ?? true) : false,
+        mentionsEnabled: enabled ? (settings.mentionsEnabled ?? true) : false,
+      };
+      
+      await AsyncStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(updatedSettings));
+    } catch (error) {
+      console.error('通知設定の保存に失敗:', error);
+    }
+  };
 
   const handleThemeToggle = async (enabled: boolean) => {
     await setThemeMode(enabled ? 'light' : 'dark');
@@ -183,15 +234,37 @@ export default function YouScreen() {
         <View style={dynamicStyles.settingItem}>
           <View style={styles.settingLeft}>
             <Bell size={20} color={theme.colors.primary} />
-            <Text style={dynamicStyles.settingText}>通知</Text>
+            <View>
+              <Text style={dynamicStyles.settingText}>すべての通知</Text>
+              <Text style={[dynamicStyles.settingText, { fontSize: 12, color: theme.colors.text.secondary, marginTop: 2 }]}>
+                いいね、コメント、フォロー、メッセージ
+              </Text>
+            </View>
           </View>
           <Switch
             value={notificationsEnabled}
-            onValueChange={setNotificationsEnabled}
+            onValueChange={handleNotificationToggle}
             trackColor={{ false: theme.colors.card, true: theme.colors.primary }}
             thumbColor={notificationsEnabled ? '#fff' : theme.colors.text.disabled}
           />
         </View>
+        
+        <TouchableOpacity 
+          style={[dynamicStyles.settingItem, { backgroundColor: theme.colors.surface }]}
+          onPress={() => {
+            console.log('通知詳細設定画面へ遷移');
+            router.push('/notifications/settings');
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={styles.settingLeft}>
+            <Settings size={20} color={theme.colors.text.secondary} />
+            <Text style={[dynamicStyles.settingText, { color: theme.colors.text.secondary }]}>
+              詳細な通知設定
+            </Text>
+          </View>
+          <Text style={{ color: theme.colors.text.secondary, fontSize: 18 }}>›</Text>
+        </TouchableOpacity>
 
         <View style={dynamicStyles.settingItem}>
           <View style={styles.settingLeft}>

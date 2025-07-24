@@ -3,8 +3,8 @@
  * Supabase Storageを使用した画像アップロード・管理機能
  */
 
-import { supabaseClient } from '../supabase/client';
 import { ProcessedImage, UploadResult } from '../../types/image';
+import { SupabaseClientManager } from '../supabase/client';
 
 export class SupabaseImageService {
   private bucketName: string = 'images';
@@ -20,9 +20,47 @@ export class SupabaseImageService {
     try {
       console.log('📤 Supabase画像アップロード開始:', { imageId: image.id, bucket });
       
+      // ユーザーIDを取得
+      const manager = SupabaseClientManager.getInstance();
+      
+      // Supabaseクライアントの初期化を確認
+      if (!manager.isInitialized()) {
+        console.log('🔧 Supabaseクライアント初期化開始');
+        try {
+          const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+          const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+          
+          if (!supabaseUrl || !supabaseKey) {
+            throw new Error('Supabase環境変数が設定されていません');
+          }
+          
+          manager.initialize({
+            url: supabaseUrl,
+            anonKey: supabaseKey,
+            debug: true
+          });
+        } catch (error) {
+          console.error('❌ Supabase初期化エラー:', error);
+          throw new Error('Supabase接続の初期化に失敗しました');
+        }
+      }
+      
+      const client = manager.getClient();
+      
+      if (!client) {
+        throw new Error('Supabase client not initialized');
+      }
+      
+      const currentUser = await manager.getCurrentUser();
+      const userId = currentUser?.id || 'anonymous';
+      
+      console.log('📤 ユーザー情報:', { userId, hasUser: !!currentUser });
+      
       // ファイル名生成（ユニークな名前）
       const fileName = this.generateFileName(image);
-      const filePath = `uploads/${fileName}`;
+      const filePath = bucket === 'avatars' 
+        ? `${userId}/${fileName}`  // avatarsの場合はユーザーIDフォルダに保存
+        : `uploads/${fileName}`;   // その他の場合はuploadsフォルダ
       
       // 進捗通知
       onProgress?.(10);
@@ -34,25 +72,40 @@ export class SupabaseImageService {
       onProgress?.(30);
       
       // Supabase Storageにアップロード
-      const { data, error } = await supabaseClient.storage
+      console.log('📤 アップロード詳細:', {
+        bucket,
+        filePath,
+        blobSize: blob.size,
+        mimeType: image.mimeType,
+        userId
+      });
+      
+      const { data, error } = await client.storage
         .from(bucket)
         .upload(filePath, blob, {
           contentType: image.mimeType,
-          upsert: false
+          upsert: true  // 既存ファイルがある場合は上書き
         });
       
       onProgress?.(80);
       
       if (error) {
         console.error('❌ Supabaseアップロードエラー:', error);
+        console.error('エラー詳細:', {
+          message: error.message,
+          statusCode: error.statusCode,
+          error: error
+        });
         return {
           success: false,
           error: error.message
         };
       }
       
+      console.log('✅ アップロード成功:', data);
+      
       // パブリックURLの取得
-      const { data: urlData } = supabaseClient.storage
+      const { data: urlData } = client.storage
         .from(bucket)
         .getPublicUrl(filePath);
       
@@ -64,7 +117,11 @@ export class SupabaseImageService {
         path: filePath
       };
       
-      console.log('✅ Supabase画像アップロード完了:', result.url);
+      console.log('✅ Supabase画像アップロード完了:', {
+        url: result.url,
+        path: result.path,
+        fullUrl: urlData.publicUrl
+      });
       
       // データベースに画像情報を保存
       await this.saveImageMetadata(image, result);
@@ -83,7 +140,10 @@ export class SupabaseImageService {
    * 画像URL取得
    */
   getImageUrl(path: string, bucket: string = this.bucketName): string {
-    const { data } = supabaseClient.storage
+    const manager = SupabaseClientManager.getInstance();
+    const client = manager.getClient();
+    
+    const { data } = client.storage
       .from(bucket)
       .getPublicUrl(path);
     
@@ -97,7 +157,10 @@ export class SupabaseImageService {
     try {
       console.log('🗑️ 画像削除開始:', path);
       
-      const { error } = await supabaseClient.storage
+      const manager = SupabaseClientManager.getInstance();
+      const client = manager.getClient();
+      
+      const { error } = await client.storage
         .from(bucket)
         .remove([path]);
       
@@ -121,7 +184,10 @@ export class SupabaseImageService {
    */
   async generateSignedUrl(path: string, expiresIn: number = 3600, bucket: string = this.bucketName): Promise<string> {
     try {
-      const { data, error } = await supabaseClient.storage
+      const manager = SupabaseClientManager.getInstance();
+      const client = manager.getClient();
+      
+      const { data, error } = await client.storage
         .from(bucket)
         .createSignedUrl(path, expiresIn);
       
@@ -142,7 +208,10 @@ export class SupabaseImageService {
    */
   async listBuckets(): Promise<string[]> {
     try {
-      const { data, error } = await supabaseClient.storage.listBuckets();
+      const manager = SupabaseClientManager.getInstance();
+      const client = manager.getClient();
+      
+      const { data, error } = await client.storage.listBuckets();
       
       if (error) {
         console.error('❌ バケット一覧取得エラー:', error);
@@ -161,7 +230,10 @@ export class SupabaseImageService {
    */
   async listFiles(folder: string = '', bucket: string = this.bucketName): Promise<any[]> {
     try {
-      const { data, error } = await supabaseClient.storage
+      const manager = SupabaseClientManager.getInstance();
+      const client = manager.getClient();
+      
+      const { data, error } = await client.storage
         .from(bucket)
         .list(folder);
       
@@ -224,7 +296,10 @@ export class SupabaseImageService {
   private async saveImageMetadata(image: ProcessedImage, uploadResult: UploadResult): Promise<void> {
     try {
       // ユーザーIDを取得
-      const { data: { user } } = await supabaseClient.auth.getUser();
+      const manager = SupabaseClientManager.getInstance();
+      const client = manager.getClient();
+      
+      const { data: { user } } = await client.auth.getUser();
       
       if (!user) {
         console.warn('⚠️ ユーザーが認証されていません');
@@ -243,7 +318,7 @@ export class SupabaseImageService {
         upload_status: 'completed'
       };
       
-      const { error } = await supabaseClient
+      const { error } = await client
         .from('image_uploads')
         .insert([imageMetadata]);
       
@@ -262,7 +337,10 @@ export class SupabaseImageService {
    */
   private async deleteImageMetadata(storagePath: string): Promise<void> {
     try {
-      const { error } = await supabaseClient
+      const manager = SupabaseClientManager.getInstance();
+      const client = manager.getClient();
+      
+      const { error } = await client
         .from('image_uploads')
         .delete()
         .eq('storage_path', storagePath);
@@ -282,7 +360,10 @@ export class SupabaseImageService {
    */
   async createBucket(bucketName: string, isPublic: boolean = true): Promise<void> {
     try {
-      const { error } = await supabaseClient.storage.createBucket(bucketName, {
+      const manager = SupabaseClientManager.getInstance();
+      const client = manager.getClient();
+      
+      const { error } = await client.storage.createBucket(bucketName, {
         public: isPublic
       });
       

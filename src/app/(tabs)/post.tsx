@@ -152,6 +152,7 @@ export default function PostScreen() {
         console.log('🔍 isSupabaseEnabled:', featureFlags.isSupabaseEnabled());
         console.log('🔍 isReduxEnabled:', featureFlags.isReduxEnabled());
         console.log('🔍 使用する投稿作成方法:', featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled() ? 'RTK Query' : 'PostsService');
+        console.log('🔍 selectedImages:', selectedImages.length);
         console.log('==================================================');
         
         if (!currentUser) {
@@ -159,14 +160,41 @@ export default function PostScreen() {
           throw new Error('ユーザーが認証されていません');
         }
         
+        // 画像アップロード処理
+        let uploadedImageUrls: string[] = [];
+        if (selectedImages.length > 0) {
+          console.log('📤 画像アップロード開始:', selectedImages.length);
+          const { ImageUploadManager } = await import('../../services/image/ImageUploadManager');
+          const uploadManager = new ImageUploadManager();
+          
+          for (const image of selectedImages) {
+            try {
+              console.log('📤 画像アップロード中:', image.id);
+              const uploadResult = await uploadManager.uploadImage(image, 'posts');
+              
+              if (uploadResult.success && uploadResult.url) {
+                uploadedImageUrls.push(uploadResult.url);
+                console.log('✅ 画像アップロード成功:', uploadResult.url);
+              } else {
+                console.error('❌ 画像アップロード失敗:', uploadResult.error);
+                throw new Error(`画像のアップロードに失敗しました: ${uploadResult.error}`);
+              }
+            } catch (uploadError) {
+              console.error('❌ 画像アップロードエラー:', uploadError);
+              throw new Error(`画像のアップロードに失敗しました: ${uploadError}`);
+            }
+          }
+          console.log('✅ 全画像アップロード完了:', uploadedImageUrls);
+        }
+        
         if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
           console.log('🔵 RTK Queryで投稿作成を試行');
           // Use RTK Query for post creation
-          // 複数画像の場合はJSON文字列として保存
-          const imageUrl = selectedImages.length > 0 
-            ? selectedImages.length === 1 
-              ? selectedImages[0].uri 
-              : JSON.stringify(selectedImages.map(img => img.uri))
+          // アップロードされた画像URLを使用
+          const imageUrl = uploadedImageUrls.length > 0 
+            ? uploadedImageUrls.length === 1 
+              ? uploadedImageUrls[0] 
+              : JSON.stringify(uploadedImageUrls)
             : null;
 
           const result = await createPost({
@@ -190,10 +218,10 @@ export default function PostScreen() {
           console.log('🔍 PostsService method:', postsService.createPost);
           
           try {
-            // Fallback to PostsService
+            // Fallback to PostsService - アップロードされた画像URLを使用
             const result = await postsService.createPost({
               content: postText.trim(),
-              images: selectedImages.length > 0 ? selectedImages.map(img => img.uri) : undefined
+              images: uploadedImageUrls.length > 0 ? uploadedImageUrls : undefined
             });
             console.log('✅ PostsService投稿作成成功:', result);
           } catch (postsServiceError) {
