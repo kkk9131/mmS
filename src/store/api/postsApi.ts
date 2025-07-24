@@ -1,5 +1,6 @@
 import { supabaseApi } from './supabaseApi';
 import { Post, PostInsert, PostUpdate, Like, Comment, CommentInsert } from '../../types/supabase';
+import { supabaseClient } from '../../services/supabase/client';
 import { 
   CACHE_TIMES, 
   TAG_TYPES, 
@@ -75,7 +76,7 @@ export const postsApi = supabaseApi.injectEndpoints({
           });
 
           // Call custom database function
-          const supabase = (await import('../../services/supabase/client')).supabaseClient.getClient();
+          const supabase = supabaseClient.getClient();
           const { data, error } = await supabase
             .rpc('get_posts_with_like_status', {
               requesting_user_id: currentUserId,
@@ -172,10 +173,12 @@ export const postsApi = supabaseApi.injectEndpoints({
         console.log('📝 投稿データ:', post);
         
         try {
-          const { supabaseClient } = await import('../../services/supabase/client');
           const client = supabaseClient.getClient();
           
           console.log('🔍 Supabase client取得完了');
+          
+          // RLS無効化後のシンプルな投稿作成処理
+          console.log('🔧 カスタム認証での投稿作成（RLS無効化済み想定）');
           
           const { data, error } = await client
             .from('posts')
@@ -190,6 +193,9 @@ export const postsApi = supabaseApi.injectEndpoints({
               )
             `)
             .single();
+          
+          console.log('✅ 投稿作成試行完了 - data:', data);
+          console.log('❌ エラー（あれば）:', error);
             
           console.log('📤 Supabase INSERT実行完了');
           console.log('✅ data:', data);

@@ -1,14 +1,36 @@
-# Mamapace
+# Mamaspace - 母親向けコミュニティアプリ
 
-日本のママ向けの匿名コミュニティアプリ
+React Native + Expo + Supabaseで構築された母親向けのソーシャルコミュニティアプリです。
 
-## 🌟 概要
+## 🔐 認証システム
 
-Mamapaceは、日本の母親たちが安全で匿名の環境で経験や悩みを共有し、お互いをサポートするためのソーシャルネットワーキングアプリです。
+### 自動ログイン機能
+- **生体認証**（指紋・Face ID）による瞬時ログイン
+- **トークンベース**の自動セッション復元
+- アプリ起動時の手間なしアクセス
+
+### セキュリティ
+- **AES-256暗号化**による認証データ保護
+- **デバイス固有**のセッション管理
+- **自動期限切れ**による不正アクセス防止
+
+## 🛡️ アクセス制御
+
+### 保護された画面
+```typescript
+// 使用例
+<ProtectedRoute requiredPermissions={['admin']}>
+  <AdminScreen />
+</ProtectedRoute>
+```
+
+- プロフィール編集（認証必須）
+- 設定画面（認証必須）  
+- 管理機能（admin権限必須）
+- プレミアム機能（premium権限必須）
 
 ## ✨ 主な機能
 
-- 📱 **匿名ログイン** - 母子手帳番号 + ニックネームでの安全な認証
 - 💬 **テキスト投稿** - 600文字制限のタイムライン投稿
 - ❤️ **共感システム** - ハートリアクションとコメント機能
 - 🏷️ **ハッシュタグ** - Discord風のインライン提案機能
@@ -24,11 +46,14 @@ Mamapaceは、日本の母親たちが安全で匿名の環境で経験や悩み
 
 ## 🛠️ 技術スタック
 
-- **フレームワーク**: React Native with Expo SDK 53
-- **言語**: TypeScript
-- **ナビゲーション**: Expo Router
-- **状態管理**: Zustand (予定)
-- **プラットフォーム**: iOS, Android, Web
+| 技術 | 用途 |
+|------|------|
+| **React Native** | モバイルアプリ開発 |
+| **Expo SDK 53** | 開発・ビルド環境 |
+| **Supabase** | バックエンド・データベース |
+| **Redux Toolkit** | 状態管理 |
+| **TypeScript** | 型安全性 |
+| **Expo Router** | ナビゲーション |
 
 ## 📁 プロジェクト構造
 
@@ -44,21 +69,54 @@ src/
 └── styles/             # 共有スタイル
 ```
 
-## 🚀 開発コマンド
+## 🚀 セットアップ
 
 ```bash
+# 依存関係インストール
+npm install
+
 # 開発サーバー起動
 npm run dev
 
-# Webビルド
-npm run build:web
+# 型チェック
+npm run type-check
 
-# コードリント
+# リント
 npm run lint
 
-# TypeScriptチェック
-npx tsc --noEmit
+# テスト実行
+npm test
 ```
+
+## 🔄 認証フロー
+
+```mermaid
+graph TD
+    A[アプリ起動] --> B{保存されたセッション?}
+    B -->|あり| C[トークン検証]
+    B -->|なし| G[ログイン画面]
+    C -->|有効| D[自動ログイン成功]
+    C -->|期限切れ| E{生体認証有効?}
+    E -->|はい| F[生体認証実行]
+    E -->|いいえ| G
+    F -->|成功| D
+    F -->|失敗| G
+    D --> H[メイン画面]
+    G --> I[認証] --> H
+```
+
+## 🎯 ユーザー体験
+
+### 日常利用
+1. **アプリ起動** → Face IDで瞬時ログイン
+2. **投稿閲覧** → 他のママの育児体験をチェック  
+3. **相談投稿** → 育児の悩みを共有
+4. **コメント交流** → アドバイスの交換
+
+### セキュリティ
+- **生体認証必須**：本人以外アクセス不可
+- **自動ログアウト**：放置時の安全確保
+- **データ暗号化**：個人情報の完全保護
 
 ## 🎨 UI/UX原則
 
@@ -68,19 +126,60 @@ npx tsc --noEmit
 - レスポンシブデザイン
 - 日本語対応
 
+## 📋 開発者向け
+
+### 新機能追加
+```typescript
+// 認証が必要な新画面の追加例
+export default function NewFeatureScreen() {
+  return (
+    <ProtectedRoute requiredPermissions={['premium']}>
+      <YourNewComponent />
+    </ProtectedRoute>
+  );
+}
+```
+
+### 認証状態の利用
+```typescript
+import { useAuth } from '../contexts/AuthContext';
+
+export function MyComponent() {
+  const { isAuthenticated, user } = useAuth();
+  
+  if (!isAuthenticated) {
+    return <LoginPrompt />;
+  }
+  
+  return <UserContent user={user} />;
+}
+```
+
+## 🧪 テスト
+
+```bash
+# 単体テスト
+npm test
+
+# E2Eテスト  
+npm run test:e2e
+
+# カバレッジ確認
+npm run test:coverage
+```
+
 ## 📝 開発状況
 
-- ✅ プロジェクト構造整理完了
-- ✅ TypeScript設定完了
-- ✅ Expo Router設定完了
-- ✅ 基本コンポーネント実装済み
-- 🔄 状態管理実装予定
-- 🔄 データ層実装予定
+- ✅ **認証システム完成** - 自動ログイン・生体認証・セキュリティ
+- ✅ **アクセス制御** - ProtectedRoute・権限管理
+- ✅ **エラーハンドリング** - 包括的なエラー処理・復旧機能
+- ✅ **状態管理** - Redux Toolkit・認証状態統合
+- ✅ **データ層** - Supabase統合・リアルタイム更新
 
-## 🤝 貢献
+## 📞 サポート
 
-このプロジェクトは現在開発中です。
+技術的な問題や機能要望は[Issues](https://github.com/your-repo/issues)までお願いします。
 
-## 📄 ライセンス
+---
 
-[ライセンス情報を追加予定]
+**Mamaspace** - 忙しい母親のための、安全で使いやすいコミュニティ空間
