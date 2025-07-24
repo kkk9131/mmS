@@ -34,35 +34,81 @@ export class SupabaseAuthService {
 
   /**
    * Maternal book number authentication
-   * Uses hashed maternal book number as password for consistency
+   * Uses custom database function for authentication
    */
   public async signInWithMaternalBook(credentials: MaternalBookCredentials): Promise<AuthResult> {
     const client = supabaseClient.getClient();
-    
-    // Hash the maternal book number to use as password
-    const hashedPassword = await this.hashMaternalBookNumber(credentials.mothersHandbookNumber);
-    
-    // Generate email from maternal book number for Supabase auth
-    const email = this.generateEmailFromMaternalBook(credentials.mothersHandbookNumber);
 
     try {
-      // Try to sign in first
-      const { data, error } = await client.auth.signInWithPassword({
-        email,
-        password: hashedPassword
+      // Call custom authentication function
+      console.log('🔵 カスタム認証関数を呼び出し中...', {
+        mothersHandbookNumber: credentials.mothersHandbookNumber,
+        nickname: credentials.nickname
       });
 
-      if (error && error.message.includes('Invalid login credentials')) {
-        // User doesn't exist, create account
-        return await this.signUpWithMaternalBook(credentials);
+      const { data: authResult, error: functionError } = await client
+        .rpc('auth_with_maternal_book', {
+          maternal_book_param: credentials.mothersHandbookNumber,
+          user_nickname_param: credentials.nickname
+        });
+
+      if (functionError) {
+        console.error('❌ カスタム認証関数エラー:', functionError);
+        return { 
+          user: null, 
+          session: null, 
+          error: functionError as AuthError 
+        };
       }
 
-      if (error) {
-        return { user: null, session: null, error };
+      if (!authResult || authResult.length === 0) {
+        console.error('❌ 認証結果が空です');
+        return { 
+          user: null, 
+          session: null, 
+          error: new Error('認証に失敗しました') as AuthError 
+        };
       }
 
-      return { user: data.user, session: data.session, error: null };
+      const result = authResult[0];
+      console.log('✅ カスタム認証成功:', result);
+
+      // Create mock user and session objects compatible with Supabase auth
+      const mockUser: User = {
+        id: result.user_id,
+        email: `${credentials.mothersHandbookNumber}@maternal.book`,
+        app_metadata: { provider: 'maternal_book' },
+        user_metadata: { 
+          nickname: credentials.nickname,
+          maternal_book_number: credentials.mothersHandbookNumber
+        },
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        email_confirmed_at: new Date().toISOString(),
+        phone_confirmed_at: null,
+        confirmed_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        role: 'authenticated',
+        is_anonymous: false
+      };
+
+      const mockSession: Session = {
+        access_token: result.access_token,
+        refresh_token: result.refresh_token,
+        expires_in: 3600,
+        expires_at: Date.now() + 3600000,
+        token_type: 'bearer',
+        user: mockUser
+      };
+
+      return { 
+        user: mockUser, 
+        session: mockSession, 
+        error: null 
+      };
     } catch (error) {
+      console.error('💥 signInWithMaternalBook エラー:', error);
       return {
         user: null,
         session: null,
@@ -72,53 +118,12 @@ export class SupabaseAuthService {
   }
 
   /**
-   * Create account with maternal book number
+   * Sign up is handled by the same function as sign in
+   * The database function creates new users automatically
    */
   public async signUpWithMaternalBook(credentials: MaternalBookCredentials): Promise<AuthResult> {
-    const client = supabaseClient.getClient();
-    
-    const hashedPassword = await this.hashMaternalBookNumber(credentials.mothersHandbookNumber);
-    const email = this.generateEmailFromMaternalBook(credentials.mothersHandbookNumber);
-
-    try {
-      // Create auth user
-      const { data: authData, error: authError } = await client.auth.signUp({
-        email,
-        password: hashedPassword
-      });
-
-      if (authError || !authData.user) {
-        return { user: null, session: null, error: authError };
-      }
-
-      // Create user profile
-      const userProfile: UserInsert = {
-        id: authData.user.id,
-        nickname: credentials.nickname,
-        maternal_book_number: credentials.mothersHandbookNumber,
-        privacy_settings: {
-          profile_visible: true,
-          posts_visible: true
-        }
-      };
-
-      const { error: profileError } = await client
-        .from('users')
-        .insert(userProfile);
-
-      if (profileError) {
-        console.error('Failed to create user profile:', profileError);
-        // Auth user was created but profile failed - should handle cleanup
-      }
-
-      return { user: authData.user, session: authData.session, error: null };
-    } catch (error) {
-      return {
-        user: null,
-        session: null,
-        error: error as AuthError
-      };
-    }
+    // Use the same function as sign in - it handles both new and existing users
+    return this.signInWithMaternalBook(credentials);
   }
 
   /**
@@ -137,16 +142,20 @@ export class SupabaseAuthService {
 
   /**
    * Get current authenticated user
+   * For custom auth, this returns null - user info is managed by Redux
    */
   public async getCurrentUser(): Promise<User | null> {
-    return await supabaseClient.getCurrentUser();
+    console.log('🔍 getCurrentUser: カスタム認証では null を返します');
+    return null;
   }
 
   /**
    * Get current session
+   * For custom auth, this returns null - session is managed by Redux
    */
   public async getCurrentSession(): Promise<Session | null> {
-    return await supabaseClient.getCurrentSession();
+    console.log('🔍 getCurrentSession: カスタム認証では null を返します');
+    return null;
   }
 
   /**

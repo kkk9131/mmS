@@ -185,19 +185,33 @@ export const signOut = createAsyncThunk(
 
 export const getCurrentUser = createAsyncThunk(
   'auth/getCurrentUser',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
       const featureFlags = FeatureFlagsManager.getInstance();
       
       if (featureFlags.isSupabaseEnabled()) {
-        const user = await supabaseAuth.getCurrentUser();
-        const session = await supabaseAuth.getCurrentSession();
-        const profile = user ? await supabaseAuth.getUserProfile() : null;
+        console.log('🔍 getCurrentUser: Supabase カスタム認証モード');
         
+        // カスタム認証では、既存の認証状態を保持
+        const state = getState() as any;
+        const currentAuth = state.auth;
+        
+        // 既に認証済みの場合は現在の状態を返す
+        if (currentAuth.isAuthenticated && currentAuth.user) {
+          console.log('✅ 既存の認証状態を保持します');
+          return {
+            user: currentAuth.user,
+            session: currentAuth.session,
+            profile: currentAuth.profile,
+          };
+        }
+        
+        // 認証されていない場合は null を返す
+        console.log('❌ 認証されていません');
         return {
-          user,
-          session,
-          profile,
+          user: null,
+          session: null,
+          profile: null,
         };
       } else {
         // Use mock authentication

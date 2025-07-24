@@ -1,5 +1,6 @@
 import { supabaseApi } from './supabaseApi';
 import { Post, PostInsert, PostUpdate, Like, Comment, CommentInsert } from '../../types/supabase';
+import { supabaseClient } from '../../services/supabase/client';
 import { 
   CACHE_TIMES, 
   TAG_TYPES, 
@@ -58,29 +59,65 @@ const createOptimisticComment = (comment: CommentInsert, tempId: string): Commen
 // Posts API slice
 export const postsApi = supabaseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // Get posts with pagination and enhanced features
+    // Get posts with pagination and enhanced features using custom function
     getPosts: builder.query<PostWithExtras[], GetPostsParams>({
-      query: ({ limit = 20, offset = 0, userId, sortBy = 'created_at', order = 'desc' }) => ({
-        table: 'posts',
-        method: 'select',
-        query: `
-          *,
-          users:user_id (
-            id,
-            nickname,
-            avatar_url,
-            is_anonymous
-          ),
-          likes_count:likes(count),
-          comments_count:comments(count),
-          user_liked:likes!inner(user_id)
-        `,
-        options: {
-          ...(userId && { eq: { user_id: userId } }),
-          order: { column: sortBy, ascending: order === 'asc' },
-          range: { from: offset, to: offset + limit - 1 },
-        },
-      }),
+      queryFn: async ({ limit = 20, offset = 0, userId }, { getState }) => {
+        try {
+          // Get current user ID from auth state
+          const state = getState() as any;
+          const currentUserId = state.auth?.user?.id || null;
+          
+          console.log('🔍 投稿取得開始:', { 
+            limit, 
+            offset, 
+            userId, 
+            currentUserId,
+            authState: state.auth?.isAuthenticated 
+          });
+
+          // Call custom database function
+          const supabase = supabaseClient.getClient();
+          const { data, error } = await supabase
+            .rpc('get_posts_with_like_status', {
+              requesting_user_id: currentUserId,
+              limit_count: limit,
+              offset_count: offset
+            });
+
+          if (error) {
+            console.error('❌ 投稿取得エラー:', error);
+            throw error;
+          }
+
+          console.log('✅ 投稿取得成功:', data?.length || 0, '件');
+          console.log('取得データサンプル:', data?.[0]);
+
+          // Transform data to match expected interface
+          const transformedData: PostWithExtras[] = (data || []).map((post: any) => ({
+            id: post.id,
+            user_id: post.user_id,
+            content: post.content,
+            image_url: post.image_url,
+            is_anonymous: post.is_anonymous,
+            created_at: post.created_at,
+            updated_at: post.updated_at,
+            likes_count: post.likes_count || 0,
+            comments_count: post.comments_count || 0,
+            user_liked: post.is_liked_by_user || false,
+            users: {
+              id: post.user_id,
+              nickname: post.user_nickname || 'Unknown User',
+              avatar_url: post.user_avatar_url,
+              is_anonymous: post.is_anonymous
+            }
+          }));
+
+          return { data: transformedData };
+        } catch (error) {
+          console.error('💥 投稿取得で予期しないエラー:', error);
+          return { error: { message: 'Failed to fetch posts', error } };
+        }
+      },
       providesTags: (result, error, params) => {
         const tags = postTags.list(params);
         if (result) {
@@ -131,28 +168,70 @@ export const postsApi = supabaseApi.injectEndpoints({
 
     // Create post with enhanced optimistic updates
     createPost: builder.mutation<PostWithExtras, PostInsert>({
-      query: (post) => ({
-        table: 'posts',
-        method: 'insert',
-        data: post,
-        query: `
-          *,
-          users:user_id (
-            id,
-            nickname,
-            avatar_url,
-            is_anonymous
-          )
-        `,
-      }),
+      queryFn: async (post, { getState }) => {
+        console.log('🔥🔥🔥 RTK Query createPost queryFn 開始 🔥🔥🔥');
+        console.log('📝 投稿データ:', post);
+        
+        try {
+          const client = supabaseClient.getClient();
+          
+          console.log('🔍 Supabase client取得完了');
+          
+          // RLS無効化後のシンプルな投稿作成処理
+          console.log('🔧 カスタム認証での投稿作成（RLS無効化済み想定）');
+          
+          const { data, error } = await client
+            .from('posts')
+            .insert(post)
+            .select(`
+              *,
+              users:user_id (
+                id,
+                nickname,
+                avatar_url,
+                is_anonymous
+              )
+            `)
+            .single();
+          
+          console.log('✅ 投稿作成試行完了 - data:', data);
+          console.log('❌ エラー（あれば）:', error);
+            
+          console.log('📤 Supabase INSERT実行完了');
+          console.log('✅ data:', data);
+          console.log('❌ error:', error);
+          
+          if (error) {
+            console.error('💥💥💥 Supabase INSERT エラー詳細 💥💥💥');
+            console.error('Error message:', error.message);
+            console.error('Error details:', error.details);
+            console.error('Error hint:', error.hint);
+            console.error('Error code:', error.code);
+            console.error('Full error:', error);
+            return { error: { message: error.message, details: error } };
+          }
+          
+          console.log('✅ RTK Query createPost 成功');
+          return { data };
+        } catch (error) {
+          console.error('💥💥💥 RTK Query createPost 例外 💥💥💥');
+          console.error('Exception:', error);
+          return { error: { message: 'Unexpected error', details: error } };
+        }
+      },
       invalidatesTags: (result, error, newPost) => [
         ...postTags.list(),
         { type: 'Post' as const, id: `USER_${newPost.user_id}` },
         { type: 'Post' as const, id: 'PAGE_0_20' },
       ],
       onQueryStarted: async (newPost, { dispatch, queryFulfilled, getState }) => {
+        console.log('🚀🚀🚀 RTK Query createPost onQueryStarted 開始 🚀🚀🚀');
+        console.log('📝 新規投稿データ:', newPost);
+        console.log('🔍 現在のState:', getState());
+        
         const tempId = `temp-${Date.now()}-${Math.random()}`;
         const optimisticPost = createOptimisticPost(newPost, tempId);
+        console.log('🎯 作成されたOptimistic Post:', optimisticPost);
         
         // Update multiple cache entries for different query parameters
         const patchResults: any[] = [];
@@ -176,7 +255,9 @@ export const postsApi = supabaseApi.injectEndpoints({
         );
 
         try {
+          console.log('⏳ queryFulfilled を待機中...');
           const { data: createdPost } = await queryFulfilled;
+          console.log('✅ queryFulfilled 成功:', createdPost);
           
           // Update cache with real data
           patchResults.forEach((patchResult) => {
@@ -194,8 +275,17 @@ export const postsApi = supabaseApi.injectEndpoints({
               }
             })
           );
+          console.log('✅ キャッシュ更新完了');
           
         } catch (error) {
+          console.error('💥💥💥 RTK Query createPost エラー 💥💥💥');
+          console.error('❌ Error type:', typeof error);
+          console.error('❌ Error constructor:', error?.constructor?.name);
+          console.error('❌ Error details:', error);
+          console.error('❌ Error message:', (error as any)?.message);
+          console.error('❌ Error stack:', (error as any)?.stack);
+          console.error('❌ Full error object:', JSON.stringify(error, null, 2));
+          
           // Rollback optimistic updates on error
           patchResults.forEach((patchResult) => {
             patchResult.undo();
@@ -596,7 +686,7 @@ export const postsApi = supabaseApi.injectEndpoints({
       ],
     }),
   }),
-  overrideExisting: false,
+  overrideExisting: true,
 });
 
 // Export hooks for usage in components

@@ -96,7 +96,7 @@ export default function LikedPostsScreen() {
     headerTitle: {
       fontSize: 20,
       fontWeight: '600',
-      color: theme.colors.textPrimary,
+      color: theme.colors.text.primary,
     },
     statsContainer: {
       flexDirection: 'row',
@@ -108,18 +108,18 @@ export default function LikedPostsScreen() {
     },
     statLabel: {
       fontSize: 12,
-      color: theme.colors.textSecondary,
+      color: theme.colors.text.secondary,
     },
     emptyTitle: {
       fontSize: 20,
       fontWeight: '600',
-      color: theme.colors.textPrimary,
+      color: theme.colors.text.primary,
       marginTop: 16,
       marginBottom: 8,
     },
     emptyDescription: {
       fontSize: 14,
-      color: theme.colors.textSecondary,
+      color: theme.colors.text.secondary,
       textAlign: 'center',
       lineHeight: 20,
     },
@@ -133,26 +133,26 @@ export default function LikedPostsScreen() {
     },
     dateText: {
       fontSize: 12,
-      color: theme.colors.textSecondary,
+      color: theme.colors.text.secondary,
       marginLeft: 4,
     },
     postContent: {
       fontSize: 16,
-      color: theme.colors.textPrimary,
+      color: theme.colors.text.primary,
       lineHeight: 24,
       marginBottom: 12,
     },
     aiResponseContainer: {
-      backgroundColor: theme.colors.surfaceVariant,
+      backgroundColor: theme.colors.card,
       padding: 12,
       borderRadius: 8,
       marginBottom: 12,
       borderLeftWidth: 3,
-      borderLeftColor: '#ff6b9d',
+      borderLeftColor: theme.colors.primary,
     },
     aiResponseText: {
       fontSize: 14,
-      color: theme.colors.textPrimary,
+      color: theme.colors.text.primary,
       lineHeight: 20,
     },
     postStats: {
@@ -165,14 +165,37 @@ export default function LikedPostsScreen() {
     },
     statText: {
       fontSize: 14,
-      color: theme.colors.textSecondary,
+      color: theme.colors.text.secondary,
       marginLeft: 6,
     },
     likedAtText: {
       fontSize: 12,
-      color: theme.colors.textSecondary,
+      color: theme.colors.text.secondary,
       marginLeft: 4,
       fontStyle: 'italic',
+    },
+    authorName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.primary,
+      marginLeft: 6,
+    },
+    statNumber: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: theme.colors.primary,
+      marginBottom: 4,
+    },
+    statTextLiked: {
+      fontSize: 14,
+      color: theme.colors.primary,
+      marginLeft: 6,
+    },
+    aiResponseLabel: {
+      fontSize: 12,
+      color: theme.colors.primary,
+      fontWeight: '500',
+      marginBottom: 4,
     },
   });
 
@@ -211,7 +234,7 @@ export default function LikedPostsScreen() {
     <SafeAreaView style={dynamicStyles.container}>
       <View style={dynamicStyles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <ArrowLeft size={24} color="#ff6b9d" />
+          <ArrowLeft size={24} color={theme.colors.primary} />
         </TouchableOpacity>
         <Text style={dynamicStyles.headerTitle}>共感したポスト</Text>
         <View style={styles.headerRight} />
@@ -219,15 +242,15 @@ export default function LikedPostsScreen() {
 
       <View style={dynamicStyles.statsContainer}>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{likedPosts.length}</Text>
+          <Text style={dynamicStyles.statNumber}>{likedPosts.length}</Text>
           <Text style={dynamicStyles.statLabel}>共感したポスト</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{totalLikes}</Text>
+          <Text style={dynamicStyles.statNumber}>{totalLikes}</Text>
           <Text style={dynamicStyles.statLabel}>総共感数</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{totalComments}</Text>
+          <Text style={dynamicStyles.statNumber}>{totalComments}</Text>
           <Text style={dynamicStyles.statLabel}>総コメント数</Text>
         </View>
       </View>
@@ -235,12 +258,12 @@ export default function LikedPostsScreen() {
       <ScrollView
         style={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff6b9d" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
         }
       >
         {likedPosts.length === 0 ? (
           <View style={styles.emptyState}>
-            <Heart size={48} color="#666" />
+            <Heart size={48} color={theme.colors.text.disabled} />
             <Text style={dynamicStyles.emptyTitle}>共感したポストがありません</Text>
             <Text style={dynamicStyles.emptyDescription}>
               気になるポストに共感してみませんか？
@@ -251,11 +274,11 @@ export default function LikedPostsScreen() {
             <View key={post.id} style={dynamicStyles.postContainer}>
               <View style={styles.postHeader}>
                 <View style={styles.authorInfo}>
-                  <User size={16} color="#ff6b9d" />
-                  <Text style={styles.authorName}>{post.author}</Text>
+                  <User size={16} color={theme.colors.primary} />
+                  <Text style={dynamicStyles.authorName}>{post.author}</Text>
                 </View>
                 <View style={styles.postDate}>
-                  <Calendar size={14} color="#666" />
+                  <Calendar size={14} color={theme.colors.text.disabled} />
                   <Text style={dynamicStyles.dateText}>{formatDate(post.timestamp)}</Text>
                 </View>
               </View>
@@ -270,15 +293,15 @@ export default function LikedPostsScreen() {
               
               {post.aiResponse && (
                 <View style={dynamicStyles.aiResponseContainer}>
-                  <Text style={styles.aiResponseLabel}>ママの味方</Text>
+                  <Text style={dynamicStyles.aiResponseLabel}>ママの味方</Text>
                   <Text style={dynamicStyles.aiResponseText}>{post.aiResponse}</Text>
                 </View>
               )}
               
               <View style={dynamicStyles.postStats}>
                 <View style={styles.statGroup}>
-                  <Heart size={16} color="#ff6b9d" fill="#ff6b9d" />
-                  <Text style={styles.statTextLiked}>{post.likes} 共感</Text>
+                  <Heart size={16} color={theme.colors.primary} fill={theme.colors.primary} />
+                  <Text style={dynamicStyles.statTextLiked}>{post.likes} 共感</Text>
                 </View>
                 <View style={styles.statGroup}>
                   <MessageCircle size={16} color="#4a9eff" />
@@ -287,7 +310,7 @@ export default function LikedPostsScreen() {
               </View>
               
               <View style={styles.likedAtContainer}>
-                <Clock size={12} color="#666" />
+                <Clock size={12} color={theme.colors.text.disabled} />
                 <Text style={dynamicStyles.likedAtText}>
                   {formatDate(post.likedAt)} に共感
                 </Text>
@@ -311,12 +334,6 @@ const styles = StyleSheet.create({
   statItem: {
     alignItems: 'center',
   },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ff6b9d',
-    marginBottom: 4,
-  },
   content: {
     flex: 1,
   },
@@ -336,12 +353,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  authorName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ff6b9d',
-    marginLeft: 6,
-  },
   postDate: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -357,21 +368,10 @@ const styles = StyleSheet.create({
     marginRight: 8,
     marginBottom: 4,
   },
-  aiResponseLabel: {
-    fontSize: 12,
-    color: '#ff6b9d',
-    fontWeight: '500',
-    marginBottom: 4,
-  },
   statGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 20,
-  },
-  statTextLiked: {
-    fontSize: 14,
-    color: '#ff6b9d',
-    marginLeft: 6,
   },
   likedAtContainer: {
     flexDirection: 'row',

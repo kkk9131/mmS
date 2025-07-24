@@ -49,10 +49,22 @@ export default function LoginScreen() {
   
   // Navigate to home when authentication is successful
   useEffect(() => {
+    console.log('🔍 認証状態変更:', {
+      isAuthenticated: auth.isAuthenticated,
+      isLoading: auth.isLoading,
+      user: auth.user,
+      session: auth.session,
+      profile: auth.profile,
+      error: auth.error
+    });
+    
     if (auth.isAuthenticated && !auth.isLoading) {
+      console.log('✅ 認証完了 - ホーム画面に遷移します');
       router.replace('/(tabs)');
+    } else if (!auth.isAuthenticated && !auth.isLoading && auth.user) {
+      console.log('⚠️ ユーザーは存在するが認証されていない状態');
     }
-  }, [auth.isAuthenticated, auth.isLoading]);
+  }, [auth.isAuthenticated, auth.isLoading, auth.user]);
 
   const handleLogin = async () => {
     console.log('🚀 ログイン開始');
