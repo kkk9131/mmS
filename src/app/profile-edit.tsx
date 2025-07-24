@@ -100,8 +100,12 @@ export default function ProfileEditScreen() {
   };
 
   const handleSave = async () => {
+    console.log('🔥 保存ボタンが押されました');
+    console.log('📝 現在のプロフィールデータ:', profileData);
+    
     // バリデーション
     if (profileData.nickname.trim().length < 2) {
+      console.log('❌ ニックネームが短すぎます');
       Alert.alert('エラー', 'ニックネームは2文字以上で入力してください');
       return;
     }
@@ -135,7 +139,9 @@ export default function ProfileEditScreen() {
         }
       };
 
+      console.log('📤 プロフィール更新を送信中...');
       await userService.updateProfile(updateData);
+      console.log('✅ プロフィール更新成功！');
 
       // 成功時にキャッシュをクリアして最新データを反映
       userService.clearUserCache();
@@ -151,7 +157,11 @@ export default function ProfileEditScreen() {
       );
 
     } catch (error) {
-      console.error('Failed to save profile:', error);
+      console.error('❌ プロフィール保存エラー:', error);
+      console.error('エラー詳細:', {
+        message: error instanceof Error ? error.message : '不明なエラー',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       Alert.alert(
         'エラー',
         'プロフィールの更新に失敗しました。もう一度お試しください。'
@@ -422,11 +432,35 @@ export default function ProfileEditScreen() {
         </TouchableOpacity>
         <Text style={dynamicStyles.headerTitle}>プロフィール編集</Text>
         <TouchableOpacity
-          onPress={handleSave}
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+          onPress={() => {
+            console.log('🎯 保存ボタンタップイベント発生！');
+            if (!saving) {
+              handleSave();
+            }
+          }}
+          style={[
+            styles.saveButton, 
+            {
+              backgroundColor: '#FFFFFF',
+              borderWidth: 2,
+              borderColor: '#FF69B4',
+              flexDirection: 'row',
+              paddingHorizontal: 16,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 3
+            },
+            saving && styles.saveButtonDisabled
+          ]}
           disabled={saving}
+          activeOpacity={0.7}
         >
-          <Save size={24} color={saving ? theme.colors.text.disabled : theme.colors.primary} />
+          <Save size={20} color="#FF69B4" />
+          <Text style={{ color: '#FF69B4', marginLeft: 6, fontSize: 16, fontWeight: 'bold' }}>
+            {saving ? '保存中...' : '保存'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -602,8 +636,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   saveButton: {
-    padding: 8,
+    padding: 12,
     borderRadius: 8,
+    minWidth: 48,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     flex: 1,
@@ -637,5 +675,7 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: {
     opacity: 0.5,
+    backgroundColor: '#F5F5F5',
+    borderColor: '#FFB6C1',
   },
 });

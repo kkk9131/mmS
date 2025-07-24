@@ -3,11 +3,13 @@ import { setupListeners } from '@reduxjs/toolkit/query';
 import { authSlice } from './slices/authSlice';
 import { uiSlice } from './slices/uiSlice';
 import { settingsSlice } from './slices/settingsSlice';
+import { imageSlice } from './slices/imageSlice';
 import { supabaseApi } from './api/supabaseApi';
 import { postsApi } from './api/postsApi';
 import { usersApi } from './api/usersApi';
 import { notificationsApi } from './api/notificationsApi';
 import { followsApi } from './api/followsApi';
+import { imageApi } from './api/imageApi';
 import { FeatureFlagsManager } from '../services/featureFlags';
 import { errorMiddleware } from './middleware/errorMiddleware';
 
@@ -27,8 +29,10 @@ export const createStore = () => {
       auth: authSlice.reducer,
       ui: uiSlice.reducer,
       settings: settingsSlice.reducer,
+      image: imageSlice.reducer,
       ...(isReduxEnabled && isSupabaseEnabled ? {
         [supabaseApi.reducerPath]: supabaseApi.reducer,
+        [imageApi.reducerPath]: imageApi.reducer,
       } : {}),
     },
     middleware: (getDefaultMiddleware) => {
@@ -49,7 +53,8 @@ export const createStore = () => {
 
       if (isReduxEnabled && isSupabaseEnabled) {
         middlewareArray.push(
-          supabaseApi.middleware
+          supabaseApi.middleware,
+          imageApi.middleware
         );
       }
 
