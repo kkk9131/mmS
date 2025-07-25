@@ -1,0 +1,288 @@
+{
+  "timestamp": "2025-07-25T03:51:40.358Z",
+  "environment": "production",
+  "testType": "xss-csrf-security-test",
+  "project": {
+    "name": "Mamapace",
+    "url": "https://zfmqxdkqpeyvsuqyzuvy.supabase.co"
+  },
+  "summary": {
+    "totalTests": 8,
+    "passedTests": 2,
+    "failedTests": 4,
+    "warningTests": 2,
+    "criticalIssues": 1,
+    "highIssues": 3,
+    "protectionScore": 0
+  },
+  "testResults": [
+    {
+      "testName": "基本XSSペイロードテスト",
+      "category": "xss",
+      "severity": "low",
+      "status": "pass",
+      "duration": 1044,
+      "description": "XSS攻撃に対して適切に保護されています",
+      "response": [
+        {
+          "payload": "<script>alert(\"XSS\")</script>",
+          "reflected": false,
+          "sanitized": true
+        },
+        {
+          "payload": "<img src=\"x\" onerror=\"alert('XSS')\">",
+          "reflected": false,
+          "sanitized": true
+        },
+        {
+          "payload": "<svg onload=\"alert('XSS')\">",
+          "reflected": false,
+          "sanitized": true
+        },
+        {
+          "payload": "\"><script>alert(\"XSS\")</script>",
+          "reflected": false,
+          "sanitized": true
+        },
+        {
+          "payload": "javascript:alert(\"XSS\")",
+          "reflected": false,
+          "sanitized": true
+        }
+      ]
+    },
+    {
+      "testName": "DOM-Based XSSテスト",
+      "category": "xss",
+      "severity": "high",
+      "status": "fail",
+      "duration": 345,
+      "description": "DOM-Based XSS脆弱性が発見されました",
+      "response": [
+        {
+          "payload": "#<script>alert(\"DOM-XSS\")</script>",
+          "vulnerable": true,
+          "response": "[{\"user_id\":\"ad6fa7c2-ce14-4180-8938-2ac1251e8014\",\"access_token\":\"access_token_ad6fa7c2-ce14-4180-8938-2ac1251e8014\",\"refresh_token\":\"refresh_token_a"
+        },
+        {
+          "payload": "javascript:alert(\"DOM-XSS\")",
+          "vulnerable": true,
+          "response": "[{\"user_id\":\"4c33a00e-6bcd-401a-adc4-e8706b5d981d\",\"access_token\":\"access_token_4c33a00e-6bcd-401a-adc4-e8706b5d981d\",\"refresh_token\":\"refresh_token_4"
+        },
+        {
+          "payload": "data:text/html,<script>alert(\"DOM-XSS\")</script>",
+          "vulnerable": true,
+          "response": "[{\"user_id\":\"6869707d-6269-486e-a235-0028913a0ff4\",\"access_token\":\"access_token_6869707d-6269-486e-a235-0028913a0ff4\",\"refresh_token\":\"refresh_token_6"
+        },
+        {
+          "payload": "\"><img src=x onerror=alert(\"DOM-XSS\")>",
+          "vulnerable": false,
+          "safe": true
+        }
+      ],
+      "recommendations": [
+        "DOM操作の際のサニタイゼーション",
+        "innerHTML使用の回避",
+        "安全なDOM操作APIの使用"
+      ]
+    },
+    {
+      "testName": "Stored XSSテスト",
+      "category": "xss",
+      "severity": "critical",
+      "status": "fail",
+      "duration": 67,
+      "description": "Stored XSS脆弱性が発見されました",
+      "payload": "<script>alert(\"Stored-XSS-1753415499284\")</script>",
+      "response": {
+        "id": "76ab0429-2cb6-457e-b838-596de6d51b6b",
+        "bio": null,
+        "nickname": "<script>alert(\"Stored-XSS-1753415499284\")</script>",
+        "avatar_url": null,
+        "created_at": "2025-07-25T03:51:39.321629+00:00",
+        "updated_at": "2025-07-25T03:51:39.321629+00:00",
+        "is_anonymous": false,
+        "privacy_settings": {
+          "posts_visible": true,
+          "profile_visible": true
+        },
+        "maternal_book_number": "STORED_XSS_1753415499284"
+      },
+      "recommendations": [
+        "データベース保存時のサニタイゼーション",
+        "データ表示時のエスケープ処理",
+        "HTMLタグの除去または無効化"
+      ]
+    },
+    {
+      "testName": "CSRF Token検証テスト",
+      "category": "csrf",
+      "severity": "medium",
+      "status": "warning",
+      "duration": 126,
+      "description": "CSRFトークンによる保護が実装されていません（APIベースアプリでは一般的）",
+      "response": {
+        "normalRequest": true,
+        "csrfRequest": true,
+        "note": "Supabase APIキーとRLSによる保護に依存"
+      },
+      "recommendations": [
+        "リクエスト送信元の検証",
+        "リファラーチェックの実装",
+        "SameSite Cookieの設定"
+      ]
+    },
+    {
+      "testName": "Origin/Referer検証テスト",
+      "category": "csrf",
+      "severity": "low",
+      "status": "pass",
+      "duration": 70,
+      "description": "モバイルアプリのため、Origin/Referer検証は適用されません",
+      "response": {
+        "note": "React Native環境ではOrigin/Refererヘッダーは異なる扱い",
+        "apiKeyProtection": true,
+        "rlsProtection": true
+      }
+    },
+    {
+      "testName": "HTMLタグインジェクションテスト",
+      "category": "injection",
+      "severity": "high",
+      "status": "fail",
+      "duration": 253,
+      "description": "HTMLタグインジェクション脆弱性が発見されました",
+      "response": [
+        {
+          "payload": "<iframe src=\"javascript:alert('Injection')\"></iframe>",
+          "injected": true,
+          "response": "[{\"user_id\":\"f209764e-11c4-4a71-ad05-49a4be07bd6a\",\"access_token\":\"access_token_f209764e-11c4-4a71-a"
+        },
+        {
+          "payload": "<object data=\"javascript:alert('Injection')\"></object>",
+          "injected": true,
+          "response": "[{\"user_id\":\"e6e7cd15-785c-415f-941c-1824f2caba89\",\"access_token\":\"access_token_e6e7cd15-785c-415f-9"
+        },
+        {
+          "payload": "<embed src=\"javascript:alert('Injection')\">",
+          "injected": true,
+          "response": "[{\"user_id\":\"96255a23-8c8a-480d-af03-26bb4b2a3bd8\",\"access_token\":\"access_token_96255a23-8c8a-480d-a"
+        },
+        {
+          "payload": "<form action=\"javascript:alert('Injection')\">",
+          "injected": true,
+          "response": "[{\"user_id\":\"1060039e-0491-4336-a4b7-ff454c511b86\",\"access_token\":\"access_token_1060039e-0491-4336-a"
+        },
+        {
+          "payload": "<meta http-equiv=\"refresh\" content=\"0;url=javascript:alert('Injection')\">",
+          "injected": true,
+          "response": "[{\"user_id\":\"fc12d2fb-2f0b-4adb-ace4-e50f37ccb718\",\"access_token\":\"access_token_fc12d2fb-2f0b-4adb-a"
+        }
+      ],
+      "recommendations": [
+        "HTMLタグのフィルタリング",
+        "許可リストベースの入力検証",
+        "HTML要素の無効化"
+      ]
+    },
+    {
+      "testName": "イベントハンドラインジェクションテスト",
+      "category": "injection",
+      "severity": "high",
+      "status": "fail",
+      "duration": 269,
+      "description": "イベントハンドラインジェクション脆弱性が発見されました",
+      "response": [
+        {
+          "payload": "onmouseover=\"alert('Event Handler')\"",
+          "eventHandlerFound": true,
+          "response": "[{\"user_id\":\"197614ac-ffca-4d3b-bd02-c8d146763275\",\"access_token\":\"access_token_197614ac-ffca-4d3b-b"
+        },
+        {
+          "payload": "onclick=\"alert('Event Handler')\"",
+          "eventHandlerFound": true,
+          "response": "[{\"user_id\":\"762f4705-d3c3-465e-b4e8-256debace436\",\"access_token\":\"access_token_762f4705-d3c3-465e-b"
+        },
+        {
+          "payload": "onerror=\"alert('Event Handler')\"",
+          "eventHandlerFound": true,
+          "response": "[{\"user_id\":\"acce1b1c-57a8-46a1-a628-1ef3274f52c7\",\"access_token\":\"access_token_acce1b1c-57a8-46a1-a"
+        },
+        {
+          "payload": "onload=\"alert('Event Handler')\"",
+          "eventHandlerFound": true,
+          "response": "[{\"user_id\":\"e9d9640e-cf2b-4e61-899c-c941072f224b\",\"access_token\":\"access_token_e9d9640e-cf2b-4e61-8"
+        },
+        {
+          "payload": "onfocus=\"alert('Event Handler')\"",
+          "eventHandlerFound": true,
+          "response": "[{\"user_id\":\"3d0246a2-4755-4343-a5e3-d50ee381fbf1\",\"access_token\":\"access_token_3d0246a2-4755-4343-a"
+        }
+      ],
+      "recommendations": [
+        "イベントハンドラの除去",
+        "属性値のエスケープ処理",
+        "安全な属性のみ許可"
+      ]
+    },
+    {
+      "testName": "特殊文字サニタイゼーションテスト",
+      "category": "validation",
+      "severity": "medium",
+      "status": "warning",
+      "duration": 281,
+      "description": "一部の特殊文字のサニタイゼーションが不十分です",
+      "response": [
+        {
+          "input": "<>&\"'`",
+          "sanitized": true,
+          "safe": true
+        },
+        {
+          "input": "\\x3cscript\\x3e",
+          "sanitized": false,
+          "response": "[{\"user_id\":\"58030eb0-7351-40c9-8895-dc2d419e7302\",\"access_token\":\"access_token_58030eb0-7351-40c9-8"
+        },
+        {
+          "input": "%3Cscript%3E",
+          "sanitized": false,
+          "response": "[{\"user_id\":\"1d1334ac-cd03-4069-9570-8810400727ce\",\"access_token\":\"access_token_1d1334ac-cd03-4069-9"
+        },
+        {
+          "input": "&lt;script&gt;",
+          "sanitized": false,
+          "response": "[{\"user_id\":\"917df472-4918-4882-8a49-48afae76373e\",\"access_token\":\"access_token_917df472-4918-4882-8"
+        },
+        {
+          "input": "&#60;script&#62;",
+          "sanitized": true,
+          "safe": true
+        }
+      ],
+      "recommendations": [
+        "HTMLエンティティエンコーディング",
+        "URLエンコーディング対応",
+        "特殊文字の統一的処理"
+      ]
+    }
+  ],
+  "recommendations": [
+    "1個のクリティカルなXSS・CSRF脆弱性を即座に修正してください。",
+    "3個の高リスクXSS・CSRF問題の修正を推奨します。",
+    "DOM操作の際のサニタイゼーション",
+    "innerHTML使用の回避",
+    "安全なDOM操作APIの使用",
+    "データベース保存時のサニタイゼーション",
+    "データ表示時のエスケープ処理",
+    "HTMLタグの除去または無効化",
+    "HTMLタグのフィルタリング",
+    "許可リストベースの入力検証",
+    "HTML要素の無効化",
+    "イベントハンドラの除去",
+    "属性値のエスケープ処理",
+    "安全な属性のみ許可",
+    "Content Security Policy (CSP)の実装を検討してください。",
+    "定期的なXSS・CSRF脆弱性診断の実施を推奨します。",
+    "開発者向けセキュアコーディング研修の実施を検討してください。"
+  ]
+}

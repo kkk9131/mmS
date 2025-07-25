@@ -1,0 +1,118 @@
+{
+  "timestamp": "2025-07-25T03:13:08.688Z",
+  "environment": "production",
+  "testType": "load-test",
+  "project": {
+    "name": "Mamapace",
+    "url": "https://zfmqxdkqpeyvsuqyzuvy.supabase.co"
+  },
+  "configuration": {
+    "concurrentUsers": 10,
+    "testDurationMinutes": 2,
+    "requestIntervalMs": 2000,
+    "operations": [
+      "database_health_check",
+      "authentication_simulation",
+      "data_fetch_posts",
+      "data_fetch_users",
+      "realtime_connection"
+    ]
+  },
+  "summary": {
+    "totalTests": 5,
+    "concurrentUsers": 10,
+    "totalRequests": 270,
+    "totalSuccessful": 170,
+    "overallSuccessRate": 63,
+    "averageErrorRate": 20,
+    "averageResponseTime": 69
+  },
+  "testResults": [
+    {
+      "testName": "データベース負荷テスト",
+      "startTime": 1753413154577,
+      "endTime": 1753413175385,
+      "duration": 20808,
+      "concurrentUsers": 10,
+      "totalRequests": 100,
+      "successfulRequests": 0,
+      "failedRequests": 100,
+      "averageResponseTime": 0,
+      "minResponseTime": 0,
+      "maxResponseTime": 0,
+      "requestsPerSecond": 5,
+      "errorRate": 100,
+      "errors": [
+        "\"failed to parse select parameter (count(*))\" (line 1, column 6)"
+      ]
+    },
+    {
+      "testName": "認証システム負荷テスト",
+      "startTime": 1753413175387,
+      "endTime": 1753413179538,
+      "duration": 4151,
+      "concurrentUsers": 10,
+      "totalRequests": 10,
+      "successfulRequests": 10,
+      "failedRequests": 0,
+      "averageResponseTime": 130,
+      "minResponseTime": 108,
+      "maxResponseTime": 147,
+      "requestsPerSecond": 2,
+      "errorRate": 0,
+      "errors": []
+    },
+    {
+      "testName": "データ取得負荷テスト",
+      "startTime": 1753413179538,
+      "endTime": 1753413185091,
+      "duration": 5553,
+      "concurrentUsers": 10,
+      "totalRequests": 100,
+      "successfulRequests": 100,
+      "failedRequests": 0,
+      "averageResponseTime": 52,
+      "minResponseTime": 34,
+      "maxResponseTime": 123,
+      "requestsPerSecond": 18,
+      "errorRate": 0,
+      "errors": []
+    },
+    {
+      "testName": "リアルタイム機能負荷テスト",
+      "startTime": 1753413185091,
+      "endTime": 1753413185696,
+      "duration": 605,
+      "concurrentUsers": 10,
+      "totalRequests": 10,
+      "successfulRequests": 10,
+      "failedRequests": 0,
+      "averageResponseTime": 101,
+      "minResponseTime": 100,
+      "maxResponseTime": 103,
+      "requestsPerSecond": 17,
+      "errorRate": 0,
+      "errors": []
+    },
+    {
+      "testName": "統合負荷テスト",
+      "startTime": 1753413185697,
+      "endTime": 1753413188682,
+      "duration": 2985,
+      "concurrentUsers": 10,
+      "totalRequests": 50,
+      "successfulRequests": 50,
+      "failedRequests": 0,
+      "averageResponseTime": 64,
+      "minResponseTime": 38,
+      "maxResponseTime": 210,
+      "requestsPerSecond": 17,
+      "errorRate": 0,
+      "errors": []
+    }
+  ],
+  "recommendations": [
+    "エラー率が20%と高めです。データベース接続プール設定の見直しを検討してください。",
+    "以下のテストでエラー率が高めです: データベース負荷テスト"
+  ]
+}

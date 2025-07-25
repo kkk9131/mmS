@@ -1,0 +1,115 @@
+{
+  "timestamp": "2025-07-25T03:15:43.453Z",
+  "environment": "production",
+  "testType": "load-test",
+  "project": {
+    "name": "Mamapace",
+    "url": "https://zfmqxdkqpeyvsuqyzuvy.supabase.co"
+  },
+  "configuration": {
+    "concurrentUsers": 100,
+    "testDurationMinutes": 5,
+    "requestIntervalMs": 1500,
+    "operations": [
+      "database_health_check",
+      "authentication_simulation",
+      "data_fetch_posts",
+      "data_fetch_users",
+      "realtime_connection"
+    ]
+  },
+  "summary": {
+    "totalTests": 5,
+    "concurrentUsers": 100,
+    "totalRequests": 2700,
+    "totalSuccessful": 2700,
+    "overallSuccessRate": 100,
+    "averageErrorRate": 0,
+    "averageResponseTime": 144
+  },
+  "testResults": [
+    {
+      "testName": "データベース負荷テスト",
+      "startTime": 1753413314025,
+      "endTime": 1753413330428,
+      "duration": 16403,
+      "concurrentUsers": 100,
+      "totalRequests": 1000,
+      "successfulRequests": 1000,
+      "failedRequests": 0,
+      "averageResponseTime": 112,
+      "minResponseTime": 32,
+      "maxResponseTime": 1002,
+      "requestsPerSecond": 61,
+      "errorRate": 0,
+      "errors": []
+    },
+    {
+      "testName": "認証システム負荷テスト",
+      "startTime": 1753413330431,
+      "endTime": 1753413333947,
+      "duration": 3516,
+      "concurrentUsers": 100,
+      "totalRequests": 100,
+      "successfulRequests": 100,
+      "failedRequests": 0,
+      "averageResponseTime": 356,
+      "minResponseTime": 186,
+      "maxResponseTime": 513,
+      "requestsPerSecond": 28,
+      "errorRate": 0,
+      "errors": []
+    },
+    {
+      "testName": "データ取得負荷テスト",
+      "startTime": 1753413333948,
+      "endTime": 1753413339782,
+      "duration": 5834,
+      "concurrentUsers": 100,
+      "totalRequests": 1000,
+      "successfulRequests": 1000,
+      "failedRequests": 0,
+      "averageResponseTime": 65,
+      "minResponseTime": 30,
+      "maxResponseTime": 233,
+      "requestsPerSecond": 171,
+      "errorRate": 0,
+      "errors": []
+    },
+    {
+      "testName": "リアルタイム機能負荷テスト",
+      "startTime": 1753413339784,
+      "endTime": 1753413340395,
+      "duration": 611,
+      "concurrentUsers": 100,
+      "totalRequests": 100,
+      "successfulRequests": 100,
+      "failedRequests": 0,
+      "averageResponseTime": 100,
+      "minResponseTime": 99,
+      "maxResponseTime": 102,
+      "requestsPerSecond": 164,
+      "errorRate": 0,
+      "errors": []
+    },
+    {
+      "testName": "統合負荷テスト",
+      "startTime": 1753413340396,
+      "endTime": 1753413343448,
+      "duration": 3052,
+      "concurrentUsers": 100,
+      "totalRequests": 500,
+      "successfulRequests": 500,
+      "failedRequests": 0,
+      "averageResponseTime": 88,
+      "minResponseTime": 32,
+      "maxResponseTime": 209,
+      "requestsPerSecond": 164,
+      "errorRate": 0,
+      "errors": []
+    }
+  ],
+  "recommendations": [
+    "システムのパフォーマンスは優秀です。現在の設定で本番環境への移行を推奨します。"
+  ]
+}

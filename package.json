@@ -26,7 +26,19 @@
     "feature-flags:test": "npx tsx src/scripts/feature-flag-rollback-test.ts",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "production:prepare": "npx tsx src/scripts/prepare-production.ts",
+    "production:cleanup": "echo 'Run cleanup-test-data.sql in Supabase SQL Editor'",
+    "production:security": "echo 'Run production-security-setup.sql in Supabase SQL Editor'",
+    "production:audit": "npx tsx src/scripts/security-audit-production.ts",
+    "monitoring:check": "npx tsx src/scripts/basic-monitoring.ts",
+    "monitoring:start": "npx tsx src/scripts/continuous-monitoring.ts start",
+    "monitoring:stats": "npx tsx src/scripts/continuous-monitoring.ts stats",
+    "monitoring:help": "npx tsx src/scripts/continuous-monitoring.ts help",
+    "test:production": "npx tsx src/scripts/production-functional-test.ts",
+    "test:performance": "npx tsx src/scripts/production-performance-test.ts",
+    "test:security": "npx tsx src/scripts/production-security-test.ts",
+    "test:production:all": "npm run test:production && npm run test:performance && npm run test:security"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",

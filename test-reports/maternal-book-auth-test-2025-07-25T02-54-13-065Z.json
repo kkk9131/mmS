@@ -1,0 +1,116 @@
+{
+  "timestamp": "2025-07-25T02:54:13.065Z",
+  "environment": "production",
+  "testType": "maternal-book-auth",
+  "project": {
+    "name": "Mamapace",
+    "url": "https://zfmqxdkqpeyvsuqyzuvy.supabase.co"
+  },
+  "summary": {
+    "total": 12,
+    "passed": 6,
+    "failed": 6,
+    "skipped": 0,
+    "successRate": 50,
+    "totalDuration": 1135
+  },
+  "tests": [
+    {
+      "testName": "カスタム認証関数存在確認",
+      "status": "pass",
+      "duration": 535,
+      "message": "カスタム認証関数が存在し、呼び出し可能です"
+    },
+    {
+      "testName": "認証関数レスポンス構造確認",
+      "status": "fail",
+      "duration": 83,
+      "message": "必須フィールド 'id' が戻り値に含まれていません",
+      "details": {}
+    },
+    {
+      "testName": "新規ユーザー作成",
+      "status": "pass",
+      "duration": 47,
+      "message": "新規ユーザー作成成功: ID undefined"
+    },
+    {
+      "testName": "auth.usersテーブル挿入確認",
+      "status": "fail",
+      "duration": 127,
+      "message": "ユーザーテーブル確認エラー: JSON object requested, multiple (or no) rows returned",
+      "details": {}
+    },
+    {
+      "testName": "重複登録時の動作確認",
+      "status": "fail",
+      "duration": 65,
+      "message": "Cannot read properties of undefined (reading 'nickname')",
+      "details": {}
+    },
+    {
+      "testName": "既存ユーザー認証",
+      "status": "fail",
+      "duration": 43,
+      "message": "Cannot read properties of undefined (reading 'maternal_book_number')",
+      "details": {}
+    },
+    {
+      "testName": "認証トークン生成確認",
+      "status": "fail",
+      "duration": 41,
+      "message": "トークンの形式が不正です",
+      "details": {}
+    },
+    {
+      "testName": "母子手帳番号一意性確認",
+      "status": "pass",
+      "duration": 47,
+      "message": "母子手帳番号の一意性が保たれています"
+    },
+    {
+      "testName": "データベース制約確認",
+      "status": "fail",
+      "duration": 48,
+      "message": "制約確認エラー: JSON object requested, multiple (or no) rows returned",
+      "details": {}
+    },
+    {
+      "testName": "メールアドレス形式確認",
+      "status": "pass",
+      "duration": 0,
+      "message": "メールアドレス形式正常: MB001234567@maternal.book"
+    },
+    {
+      "testName": "不正パラメータエラーハンドリング",
+      "status": "pass",
+      "duration": 48,
+      "message": "注意: 空パラメータでもデータが返されました（設計確認要）"
+    },
+    {
+      "testName": "長大パラメータ処理確認",
+      "status": "pass",
+      "duration": 51,
+      "message": "適切に長さ制限エラー: value too long for type character varying(255)"
+    }
+  ],
+  "customAuthSystem": {
+    "functionName": "auth_with_maternal_book",
+    "emailPattern": "@maternal.book",
+    "supports": [
+      "new_user_creation",
+      "existing_user_auth",
+      "nickname_update"
+    ]
+  },
+  "recommendations": [
+    "6個のテストが失敗しました。以下の問題を修正してください：",
+    "- 認証関数レスポンス構造確認: 必須フィールド 'id' が戻り値に含まれていません",
+    "- auth.usersテーブル挿入確認: ユーザーテーブル確認エラー: JSON object requested, multiple (or no) rows returned",
+    "- 重複登録時の動作確認: Cannot read properties of undefined (reading 'nickname')",
+    "- 既存ユーザー認証: Cannot read properties of undefined (reading 'maternal_book_number')",
+    "- 認証トークン生成確認: トークンの形式が不正です",
+    "- データベース制約確認: 制約確認エラー: JSON object requested, multiple (or no) rows returned",
+    "セキュリティ関連のテストで問題が発見されました。データ保護の強化を検討してください。"
+  ]
+}

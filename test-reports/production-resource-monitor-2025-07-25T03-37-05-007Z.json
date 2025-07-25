@@ -1,0 +1,959 @@
+{
+  "timestamp": "2025-07-25T03:37:05.007Z",
+  "environment": "production",
+  "testType": "resource-monitoring",
+  "project": {
+    "name": "Mamapace",
+    "url": "https://zfmqxdkqpeyvsuqyzuvy.supabase.co"
+  },
+  "configuration": {
+    "monitoringDurationMinutes": 3,
+    "snapshotIntervalMs": 5000,
+    "memoryLeakThresholdMB": 30,
+    "dbConnectionTimeoutMs": 5000,
+    "alertThresholds": {
+      "memoryUsageMB": 100,
+      "dbConnectionTimeMs": 2000,
+      "dbFailureRate": 10
+    }
+  },
+  "summary": {
+    "monitoringDuration": 3,
+    "totalSnapshots": 36,
+    "memoryLeakDetected": false,
+    "memoryIncrease": 2,
+    "averageDbConnectionTime": 126,
+    "dbHealthScore": 100,
+    "stabilityScore": 100
+  },
+  "detailedResults": {
+    "testName": "本番環境リソース監視（3分）",
+    "monitoringDuration": 184644,
+    "totalSnapshots": 36,
+    "resourceSnapshots": [
+      {
+        "timestamp": 1753414440358,
+        "memoryUsage": {
+          "rss": 112,
+          "heapTotal": 21,
+          "heapUsed": 13,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 1
+        },
+        "databaseHealth": {
+          "connectionTime": 495,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.79638671875,
+            1.76123046875,
+            1.7763671875
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414445856,
+        "memoryUsage": {
+          "rss": 134,
+          "heapTotal": 22,
+          "heapUsed": 12,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 6
+        },
+        "databaseHealth": {
+          "connectionTime": 98,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.732421875,
+            1.74853515625,
+            1.771484375
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414450957,
+        "memoryUsage": {
+          "rss": 120,
+          "heapTotal": 14,
+          "heapUsed": 12,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 11
+        },
+        "databaseHealth": {
+          "connectionTime": 108,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.67333984375,
+            1.73583984375,
+            1.7666015625
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414456069,
+        "memoryUsage": {
+          "rss": 120,
+          "heapTotal": 14,
+          "heapUsed": 13,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 16
+        },
+        "databaseHealth": {
+          "connectionTime": 81,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.619140625,
+            1.72314453125,
+            1.76171875
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414461153,
+        "memoryUsage": {
+          "rss": 121,
+          "heapTotal": 14,
+          "heapUsed": 13,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 21
+        },
+        "databaseHealth": {
+          "connectionTime": 89,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.8896484375,
+            1.77734375,
+            1.7802734375
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414466245,
+        "memoryUsage": {
+          "rss": 122,
+          "heapTotal": 16,
+          "heapUsed": 13,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 26
+        },
+        "databaseHealth": {
+          "connectionTime": 83,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.978515625,
+            1.79736328125,
+            1.787109375
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414471333,
+        "memoryUsage": {
+          "rss": 122,
+          "heapTotal": 16,
+          "heapUsed": 13,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 31
+        },
+        "databaseHealth": {
+          "connectionTime": 100,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.97998046875,
+            1.80029296875,
+            1.7880859375
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414476438,
+        "memoryUsage": {
+          "rss": 122,
+          "heapTotal": 15,
+          "heapUsed": 13,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 36
+        },
+        "databaseHealth": {
+          "connectionTime": 95,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.8212890625,
+            1.77001953125,
+            1.77734375
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414481535,
+        "memoryUsage": {
+          "rss": 122,
+          "heapTotal": 15,
+          "heapUsed": 13,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 42
+        },
+        "databaseHealth": {
+          "connectionTime": 97,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.83544921875,
+            1.7734375,
+            1.7783203125
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414486634,
+        "memoryUsage": {
+          "rss": 93,
+          "heapTotal": 15,
+          "heapUsed": 13,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 47
+        },
+        "databaseHealth": {
+          "connectionTime": 82,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.76806640625,
+            1.76025390625,
+            1.7734375
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414491720,
+        "memoryUsage": {
+          "rss": 94,
+          "heapTotal": 15,
+          "heapUsed": 14,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 52
+        },
+        "databaseHealth": {
+          "connectionTime": 85,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.62646484375,
+            1.73095703125,
+            1.7626953125
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414496809,
+        "memoryUsage": {
+          "rss": 94,
+          "heapTotal": 16,
+          "heapUsed": 13,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 57
+        },
+        "databaseHealth": {
+          "connectionTime": 95,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.576171875,
+            1.71875,
+            1.7578125
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414501907,
+        "memoryUsage": {
+          "rss": 95,
+          "heapTotal": 16,
+          "heapUsed": 14,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 62
+        },
+        "databaseHealth": {
+          "connectionTime": 98,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.52978515625,
+            1.70654296875,
+            1.7529296875
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414507008,
+        "memoryUsage": {
+          "rss": 95,
+          "heapTotal": 16,
+          "heapUsed": 14,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 67
+        },
+        "databaseHealth": {
+          "connectionTime": 107,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.4072265625,
+            1.677734375,
+            1.7421875
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414512118,
+        "memoryUsage": {
+          "rss": 95,
+          "heapTotal": 16,
+          "heapUsed": 14,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 72
+        },
+        "databaseHealth": {
+          "connectionTime": 214,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.37451171875,
+            1.666015625,
+            1.73779296875
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414517334,
+        "memoryUsage": {
+          "rss": 95,
+          "heapTotal": 16,
+          "heapUsed": 14,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 77
+        },
+        "databaseHealth": {
+          "connectionTime": 89,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.34423828125,
+            1.65478515625,
+            1.7333984375
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414522426,
+        "memoryUsage": {
+          "rss": 95,
+          "heapTotal": 16,
+          "heapUsed": 14,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 82
+        },
+        "databaseHealth": {
+          "connectionTime": 104,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.31640625,
+            1.6435546875,
+            1.72900390625
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414527533,
+        "memoryUsage": {
+          "rss": 95,
+          "heapTotal": 16,
+          "heapUsed": 14,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 88
+        },
+        "databaseHealth": {
+          "connectionTime": 88,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.267578125,
+            1.6220703125,
+            1.72021484375
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414532625,
+        "memoryUsage": {
+          "rss": 96,
+          "heapTotal": 17,
+          "heapUsed": 14,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 93
+        },
+        "databaseHealth": {
+          "connectionTime": 106,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.806640625,
+            1.7275390625,
+            1.7568359375
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414537733,
+        "memoryUsage": {
+          "rss": 96,
+          "heapTotal": 17,
+          "heapUsed": 14,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 98
+        },
+        "databaseHealth": {
+          "connectionTime": 100,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.74169921875,
+            1.71533203125,
+            1.751953125
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414542836,
+        "memoryUsage": {
+          "rss": 96,
+          "heapTotal": 17,
+          "heapUsed": 14,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 103
+        },
+        "databaseHealth": {
+          "connectionTime": 613,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.60205078125,
+            1.6865234375,
+            1.7412109375
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414548452,
+        "memoryUsage": {
+          "rss": 96,
+          "heapTotal": 16,
+          "heapUsed": 14,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 108
+        },
+        "databaseHealth": {
+          "connectionTime": 79,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.4736328125,
+            1.658203125,
+            1.73095703125
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414553535,
+        "memoryUsage": {
+          "rss": 96,
+          "heapTotal": 16,
+          "heapUsed": 14,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 114
+        },
+        "databaseHealth": {
+          "connectionTime": 99,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.435546875,
+            1.64697265625,
+            1.7265625
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414558635,
+        "memoryUsage": {
+          "rss": 97,
+          "heapTotal": 16,
+          "heapUsed": 14,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 119
+        },
+        "databaseHealth": {
+          "connectionTime": 99,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.48046875,
+            1.65283203125,
+            1.72802734375
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414563740,
+        "memoryUsage": {
+          "rss": 97,
+          "heapTotal": 16,
+          "heapUsed": 14,
+          "external": 4
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 124
+        },
+        "databaseHealth": {
+          "connectionTime": 205,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.52197265625,
+            1.658203125,
+            1.7294921875
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414568949,
+        "memoryUsage": {
+          "rss": 97,
+          "heapTotal": 16,
+          "heapUsed": 14,
+          "external": 5
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 129
+        },
+        "databaseHealth": {
+          "connectionTime": 109,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.47998046875,
+            1.64697265625,
+            1.72509765625
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414574062,
+        "memoryUsage": {
+          "rss": 97,
+          "heapTotal": 16,
+          "heapUsed": 14,
+          "external": 5
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 134
+        },
+        "databaseHealth": {
+          "connectionTime": 88,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.44140625,
+            1.63623046875,
+            1.720703125
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414579154,
+        "memoryUsage": {
+          "rss": 97,
+          "heapTotal": 16,
+          "heapUsed": 15,
+          "external": 5
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 139
+        },
+        "databaseHealth": {
+          "connectionTime": 92,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.40576171875,
+            1.62548828125,
+            1.71630859375
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414584249,
+        "memoryUsage": {
+          "rss": 97,
+          "heapTotal": 16,
+          "heapUsed": 14,
+          "external": 5
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 144
+        },
+        "databaseHealth": {
+          "connectionTime": 87,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.61328125,
+            1.66455078125,
+            1.7294921875
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414589342,
+        "memoryUsage": {
+          "rss": 97,
+          "heapTotal": 16,
+          "heapUsed": 15,
+          "external": 5
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 149
+        },
+        "databaseHealth": {
+          "connectionTime": 85,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.64404296875,
+            1.669921875,
+            1.73095703125
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414594431,
+        "memoryUsage": {
+          "rss": 98,
+          "heapTotal": 17,
+          "heapUsed": 14,
+          "external": 5
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 154
+        },
+        "databaseHealth": {
+          "connectionTime": 93,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.67236328125,
+            1.67529296875,
+            1.732421875
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414599527,
+        "memoryUsage": {
+          "rss": 98,
+          "heapTotal": 17,
+          "heapUsed": 15,
+          "external": 5
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 160
+        },
+        "databaseHealth": {
+          "connectionTime": 98,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.6982421875,
+            1.6806640625,
+            1.73388671875
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414604628,
+        "memoryUsage": {
+          "rss": 98,
+          "heapTotal": 18,
+          "heapUsed": 14,
+          "external": 5
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 165
+        },
+        "databaseHealth": {
+          "connectionTime": 76,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.64208984375,
+            1.6689453125,
+            1.7294921875
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414609707,
+        "memoryUsage": {
+          "rss": 98,
+          "heapTotal": 18,
+          "heapUsed": 15,
+          "external": 5
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 170
+        },
+        "databaseHealth": {
+          "connectionTime": 91,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.59033203125,
+            1.65771484375,
+            1.72509765625
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414614801,
+        "memoryUsage": {
+          "rss": 98,
+          "heapTotal": 17,
+          "heapUsed": 14,
+          "external": 5
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 175
+        },
+        "databaseHealth": {
+          "connectionTime": 100,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.623046875,
+            1.6630859375,
+            1.7265625
+          ]
+        }
+      },
+      {
+        "timestamp": 1753414619904,
+        "memoryUsage": {
+          "rss": 99,
+          "heapTotal": 17,
+          "heapUsed": 15,
+          "external": 5
+        },
+        "systemInfo": {
+          "platform": "darwin",
+          "nodeVersion": "v22.14.0",
+          "uptime": 180
+        },
+        "databaseHealth": {
+          "connectionTime": 95,
+          "success": true
+        },
+        "performanceMetrics": {
+          "loadAverage": [
+            1.81298828125,
+            1.70166015625,
+            1.73974609375
+          ]
+        }
+      }
+    ],
+    "memoryAnalysis": {
+      "initialMemory": 13,
+      "finalMemory": 15,
+      "peakMemory": 15,
+      "memoryIncrease": 2,
+      "memoryLeakDetected": false,
+      "averageMemoryUsage": 14
+    },
+    "performanceAnalysis": {
+      "averageDbConnectionTime": 126,
+      "maxDbConnectionTime": 613,
+      "dbConnectionFailures": 0,
+      "overallDbHealthScore": 100
+    },
+    "recommendations": [
+      "システムリソースが完璧に管理されています。本番環境での安定稼働が可能です。",
+      "継続的な監視のため、本監視スクリプトを定期実行（週1回）することを推奨します。"
+    ],
+    "stabilityScore": 100
+  },
+  "recommendations": [
+    "システムリソースが完璧に管理されています。本番環境での安定稼働が可能です。",
+    "継続的な監視のため、本監視スクリプトを定期実行（週1回）することを推奨します。"
+  ]
+}

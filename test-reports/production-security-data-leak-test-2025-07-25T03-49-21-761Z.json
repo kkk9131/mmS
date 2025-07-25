@@ -1,0 +1,178 @@
+{
+  "timestamp": "2025-07-25T03:49:21.761Z",
+  "environment": "production",
+  "testType": "data-leakage-security-test",
+  "project": {
+    "name": "Mamapace",
+    "url": "https://zfmqxdkqpeyvsuqyzuvy.supabase.co"
+  },
+  "summary": {
+    "totalTests": 9,
+    "passedTests": 7,
+    "failedTests": 0,
+    "warningTests": 2,
+    "criticalIssues": 0,
+    "highIssues": 0,
+    "dataProtectionScore": 90
+  },
+  "testResults": [
+    {
+      "testName": "母子手帳番号漏洩テスト",
+      "category": "pii",
+      "severity": "low",
+      "status": "pass",
+      "duration": 511,
+      "description": "母子手帳番号が適切に保護されています",
+      "dataCount": 0
+    },
+    {
+      "testName": "メールアドレス漏洩テスト",
+      "category": "pii",
+      "severity": "low",
+      "status": "pass",
+      "duration": 71,
+      "description": "連絡先情報が適切に保護されています",
+      "dataCount": 0
+    },
+    {
+      "testName": "プロフィール情報一括漏洩テスト",
+      "category": "pii",
+      "severity": "low",
+      "status": "pass",
+      "duration": 82,
+      "description": "プロフィール情報の一括取得が適切に防がれています",
+      "dataCount": 0
+    },
+    {
+      "testName": "認証トークン漏洩テスト",
+      "category": "credentials",
+      "severity": "low",
+      "status": "pass",
+      "duration": 67,
+      "description": "認証情報が適切に保護されています",
+      "dataCount": 0
+    },
+    {
+      "testName": "APIキー漏洩テスト",
+      "category": "credentials",
+      "severity": "low",
+      "status": "pass",
+      "duration": 259,
+      "description": "システム設定情報が適切に保護されています",
+      "leakedData": [
+        {
+          "table": "config",
+          "dataFound": false,
+          "error": "relation \"public.config\" does not exist"
+        },
+        {
+          "table": "settings",
+          "dataFound": false,
+          "error": "relation \"public.settings\" does not exist"
+        },
+        {
+          "table": "api_keys",
+          "dataFound": false,
+          "error": "relation \"public.api_keys\" does not exist"
+        },
+        {
+          "table": "secrets",
+          "dataFound": false,
+          "error": "relation \"public.secrets\" does not exist"
+        }
+      ]
+    },
+    {
+      "testName": "データベース構造漏洩テスト",
+      "category": "system",
+      "severity": "low",
+      "status": "pass",
+      "duration": 228,
+      "description": "データベースシステム情報が適切に保護されています",
+      "leakedData": [
+        {
+          "query": "information_schema.tables",
+          "accessible": false,
+          "error": "relation \"public.information_schema.tables\" does not exist"
+        },
+        {
+          "query": "information_schema.columns",
+          "accessible": false,
+          "error": "relation \"public.information_schema.columns\" does not exist"
+        },
+        {
+          "query": "pg_tables",
+          "accessible": false,
+          "error": "relation \"public.pg_tables\" does not exist"
+        },
+        {
+          "query": "pg_stat_user_tables",
+          "accessible": false,
+          "error": "relation \"public.pg_stat_user_tables\" does not exist"
+        }
+      ]
+    },
+    {
+      "testName": "エラーメッセージ情報漏洩テスト",
+      "category": "system",
+      "severity": "medium",
+      "status": "warning",
+      "duration": 54,
+      "description": "エラーメッセージが内部システム情報を漏洩しています",
+      "leakedData": {
+        "errorMessage": "relation \"public.non_existent_table_xyz123\" does not exist",
+        "sensitiveKeywords": [
+          "table"
+        ]
+      },
+      "recommendations": [
+        "エラーメッセージの汎用化",
+        "詳細エラー情報の非表示化"
+      ]
+    },
+    {
+      "testName": "投稿データ一括漏洩テスト",
+      "category": "business",
+      "severity": "low",
+      "status": "pass",
+      "duration": 49,
+      "description": "投稿データが適切に保護されています",
+      "dataCount": 0
+    },
+    {
+      "testName": "統計データ漏洩テスト",
+      "category": "business",
+      "severity": "medium",
+      "status": "warning",
+      "duration": 157,
+      "description": "ビジネス統計データへのアクセスが可能です",
+      "leakedData": [
+        {
+          "table": "users",
+          "dataAccessible": true,
+          "hasRecords": false
+        },
+        {
+          "table": "posts",
+          "dataAccessible": true,
+          "hasRecords": false
+        },
+        {
+          "table": "likes",
+          "dataAccessible": true,
+          "hasRecords": false
+        }
+      ],
+      "recommendations": [
+        "統計データのアクセス制御",
+        "集計クエリの制限実装"
+      ]
+    }
+  ],
+  "recommendations": [
+    "データ保護システムは高いセキュリティレベルを達成しています。",
+    "定期的なデータ漏洩監査の実施を推奨します。",
+    "データ分類とアクセス制御ポリシーの策定を検討してください。",
+    "データアクセスログの監視システム導入を推奨します。"
+  ]
+}
