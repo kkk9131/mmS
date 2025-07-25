@@ -322,7 +322,7 @@ export const usersApi = supabaseApi.injectEndpoints({
           );
 
           return { data: { url } };
-        } catch (error) {
+        } catch {
           return {
             error: {
               status: 500,
@@ -357,7 +357,7 @@ export const usersApi = supabaseApi.injectEndpoints({
           return {
             data: allUsers as UserProfile[],
           };
-        } catch (error) {
+        } catch {
           return {
             error: {
               status: 500,

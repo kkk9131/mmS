@@ -336,16 +336,21 @@ export class UserService {
           updated_at: new Date().toISOString(),
         };
 
-        const { data: updatedUser, error } = await client
+        const { data: updatedUsers, error } = await client
           .from('users')
           .update(updateData)
           .eq('id', currentUser.id)
-          .select('*')
-          .single();
+          .select('*');
 
         if (error) {
           throw new Error(`Failed to update profile: ${error.message}`);
         }
+
+        if (!updatedUsers || updatedUsers.length === 0) {
+          throw new Error('No user found to update');
+        }
+
+        const updatedUser = updatedUsers[0];
 
         // Get updated counts
         const [postsCount, followersCount, followingCount] = await Promise.all([
@@ -565,14 +570,14 @@ export class UserService {
       .select('id')
       .eq('follower_id', currentUserId)
       .eq('following_id', targetUserId)
-      .single();
+      .limit(1);
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+    if (error) {
       console.warn(`Failed to get follow status:`, error);
       return false;
     }
 
-    return !!data;
+    return data && data.length > 0;
   }
 
   // === モック機能 ===

@@ -146,7 +146,7 @@ describe('PushTokenManager', () => {
         from: jest.fn().mockReturnThis(),
         upsert: jest.fn().mockReturnThis(),
       };
-      mockSupabase.upsert.mockResolvedValue({ error: null });
+      (mockSupabase.upsert as any).mockResolvedValue({ data: null, error: null });
 
       jest.doMock('../../supabase/client', () => ({
         supabase: mockSupabase,

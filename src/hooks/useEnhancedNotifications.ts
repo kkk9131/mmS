@@ -1,11 +1,10 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import {
   useGetNotificationsQuery,
   useGetUnreadCountQuery,
-  useMarkNotificationAsReadMutation,
-  useMarkAllNotificationsAsReadMutation,
+  useMarkNotificationsAsReadMutation,
   useRegisterPushTokenMutation,
   useGetNotificationSettingsQuery,
   useUpdateNotificationSettingsMutation,
@@ -16,6 +15,9 @@ import { notificationQueueManager } from '../services/notifications/Notification
 import { badgeManager } from '../services/notifications/BadgeManager';
 import { notificationErrorHandler } from '../services/notifications/ErrorHandler';
 import { notificationPerformanceOptimizer } from '../services/notifications/PerformanceOptimizer';
+
+// Timer型の定義
+type Timer = ReturnType<typeof setInterval>;
 
 interface UseEnhancedNotificationsOptions {
   autoInitialize?: boolean;
@@ -59,7 +61,7 @@ export function useEnhancedNotifications(options: UseEnhancedNotificationsOption
   // Refs for cleanup
   const realtimeUnsubscribe = useRef<(() => void) | null>(null);
   const appStateSubscription = useRef<any>(null);
-  const queueInterval = useRef<NodeJS.Timer | null>(null);
+  const queueInterval = useRef<Timer | null>(null);
 
   // API hooks with performance optimization
   const {
@@ -68,7 +70,7 @@ export function useEnhancedNotifications(options: UseEnhancedNotificationsOption
     error: notificationsError,
     refetch: refetchNotifications,
   } = useGetNotificationsQuery(
-    { userId: user?.id || '', page: 0, limit: cacheNotifications ? 50 : 20 },
+    { userId: user?.id || '', offset: 0, limit: cacheNotifications ? 50 : 20 },
     {
       skip: !user?.id,
       pollingInterval: enableRealtime ? 0 : 30000, // 30秒ポーリング（リアルタイム無効時）
@@ -79,7 +81,7 @@ export function useEnhancedNotifications(options: UseEnhancedNotificationsOption
     data: unreadCount,
     isLoading: unreadCountLoading,
     refetch: refetchUnreadCount,
-  } = useGetUnreadCountQuery(undefined, {
+  } = useGetUnreadCountQuery(user?.id || '', {
     skip: !user?.id,
     pollingInterval: enableRealtime ? 0 : 15000, // 15秒ポーリング
   });
@@ -93,8 +95,8 @@ export function useEnhancedNotifications(options: UseEnhancedNotificationsOption
   });
 
   // Mutations with error handling
-  const [markAsRead] = useMarkNotificationAsReadMutation();
-  const [markAllAsRead] = useMarkAllNotificationsAsReadMutation();
+  const [markAsRead] = useMarkNotificationsAsReadMutation();
+  const [markAllAsRead] = useMarkNotificationsAsReadMutation();
   const [registerPushToken] = useRegisterPushTokenMutation();
   const [updateSettings] = useUpdateNotificationSettingsMutation();
 
@@ -217,11 +219,11 @@ export function useEnhancedNotifications(options: UseEnhancedNotificationsOption
       if (batchReadOperations) {
         // バッチ処理のために少し遅延
         setTimeout(async () => {
-          await markAsRead(notificationId);
+          await markAsRead({ userId: user?.id || '', notificationIds: [notificationId] });
           await badgeManager.handleNotificationRead([notificationId]);
         }, 100);
       } else {
-        await markAsRead(notificationId);
+        await markAsRead({ userId: user?.id || '', notificationIds: [notificationId] });
         await badgeManager.handleNotificationRead([notificationId]);
       }
 
@@ -244,7 +246,7 @@ export function useEnhancedNotifications(options: UseEnhancedNotificationsOption
     try {
       setState(prev => ({ ...prev, pendingOperations: prev.pendingOperations + 1 }));
 
-      await markAllAsRead();
+      await markAllAsRead({ userId: user?.id || '', notificationIds: [] });
       await badgeManager.handleAllNotificationsRead();
 
       // キャッシュを更新
@@ -315,24 +317,30 @@ export function useEnhancedNotifications(options: UseEnhancedNotificationsOption
 
   // Network status monitoring
   const handleNetworkChange = useCallback((isConnected: boolean) => {
-    setState(prev => ({ ...prev, isOnline: isConnected }));
-
-    if (isConnected && !prev.isOnline) {
-      // オンラインに復帰した場合
-      console.log('ネットワーク復帰 - データを同期中...');
+    setState(prev => {
+      const wasOffline = !prev.isOnline;
       
-      // データの再同期
-      refetchNotifications();
-      refetchUnreadCount();
-      refetchSettings();
+      if (isConnected && wasOffline) {
+        // オンラインに復帰した場合
+        console.log('ネットワーク復帰 - データを同期中...');
+        
+        // データの再同期
+        setTimeout(() => {
+          refetchNotifications();
+          refetchUnreadCount();
+          refetchSettings();
 
-      // 失敗したキューアイテムを再試行
-      if (enableQueueProcessing) {
-        notificationQueueManager.retryFailedNotifications();
+          // 失敗したキューアイテムを再試行
+          if (enableQueueProcessing) {
+            notificationQueueManager.retryFailedNotifications();
+          }
+
+          setState(prev => ({ ...prev, lastSyncTime: new Date().toISOString() }));
+        }, 0);
       }
-
-      setState(prev => ({ ...prev, lastSyncTime: new Date().toISOString() }));
-    }
+      
+      return { ...prev, isOnline: isConnected };
+    });
   }, [enableQueueProcessing, refetchNotifications, refetchUnreadCount, refetchSettings]);
 
   // App state change handling
@@ -429,7 +437,7 @@ export function useEnhancedNotifications(options: UseEnhancedNotificationsOption
 
   return {
     // Data
-    notifications: notifications?.notifications || [],
+    notifications: Array.isArray(notifications) ? notifications : (notifications as any)?.data || [],
     unreadCount: unreadCount || 0,
     settings: settings || null,
 

@@ -187,10 +187,16 @@ export class AccountDeletionService {
 
     } catch (error) {
       console.error('Account deletion confirmation failed:', error);
+      
+      // unknownエラーの型ガード
+      const errorMessage = error instanceof Error ? error.message : 
+                          typeof error === 'string' ? error : 
+                          'Unknown error occurred';
+      
       return {
         success: false,
         deletedData: [],
-        error: `Confirmation failed: ${error.message}`,
+        error: `Confirmation failed: ${errorMessage}`,
       };
     }
   }
@@ -241,10 +247,15 @@ export class AccountDeletionService {
 
       return { success: true, deletedData: [] };
     } catch (error) {
+      // unknownエラーの型ガード
+      const errorMessage = error instanceof Error ? error.message : 
+                          typeof error === 'string' ? error : 
+                          'Unknown error occurred';
+      
       return {
         success: false,
         deletedData: [],
-        error: `Pre-deletion check failed: ${error.message}`,
+        error: `Pre-deletion check failed: ${errorMessage}`,
       };
     }
   }
@@ -313,9 +324,14 @@ export class AccountDeletionService {
 
       return { success: true };
     } catch (error) {
+      // unknownエラーの型ガード
+      const errorMessage = error instanceof Error ? error.message : 
+                          typeof error === 'string' ? error : 
+                          'Unknown error occurred';
+      
       return {
         success: false,
-        error: `Authentication check failed: ${error.message}`,
+        error: `Authentication check failed: ${errorMessage}`,
       };
     }
   }
@@ -351,10 +367,16 @@ export class AccountDeletionService {
 
     } catch (error) {
       console.error('Account deletion execution failed:', error);
+      
+      // unknownエラーの型ガード
+      const errorMessage = error instanceof Error ? error.message : 
+                          typeof error === 'string' ? error : 
+                          'Unknown error occurred';
+      
       return {
         success: false,
         deletedData: [],
-        error: `Deletion execution failed: ${error.message}`,
+        error: `Deletion execution failed: ${errorMessage}`,
       };
     }
   }

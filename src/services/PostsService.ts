@@ -622,17 +622,17 @@ export class PostsService {
         console.error('❌ Error type:', typeof error);
         console.error('❌ Error constructor:', error.constructor.name);
         console.error('❌ Error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-          status: error.status,
-          statusCode: error.statusCode,
+          message: (error as any)?.message || 'No message',
+          details: (error as any)?.details || 'No details',
+          hint: (error as any)?.hint || 'No hint',
+          code: (error as any)?.code || 'No code',
+          status: (error as any)?.status || 'No status',
+          statusCode: (error as any)?.statusCode || 'No statusCode',
           full_error: error
         });
         console.error('❌ Error JSON:', JSON.stringify(error, null, 2));
         console.error('===============================================================');
-        throw new Error(`Failed to create post: ${error.message || 'Unknown Supabase error'}`);
+        throw new Error(`Failed to create post: ${(error as any)?.message || 'Unknown Supabase error'}`);
       }
 
       console.log('✅ Post created successfully:', post);

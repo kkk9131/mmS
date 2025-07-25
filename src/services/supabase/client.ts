@@ -208,6 +208,35 @@ export class SupabaseClientManager {
     return this.client !== null;
   }
 
+  // Proxy properties for direct access to Supabase client features
+  public get auth() {
+    if (!this.client) {
+      throw new Error('Supabase client not initialized');
+    }
+    return this.client.auth;
+  }
+
+  public from(table: string) {
+    if (!this.client) {
+      throw new Error('Supabase client not initialized');
+    }
+    return this.client.from(table);
+  }
+
+  public channel(name: string) {
+    if (!this.client) {
+      throw new Error('Supabase client not initialized');
+    }
+    return this.client.channel(name);
+  }
+
+  public get functions() {
+    if (!this.client) {
+      throw new Error('Supabase client not initialized');
+    }
+    return this.client.functions;
+  }
+
   public dispose(): void {
     this.client = null;
     this.config = null;
@@ -220,3 +249,6 @@ export class SupabaseClientManager {
 
 // Default instance
 export const supabaseClient = SupabaseClientManager.getInstance();
+
+// Backward compatibility export
+export const supabase = supabaseClient;

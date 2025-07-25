@@ -1,9 +1,9 @@
-import { HttpClient } from '../../../src/services/api/httpClient';
-import { ApiConfigManager } from '../../../src/services/api/config';
-import { FeatureFlagsManager } from '../../../src/services/featureFlags';
+import { HttpClient } from '@/services/api/httpClient';
+import { ApiConfigManager } from '@/services/api/config';
+import { FeatureFlagsManager } from '@/services/featureFlags';
 
-jest.mock('../../../src/services/api/config');
-jest.mock('../../../src/services/featureFlags');
+jest.mock('@/services/api/config');
+jest.mock('@/services/featureFlags');
 
 describe('HttpClient', () => {
   let httpClient: HttpClient;

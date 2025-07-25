@@ -1,17 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Heart, MessageCircle, MoveHorizontal as MoreHorizontal, Menu, Plus } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Sidebar from '../../components/Sidebar';
-import { useAppDispatch, useAppSelector } from '../../hooks/redux';
+import { useAppDispatch } from '../../hooks/redux';
 // import { postsApi } from '../../store/api/postsApi'; // Supabase無効時は使用しない
 import { FeatureFlagsManager } from '../../services/featureFlags';
-import { useRealtimePosts } from '../../hooks/useRealtimePosts';
-import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useHandPreference } from '../../contexts/HandPreferenceContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { Post, Comment } from '../../types/posts';
 
 interface PostWithLocalState {
   id: string;
@@ -69,10 +66,7 @@ const mockPosts: PostWithLocalState[] = [
 ];
 
 export default function HomeScreen() {
-  const dispatch = useAppDispatch();
-  const featureFlags = FeatureFlagsManager.getInstance();
-  const isSupabaseEnabled = featureFlags.isSupabaseEnabled();
-  const { handPreference, getFreeHandSide } = useHandPreference();
+  const { getFreeHandSide } = useHandPreference();
   const { theme } = useTheme();
   
   // UI State
@@ -112,7 +106,6 @@ export default function HomeScreen() {
   // Use local posts for now (Supabase is disabled)
   const posts = localPosts;
   const comments: any[] = [];
-  const hasMore = false;
   const loading = false;
   const refreshing = isRefreshing;
   const error = null;

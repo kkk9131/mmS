@@ -3,6 +3,17 @@
  * 段階的ロールアウトとA/Bテストに使用
  */
 
+import { createClient } from '@supabase/supabase-js';
+import { useState, useEffect } from 'react';
+
+// Supabaseクライアントの初期化
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// 環境タイプの定義
+type Environment = 'development' | 'test' | 'staging' | 'production';
+
 export interface FeatureFlags {
   // 基本機能制御
   PUSH_NOTIFICATIONS_ENABLED: boolean;
@@ -256,7 +267,7 @@ export class FeatureFlagManager {
   }
   
   private getDefaultFlags(): FeatureFlags {
-    const environment = process.env.NODE_ENV || 'development';
+    const environment = (process.env.NODE_ENV as Environment) || 'development';
     
     switch (environment) {
       case 'development':
@@ -329,7 +340,7 @@ export class FeatureFlagManager {
     value: FeatureFlags[K]
   ): Promise<void> {
     try {
-      const environment = process.env.NODE_ENV || 'development';
+      const environment = (process.env.NODE_ENV as Environment) || 'development';
       
       // 現在のフラグを取得
       const { data: currentData } = await supabase
@@ -444,7 +455,7 @@ export class FeatureFlagManager {
       this.currentFlags = FEATURE_FLAGS_EMERGENCY_ROLLBACK;
       
       // リモートフラグも更新
-      const environment = process.env.NODE_ENV || 'development';
+      const environment = (process.env.NODE_ENV as Environment) || 'development';
       await supabase
         .from('feature_flags')
         .upsert({

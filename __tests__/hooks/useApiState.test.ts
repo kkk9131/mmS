@@ -1,11 +1,11 @@
 import { renderHook, act } from '@testing-library/react-native';
-import { useApiState } from '../../src/hooks/useApiState';
-import { ApiUtils } from '../../src/utils/apiUtils';
-import { ErrorUtils } from '../../src/utils/errorUtils';
-import { ApiError } from '../../src/types/api';
+import { useApiState } from '@/hooks/useApiState';
+import { ApiUtils } from '@/utils/apiUtils';
+import { ErrorUtils } from '@/utils/errorUtils';
+import { ApiError } from '@/types/api';
 
-jest.mock('../../src/utils/apiUtils');
-jest.mock('../../src/utils/errorUtils');
+jest.mock('@/utils/apiUtils');
+jest.mock('@/utils/errorUtils');
 
 const MockedApiUtils = jest.mocked(ApiUtils);
 const MockedErrorUtils = jest.mocked(ErrorUtils);

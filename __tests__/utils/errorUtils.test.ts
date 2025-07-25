@@ -1,8 +1,8 @@
-import { ErrorUtils } from '../../src/utils/errorUtils';
-import { ApiError } from '../../src/types/api';
-import { ApiErrorHandler } from '../../src/services/api/errorHandler';
+import { ErrorUtils } from '@/utils/errorUtils';
+import { ApiError } from '@/types/api';
+import { ApiErrorHandler } from '@/services/api/errorHandler';
 
-jest.mock('../../src/services/api/errorHandler');
+jest.mock('@/services/api/errorHandler');
 
 const MockedApiErrorHandler = jest.mocked(ApiErrorHandler);
 

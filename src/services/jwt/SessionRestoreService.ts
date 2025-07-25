@@ -77,7 +77,13 @@ export class SessionRestoreService {
       console.log('Session data saved successfully');
     } catch (error) {
       console.error('Failed to save session data:', error);
-      throw new Error(`Session save failed: ${error.message}`);
+      
+      // unknownエラーの型ガード
+      const errorMessage = error instanceof Error ? error.message : 
+                          typeof error === 'string' ? error : 
+                          'Unknown error occurred';
+      
+      throw new Error(`Session save failed: ${errorMessage}`);
     }
   }
 
@@ -154,7 +160,8 @@ export class SessionRestoreService {
 
       // JWTトークンの存在と有効性確認
       const accessToken = await this.jwtAuthService.getAccessToken();
-      const refreshToken = await this.jwtAuthService.getRefreshToken();
+      const tokens = await this.jwtAuthService.getTokens();
+      const refreshToken = tokens?.refreshToken;
 
       if (!accessToken || !refreshToken) {
         console.log('Missing tokens');
@@ -162,7 +169,7 @@ export class SessionRestoreService {
       }
 
       // リフレッシュトークンの有効性確認（アクセストークンは期限切れでも可）
-      if (this.jwtAuthService.isTokenExpired(refreshToken)) {
+      if (refreshToken && await this.jwtAuthService.isTokenExpired(refreshToken)) {
         console.log('Refresh token expired');
         return false;
       }
@@ -193,7 +200,13 @@ export class SessionRestoreService {
       console.log('Session data cleared successfully');
     } catch (error) {
       console.error('Failed to clear session data:', error);
-      throw new Error(`Session clear failed: ${error.message}`);
+      
+      // unknownエラーの型ガード
+      const errorMessage = error instanceof Error ? error.message : 
+                          typeof error === 'string' ? error : 
+                          'Unknown error occurred';
+      
+      throw new Error(`Session clear failed: ${errorMessage}`);
     }
   }
 

@@ -1,4 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch, ScrollView, Keyboard, TouchableWithoutFeedback, ActivityIndicator, Platform, Pressable } from 'react-native';
+import { Send, Heart, Bot } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { PostsService } from '../../services/PostsService';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useCreatePostMutation } from '../../store/api/postsApi';
+import { FeatureFlagsManager } from '../../services/featureFlags';
+import { useAppSelector } from '../../hooks/redux';
+import { ImageUploadButton } from '../../components/image/ImageUploadButton';
+import { ProcessedImage } from '../../types/image';
 // @ts-ignore - For web DOM events support
 declare global {
   namespace JSX {
@@ -14,17 +25,6 @@ interface WebViewProps {
   onMouseDown?: () => void;
   onMouseUp?: () => void;
 }
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch, ScrollView, Keyboard, TouchableWithoutFeedback, ActivityIndicator, Platform, Pressable } from 'react-native';
-import { Send, Heart, Bot } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { PostsService } from '../../services/PostsService';
-import { useTheme } from '../../contexts/ThemeContext';
-import { useCreatePostMutation } from '../../store/api/postsApi';
-import { FeatureFlagsManager } from '../../services/featureFlags';
-import { useAppSelector } from '../../hooks/redux';
-import { ImageUploadButton } from '../../components/image/ImageUploadButton';
-import { ProcessedImage } from '../../types/image';
 
 export default function PostScreen() {
   const { theme } = useTheme();

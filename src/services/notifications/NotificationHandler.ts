@@ -216,25 +216,25 @@ class NotificationHandlerImpl implements NotificationHandler {
         case NotificationType.LIKE:
         case NotificationType.POST_REPLY:
           if (postId) {
-            router.push(`/posts/${postId}`);
+            router.push(`/posts/${postId}` as any);
           }
           break;
           
         case NotificationType.FOLLOW:
           if (userId) {
-            router.push(`/profile/${userId}`);
+            router.push(`/profile/${userId}` as any);
           }
           break;
           
         case NotificationType.MESSAGE:
           if (actionUrl.includes('/rooms/')) {
-            router.push(actionUrl);
+            router.push(actionUrl as any);
           }
           break;
           
         case NotificationType.MENTION:
           if (postId) {
-            router.push(`/posts/${postId}`);
+            router.push(`/posts/${postId}` as any);
           }
           break;
           
@@ -244,7 +244,7 @@ class NotificationHandlerImpl implements NotificationHandler {
           
         default:
           if (actionUrl) {
-            router.push(actionUrl);
+            router.push(actionUrl as any);
           }
       }
       

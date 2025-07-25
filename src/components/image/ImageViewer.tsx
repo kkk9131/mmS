@@ -30,6 +30,9 @@ import { X, Download, Share, MoreHorizontal } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { LazyImage } from './LazyImage';
 
+// Timeout型の定義
+type Timeout = ReturnType<typeof setTimeout>;
+
 interface ImageViewerProps {
   visible: boolean;
   imageUri: string;
@@ -67,7 +70,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   
   // ジェスチャー状態
   const [isZoomed, setIsZoomed] = useState(false);
-  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const controlsTimeoutRef = useRef<Timeout | null>(null);
 
   // コントロール自動非表示
   const resetControlsTimeout = () => {
@@ -86,8 +89,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     onStart: () => {
       runOnJS(resetControlsTimeout)();
     },
-    onActive: (event) => {
-      scale.value = Math.max(0.5, Math.min(3, event.scale));
+    onActive: (event: any) => {
+      scale.value = Math.max(0.5, Math.min(3, event.scale || 1));
     },
     onEnd: () => {
       if (scale.value < 1) {
@@ -252,8 +255,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         {controlsVisible && (
           <Animated.View 
             style={[styles.topControls, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}
-            entering="fadeIn"
-            exiting="fadeOut"
+            entering={undefined}
+            exiting={undefined}
           >
             <TouchableOpacity
               style={styles.controlButton}
@@ -289,8 +292,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         {controlsVisible && (
           <Animated.View 
             style={[styles.bottomControls, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}
-            entering="fadeIn"
-            exiting="fadeOut"
+            entering={undefined}
+            exiting={undefined}
           >
             {enableShare && onShare && (
               <TouchableOpacity
@@ -324,8 +327,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         {isZoomed && controlsVisible && (
           <Animated.View 
             style={styles.zoomIndicator}
-            entering="fadeIn"
-            exiting="fadeOut"
+            entering={undefined}
+            exiting={undefined}
           >
             <Text style={styles.zoomText}>
               {Math.round(scale.value * 100)}%
@@ -337,8 +340,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         {controlsVisible && !isZoomed && (
           <Animated.View 
             style={styles.helpContainer}
-            entering="fadeIn"
-            exiting="fadeOut"
+            entering={undefined}
+            exiting={undefined}
           >
             <Text style={styles.helpText}>
               ピンチでズーム • ダブルタップでズーム切替 • 下スワイプで閉じる

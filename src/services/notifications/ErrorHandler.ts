@@ -203,11 +203,20 @@ class NotificationErrorHandler {
     } catch (handlingError) {
       console.error('エラーハンドリング自体でエラー発生:', handlingError);
       
+      // unknownエラーの型ガード
+      const originalErrorMessage = error instanceof Error ? error.message : 
+                                 typeof error === 'string' ? error : 
+                                 'Unknown original error';
+      
+      const handlingErrorMessage = handlingError instanceof Error ? handlingError.message : 
+                                 typeof handlingError === 'string' ? handlingError : 
+                                 'Unknown handling error';
+      
       // 最低限のエラー情報を返す
       return {
         type: NotificationErrorType.INTERNAL_ERROR,
         message: 'エラーハンドリング失敗',
-        details: { originalError: error.message, handlingError: handlingError.message },
+        details: { originalError: originalErrorMessage, handlingError: handlingErrorMessage },
         retryable: false,
         timestamp: new Date().toISOString(),
       };
@@ -555,7 +564,9 @@ class NotificationErrorHandler {
       const statsData = await AsyncStorage.getItem(this.ERROR_STATS_KEY);
       return statsData ? JSON.parse(statsData) : {
         totalErrors: 0,
-        errorsByType: {},
+        errorsByType: Object.fromEntries(
+          Object.values(NotificationErrorType).map(type => [type, 0])
+        ) as Record<NotificationErrorType, number>,
         retrySuccessRate: 0,
         averageRetryDelay: 0,
       };
@@ -563,7 +574,9 @@ class NotificationErrorHandler {
       console.error('エラー統計取得失敗:', error);
       return {
         totalErrors: 0,
-        errorsByType: {},
+        errorsByType: Object.fromEntries(
+          Object.values(NotificationErrorType).map(type => [type, 0])
+        ) as Record<NotificationErrorType, number>,
         retrySuccessRate: 0,
         averageRetryDelay: 0,
       };

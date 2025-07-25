@@ -55,7 +55,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         const currentRoute = route || (navigation as any)?.getCurrentRoute?.()?.name || '/';
 
         // 認証ガードでアクセスチェック
-        const result = await authGuard.checkAccess(currentRoute, user || undefined);
+        const result = await authGuard.checkAccess(currentRoute, user as any || undefined);
 
         if (isMounted) {
           setState({
@@ -246,7 +246,7 @@ export const useAuthGuard = () => {
       const guard = new AuthGuard({
         requiredPermissions: permissions,
       });
-      return guard.checkAccess(route, user || undefined);
+      return guard.checkAccess(route, user as any || undefined);
     },
     [user]
   );
@@ -254,7 +254,7 @@ export const useAuthGuard = () => {
   const checkPermissions = React.useCallback(
     async (permissions: string[]) => {
       if (!user) return false;
-      return authGuard.checkPermissions(permissions, user);
+      return authGuard.checkPermissions(permissions, user as any);
     },
     [user, authGuard]
   );

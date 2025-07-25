@@ -129,11 +129,11 @@ export class AutoLoginManager {
       }
 
       // トークンの有効性を確認
-      if (this.jwtAuthService.isTokenExpired(accessToken)) {
+      if (await this.jwtAuthService.isTokenExpired(accessToken)) {
         console.log('Access token expired, attempting refresh...');
         
         try {
-          await this.jwtAuthService.refreshToken();
+          await this.jwtAuthService.refreshTokens();
           // リフレッシュ後、新しいトークンを取得
           const newAccessToken = await this.jwtAuthService.getAccessToken();
           if (!newAccessToken) {
@@ -163,10 +163,16 @@ export class AutoLoginManager {
 
     } catch (error) {
       console.error('Token restoration error:', error);
+      
+      // unknownエラーの型ガード
+      const errorMessage = error instanceof Error ? error.message : 
+                          typeof error === 'string' ? error : 
+                          'Unknown error occurred';
+      
       return {
         success: false,
         method: 'token',
-        error: `Token restoration failed: ${error.message}`,
+        error: `Token restoration failed: ${errorMessage}`,
         requiresUserAction: true,
       };
     }
@@ -188,7 +194,7 @@ export class AutoLoginManager {
       }
 
       // 生体認証が有効になっているかチェック
-      const isEnabled = await this.biometricAuthManager.isEnabled();
+      const isEnabled = await this.biometricAuthManager.isEnabled;
       if (!isEnabled) {
         return {
           success: false,
@@ -210,11 +216,7 @@ export class AutoLoginManager {
       }
 
       // 生体認証を実行
-      const authResult = await this.biometricAuthManager.authenticate(
-        'アプリにアクセスするために認証してください',
-        '認証をキャンセル',
-        false // fallback無効（自動ログインではパスワード入力させない）
-      );
+      const authResult = await this.biometricAuthManager.authenticate();
 
       if (!authResult.success) {
         return {
@@ -227,20 +229,20 @@ export class AutoLoginManager {
 
       // 生体認証成功後、JWTトークンの検証と更新
       let accessToken = await this.jwtAuthService.getAccessToken();
-      if (!accessToken || this.jwtAuthService.isTokenExpired(accessToken)) {
+      if (!accessToken || await this.jwtAuthService.isTokenExpired(accessToken)) {
         try {
           // トークンリフレッシュを試行
-          await this.jwtAuthService.refreshToken();
+          await this.jwtAuthService.refreshTokens();
           accessToken = await this.jwtAuthService.getAccessToken();
           if (!accessToken) {
             // リフレッシュ失敗時は生体認証でログイン（モック）
-            const mockTokens = this.jwtAuthService.createMockJWT(sessionUser.id);
+            const mockTokens = await this.jwtAuthService.createMockTokenPair(sessionUser.id);
             await this.jwtAuthService.storeTokens(mockTokens);
           }
         } catch (refreshError) {
           console.log('Token refresh failed, using biometric to re-authenticate');
           // 新しいトークンを生成（実際の実装ではAPIコール）
-          const mockTokens = this.jwtAuthService.createMockJWT(sessionUser.id);
+          const mockTokens = await this.jwtAuthService.createMockTokenPair(sessionUser.id);
           await this.jwtAuthService.storeTokens(mockTokens);
         }
       }
@@ -258,10 +260,16 @@ export class AutoLoginManager {
 
     } catch (error) {
       console.error('Biometric restoration error:', error);
+      
+      // unknownエラーの型ガード
+      const errorMessage = error instanceof Error ? error.message : 
+                          typeof error === 'string' ? error : 
+                          'Unknown error occurred';
+      
       return {
         success: false,
         method: 'biometric',
-        error: `Biometric restoration failed: ${error.message}`,
+        error: `Biometric restoration failed: ${errorMessage}`,
         requiresUserAction: true,
       };
     }

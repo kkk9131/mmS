@@ -1,13 +1,13 @@
-import { NotificationService } from '../../src/services/NotificationService';
-import { HttpClient } from '../../src/services/api/httpClient';
-import { FeatureFlagsManager } from '../../src/services/featureFlags';
-import { Notification, NotificationList, NotificationType } from '../../src/types/notifications';
-import { ApiResponse } from '../../src/types/api';
+import { NotificationService } from '@/services/NotificationService';
+import { HttpClient } from '@/services/api/httpClient';
+import { FeatureFlagsManager } from '@/services/featureFlags';
+import { Notification, NotificationList, NotificationType } from '@/types/notifications';
+import { ApiResponse } from '@/types/api';
 
-jest.mock('../../src/services/api/httpClient');
-jest.mock('../../src/services/featureFlags');
-jest.mock('../../src/utils/apiUtils');
-jest.mock('../../src/utils/errorUtils');
+jest.mock('@/services/api/httpClient');
+jest.mock('@/services/featureFlags');
+jest.mock('@/utils/apiUtils');
+jest.mock('@/utils/errorUtils');
 
 const MockedHttpClient = jest.mocked(HttpClient);
 const MockedFeatureFlagsManager = jest.mocked(FeatureFlagsManager);
@@ -297,7 +297,7 @@ describe('NotificationService', () => {
       const notifications: Notification[] = [
         {
           id: 'notif-1',
-          type: 'LIKE' as any,
+          type: NotificationType.LIKE,
           title: 'いいねがつきました',
           message: 'テスト',
           data: {
@@ -352,7 +352,7 @@ describe('NotificationService', () => {
       const notifications: Notification[] = [
         {
           id: 'notif-1',
-          type: 'LIKE' as any,
+          type: NotificationType.LIKE,
           title: 'いいねがつきました',
           message: 'テスト',
           data: {

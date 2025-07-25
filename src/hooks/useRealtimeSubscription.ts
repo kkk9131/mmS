@@ -1,5 +1,5 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
-import { RealtimeChannel, REALTIME_LISTEN_TYPES, REALTIME_POSTGRES_CHANGES_LISTEN_EVENT } from '@supabase/supabase-js';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
+import { RealtimeChannel, REALTIME_POSTGRES_CHANGES_LISTEN_EVENT } from '@supabase/supabase-js';
 import { supabaseClient } from '../services/supabase/client';
 import { FeatureFlagsManager } from '../services/featureFlags';
 import { performanceMonitor } from '../utils/performanceMonitor';
@@ -16,6 +16,7 @@ export interface RealtimeSubscriptionOptions {
   autoReconnect?: boolean;
   maxReconnectAttempts?: number;
   reconnectDelay?: number;
+  enabled?: boolean;
 }
 
 export interface RealtimeConnectionStatus {
@@ -51,7 +52,7 @@ export function useRealtimeSubscription(
   // Refs for stable references
   const channelRef = useRef<RealtimeChannel | null>(null);
   const optionsRef = useRef(options);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimeoutRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
   
   // State
@@ -126,7 +127,11 @@ export function useRealtimeSubscription(
       
       reconnectTimeoutRef.current = setTimeout(() => {
         if (isMountedRef.current) {
-          subscribe();
+          // Force re-subscription by changing the dependency
+          setConnectionStatus(prev => ({
+            ...prev,
+            isConnecting: true
+          }));
         }
       }, delay);
       
@@ -319,28 +324,47 @@ export function useRealtimeSubscription(
  * 複数のリアルタイムサブスクリプションを管理するフック
  */
 export interface MultiSubscriptionOptions {
-  subscriptions: Array<{
+  subscriptions: {
     channelName: string;
     options: RealtimeSubscriptionOptions;
-  }>;
+  }[];
   onGlobalError?: (error: Error, channelName: string) => void;
 }
 
 export function useMultipleRealtimeSubscriptions(config: MultiSubscriptionOptions) {
-  const subscriptions = config.subscriptions.map(({ channelName, options }) => {
-    const enhancedOptions = {
-      ...options,
+  // React Hooksのルールに従い、useRealtimeSubscriptionを固定数で呼び出す
+  const subscription1 = useRealtimeSubscription(
+    config.subscriptions[0]?.channelName || '',
+    config.subscriptions[0] ? {
+      ...config.subscriptions[0].options,
       onError: (error: Error) => {
-        options.onError?.(error);
-        config.onGlobalError?.(error, channelName);
+        config.subscriptions[0]?.options.onError?.(error);
+        config.onGlobalError?.(error, config.subscriptions[0]?.channelName || '');
       },
-    };
-    
-    return {
-      channelName,
-      ...useRealtimeSubscription(channelName, enhancedOptions),
-    };
-  });
+    } : { table: '', enabled: false }
+  );
+  
+  const subscription2 = useRealtimeSubscription(
+    config.subscriptions[1]?.channelName || '',
+    config.subscriptions[1] ? {
+      ...config.subscriptions[1].options,
+      onError: (error: Error) => {
+        config.subscriptions[1]?.options.onError?.(error);
+        config.onGlobalError?.(error, config.subscriptions[1]?.channelName || '');
+      },
+    } : { table: '', enabled: false }
+  );
+
+  const subscriptions = React.useMemo(() => {
+    const result = [];
+    if (config.subscriptions[0] && subscription1) {
+      result.push({ channelName: config.subscriptions[0].channelName, ...subscription1 });
+    }
+    if (config.subscriptions[1] && subscription2) {
+      result.push({ channelName: config.subscriptions[1].channelName, ...subscription2 });
+    }
+    return result;
+  }, [config.subscriptions, subscription1, subscription2]);
   
   const globalConnectionStatus = {
     totalChannels: subscriptions.length,

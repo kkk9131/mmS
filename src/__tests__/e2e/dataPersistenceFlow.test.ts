@@ -104,7 +104,7 @@ describe('Data Persistence and Real-time Flow E2E Tests', () => {
             data: { content: 'Updated post content' },
           })
         );
-      } catch (error) {
+      } catch {
         // If update endpoint doesn't exist, create a new post
         updateResult = await (dispatch as any)(
           postsApi.endpoints.createPost.initiate({
@@ -127,7 +127,7 @@ describe('Data Persistence and Real-time Flow E2E Tests', () => {
         await (dispatch as any)(
           postsApi.endpoints.deletePost?.initiate?.(postId)
         );
-      } catch (error) {
+      } catch {
         // Delete endpoint may not exist, skip verification
       }
 
@@ -394,7 +394,7 @@ describe('Data Persistence and Real-time Flow E2E Tests', () => {
             notificationIds: [notification.id]
           })
         );
-      } catch (error) {
+      } catch {
         // Mark read might not be implemented
       }
 

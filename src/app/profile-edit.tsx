@@ -499,12 +499,12 @@ export default function ProfileEditScreen() {
       borderWidth: 1,
       borderColor: theme.colors.border,
       borderLeftWidth: 3,
-      borderLeftColor: theme.colors.accent,
+      borderLeftColor: theme.colors.primary,
     },
     securityTitle: {
       fontSize: 16,
       fontWeight: '600',
-      color: theme.colors.accent,
+      color: theme.colors.primary,
       marginBottom: 8,
     },
     securityText: {

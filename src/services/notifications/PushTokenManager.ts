@@ -154,7 +154,6 @@ class PushTokenManagerImpl implements PushTokenManager {
         allowAlert: true,
         allowBadge: true,
         allowSound: true,
-        allowAnnouncements: true,
       },
     });
   }

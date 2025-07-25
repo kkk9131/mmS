@@ -11,7 +11,7 @@ export const GlobalErrorNotification: React.FC = () => {
   const { notifications, globalError } = useSelector((state: RootState) => state.ui);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-100)).current;
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (notifications.visible || globalError) {

@@ -220,11 +220,17 @@ export class ErrorRecoveryService {
 
     } catch (recoveryError) {
       const newAttempts = this.incrementRetryAttempts(errorType);
+      
+      // unknownエラーの型ガード
+      const errorMessage = recoveryError instanceof Error ? recoveryError.message : 
+                          typeof recoveryError === 'string' ? recoveryError : 
+                          'Unknown recovery error occurred';
+      
       return {
         success: false,
         method: errorType,
         attempts: newAttempts,
-        error: `Auto recovery error: ${recoveryError.message}`,
+        error: `Auto recovery error: ${errorMessage}`,
       };
     }
   }
@@ -254,7 +260,7 @@ export class ErrorRecoveryService {
       description: '認証トークンを更新します',
       action: async () => {
         try {
-          await this.authService.refreshToken();
+          await this.authService.refreshTokens();
           return true;
         } catch (error) {
           console.error('Token refresh failed:', error);
@@ -398,7 +404,7 @@ export class ErrorRecoveryService {
       action: async () => {
         try {
           const result = await this.authService.authenticateWithBiometric();
-          return result.success;
+          return result?.success || false;
         } catch (error) {
           console.error('Biometric retry failed:', error);
           return false;
@@ -475,7 +481,7 @@ export class ErrorRecoveryService {
   // 自動復旧メソッド
   private async autoRecoverTokenExpired(): Promise<boolean> {
     try {
-      await this.authService.refreshToken();
+      await this.authService.refreshTokens();
       return true;
     } catch (error) {
       console.error('Auto token refresh failed:', error);

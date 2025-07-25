@@ -62,7 +62,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     actionUrl: string;
   }) => {
     try {
-      await notificationService.createNotification(params);
+      await notificationService.createNotification(params as any);
     } catch (error) {
       console.error('通知作成エラー:', error);
       throw error;
@@ -181,6 +181,7 @@ export function useRealtimeNotifications() {
     if (!user?.id) return () => {};
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { notificationRealtimeManager } = require('../store/api/notificationsApi');
       return notificationRealtimeManager.subscribe(user.id, callback);
     } catch (error) {

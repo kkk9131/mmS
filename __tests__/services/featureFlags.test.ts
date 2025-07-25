@@ -1,4 +1,4 @@
-import { FeatureFlagsManager } from '../../src/services/featureFlags';
+import { FeatureFlagsManager } from '@/services/featureFlags';
 
 describe('FeatureFlagsManager', () => {
   let featureFlags: FeatureFlagsManager;

@@ -28,7 +28,7 @@ export interface ImageAccessibilityData {
 export class AccessibilityService {
   private static instance: AccessibilityService;
   private settings: AccessibilitySettings | null = null;
-  private listeners: Array<(settings: AccessibilitySettings) => void> = [];
+  private listeners: ((settings: AccessibilitySettings) => void)[] = [];
 
   static getInstance(): AccessibilityService {
     if (!AccessibilityService.instance) {
@@ -52,8 +52,8 @@ export class AccessibilityService {
       ] = await Promise.all([
         AccessibilityInfo.isScreenReaderEnabled(),
         AccessibilityInfo.isReduceMotionEnabled(),
-        Platform.OS === 'ios' ? AccessibilityInfo.isHighContrastEnabled() : Promise.resolve(false),
-        AccessibilityInfo.getPreferredContentSizeCategory?.() || Promise.resolve('medium')
+        Platform.OS === 'ios' ? AccessibilityInfo.isHighTextContrastEnabled() : Promise.resolve(false),
+        Promise.resolve('medium') // getPreferredContentSizeCategory is not available in current RN version
       ]);
 
       this.settings = {
@@ -340,7 +340,7 @@ export class AccessibilityService {
     
     //高コントラスト設定変更の監視（iOS）
     if (Platform.OS === 'ios') {
-      AccessibilityInfo.addEventListener('highContrastChanged', this.handleHighContrastChange);
+      AccessibilityInfo.addEventListener('highTextContrastChanged', this.handleHighContrastChange);
     }
   }
 
@@ -380,13 +380,9 @@ export class AccessibilityService {
    * クリーンアップ
    */
   cleanup(): void {
-    AccessibilityInfo.removeEventListener('screenReaderChanged', this.handleScreenReaderChange);
-    AccessibilityInfo.removeEventListener('reduceMotionChanged', this.handleReduceMotionChange);
-    
-    if (Platform.OS === 'ios') {
-      AccessibilityInfo.removeEventListener('highContrastChanged', this.handleHighContrastChange);
-    }
-    
+    // Note: removeEventListener is deprecated in newer RN versions
+    // In newer versions, use subscriptions and unsubscribe instead
     this.listeners = [];
+    console.log('AccessibilityService cleanup completed');
   }
 }

@@ -367,7 +367,7 @@ export class CacheManager {
       
       const allKeys = await AsyncStorage.getAllKeys();
       const cacheKeys = allKeys.filter(key => key.startsWith('img_cache_'));
-      const items: Array<{ key: string; entry: CacheEntry }> = [];
+      const items: { key: string; entry: CacheEntry }[] = [];
       
       // 全アイテムを取得してアクセス時刻でソート
       for (const key of cacheKeys) {

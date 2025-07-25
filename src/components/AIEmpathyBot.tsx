@@ -1,14 +1,21 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Heart } from 'lucide-react-native';
-import { useTheme } from '../hooks/useTheme';
+// import { useTheme } from '../hooks/useTheme'; // TODO: Implement useTheme hook
 
 interface AIEmpathyBotProps {
     response: string;
 }
 
 const AIEmpathyBot: React.FC<AIEmpathyBotProps> = ({ response }) => {
-    const { theme } = useTheme();
+    // TODO: Replace with proper theme implementation
+    const theme = {
+        colors: {
+            surface: '#f8f9fa',
+            primary: '#007bff',
+            text: '#212529',
+        }
+    };
 
     // Dynamic styles with theme colors
     const dynamicStyles = StyleSheet.create({

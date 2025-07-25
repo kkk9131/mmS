@@ -74,7 +74,7 @@ export const LazyImage: React.FC<LazyImageProps> = ({
 
   // ビューポート検出
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const timer: number = setTimeout(() => {
       // 簡易的なビューポート検出（実際の実装では Intersection Observer や onLayout を使用）
       setIsInViewport(true);
     }, priority === 'high' ? 0 : priority === 'normal' ? 100 : 300);

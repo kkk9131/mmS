@@ -20,11 +20,15 @@ export default function TabLayout() {
           paddingBottom: 20,
           paddingTop: 10,
         },
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.text.disabled,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
+        },
+        tabBarItemStyle: {
+          minHeight: 48,
         },
       }}>
       <Tabs.Screen
@@ -34,6 +38,7 @@ export default function TabLayout() {
           tabBarIcon: ({ size, color }) => (
             <User size={size} color={color} />
           ),
+          tabBarAccessibilityLabel: 'あなたタブ',
         }}
       />
       <Tabs.Screen
@@ -41,7 +46,7 @@ export default function TabLayout() {
         options={{
           title: '通知',
           tabBarIcon: ({ size, color }) => (
-            <View style={{ position: 'relative' }}>
+            <View style={{ position: 'relative' }} accessible={true} accessibilityLabel={unreadCount > 0 ? `通知、${unreadCount}件の未読` : '通知'}>
               <Bell size={size} color={color} />
               {unreadCount > 0 && (
                 <View
@@ -57,6 +62,7 @@ export default function TabLayout() {
                     justifyContent: 'center',
                     paddingHorizontal: 6,
                   }}
+                  accessibilityElementsHidden={true}
                 >
                   <Text
                     style={{
@@ -72,6 +78,7 @@ export default function TabLayout() {
               )}
             </View>
           ),
+          tabBarAccessibilityLabel: unreadCount > 0 ? `通知タブ、${unreadCount}件の未読通知があります` : '通知タブ',
         }}
       />
       <Tabs.Screen
@@ -81,6 +88,7 @@ export default function TabLayout() {
           tabBarIcon: ({ size, color }) => (
             <Home size={size} color={color} />
           ),
+          tabBarAccessibilityLabel: 'ホームタブ',
         }}
       />
       <Tabs.Screen

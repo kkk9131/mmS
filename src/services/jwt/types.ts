@@ -30,6 +30,8 @@ export interface AuthenticationState {
   lastRefresh: Date | null;
   biometricEnabled: boolean;
   autoRefreshEnabled: boolean;
+  success?: boolean; // Optional success property for operation results
+  error?: string; // Optional error property for operation failures
 }
 
 export interface ValidationResult {

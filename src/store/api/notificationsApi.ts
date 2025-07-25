@@ -410,7 +410,7 @@ export const notificationsApi = supabaseApi.injectEndpoints({
           await notificationService.initializePushNotifications(user.id);
           return { data: undefined };
         } catch (error) {
-          return { error: { message: error.message, code: 'PUSH_TOKEN_ERROR' } };
+          return { error: { message: (error as Error).message || 'Push token error', code: 'PUSH_TOKEN_ERROR' } };
         }
       },
       invalidatesTags: ['Notification'],
@@ -424,7 +424,7 @@ export const notificationsApi = supabaseApi.injectEndpoints({
           const granted = await notificationService.requestPermissions();
           return { data: granted };
         } catch (error) {
-          return { error: { message: error.message, code: 'PERMISSION_ERROR' } };
+          return { error: { message: (error as Error).message || 'Permission error', code: 'PERMISSION_ERROR' } };
         }
       },
     }),
@@ -475,7 +475,7 @@ export const notificationsApi = supabaseApi.injectEndpoints({
           await notificationService.createNotification(params);
           return { data: undefined };
         } catch (error) {
-          return { error: { message: error.message, code: 'PUSH_SEND_ERROR' } };
+          return { error: { message: (error as Error).message || 'Push send error', code: 'PUSH_SEND_ERROR' } };
         }
       },
       invalidatesTags: (result, error, { userId }) => [

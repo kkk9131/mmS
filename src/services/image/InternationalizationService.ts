@@ -619,7 +619,7 @@ const LOCALE_STORAGE_KEY = 'image_locale_settings';
 export class InternationalizationService {
   private static instance: InternationalizationService;
   private settings: LocaleSettings | null = null;
-  private listeners: Array<(settings: LocaleSettings) => void> = [];
+  private listeners: ((settings: LocaleSettings) => void)[] = [];
 
   static getInstance(): InternationalizationService {
     if (!InternationalizationService.instance) {
@@ -648,7 +648,7 @@ export class InternationalizationService {
       }
 
       // RTL言語の場合、レイアウト方向を設定
-      if (this.settings.isRTL && !I18nManager.isRTL) {
+      if (this.settings?.isRTL && !I18nManager.isRTL) {
         I18nManager.forceRTL(true);
         console.log('🔄 RTLレイアウトを有効化');
       }
@@ -820,7 +820,7 @@ export class InternationalizationService {
   /**
    * サポートされてる言語のリストを取得
    */
-  getSupportedLanguages(): Array<{ code: SupportedLanguage; name: string; nativeName: string }> {
+  getSupportedLanguages(): { code: SupportedLanguage; name: string; nativeName: string }[] {
     return [
       { code: 'ja', name: 'Japanese', nativeName: '日本語' },
       { code: 'en', name: 'English', nativeName: 'English' },
@@ -856,7 +856,7 @@ export class InternationalizationService {
       ? 'ja' // iOS用の言語検出ロジック
       : 'ja'; // Android用の言語検出ロジック
 
-    const isRTL = systemLanguage === 'ar' || systemLanguage === 'he';
+    const isRTL = (systemLanguage as string) === 'ar' || (systemLanguage as string) === 'he';
 
     return {
       language: systemLanguage as SupportedLanguage,

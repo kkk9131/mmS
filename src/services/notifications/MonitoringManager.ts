@@ -2,6 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabase/client';
 import { NotificationType } from './NotificationHandler';
 
+// Timerタイプの定義
+type Timer = ReturnType<typeof setInterval>;
+
 export interface NotificationMetrics {
   deliverySuccessRate: number;
   averageDeliveryTime: number;
@@ -99,7 +102,7 @@ class NotificationMonitoringManager {
 
   private alertConfigs: AlertConfig[] = [...this.defaultAlertConfigs];
   private alertCooldowns: Map<string, number> = new Map();
-  private metricsCollectionInterval: NodeJS.Timer | null = null;
+  private metricsCollectionInterval: Timer | null = null;
 
   public static getInstance(): NotificationMonitoringManager {
     if (!NotificationMonitoringManager.instance) {
