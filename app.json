@@ -9,7 +9,20 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mamapace.app",
+      "buildNumber": "1.0.4",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification",
+          "remote-notification"
+        ],
+        "NSCameraUsageDescription": "プロフィール画像や投稿画像の撮影に使用します",
+        "NSPhotoLibraryUsageDescription": "プロフィール画像や投稿画像の選択に使用します",
+        "NSMicrophoneUsageDescription": "音声メッセージ機能に使用します（将来機能）",
+        "NSLocationWhenInUseUsageDescription": "地域コミュニティ機能に使用します（将来機能）",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "web": {
       "bundler": "metro",
@@ -17,8 +30,8 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router", 
-      "expo-font", 
+      "expo-router",
+      "expo-font",
       "expo-web-browser",
       [
         "expo-notifications",
@@ -37,6 +50,12 @@
       "color": "#4F46E5",
       "androidMode": "default",
       "androidCollapsedTitle": "新しい通知があります"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ab86b0c9-4b94-4fab-8fb6-2d52a54d042c"
+      }
     }
   }
 }

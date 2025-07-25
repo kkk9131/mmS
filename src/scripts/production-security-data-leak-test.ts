@@ -488,7 +488,7 @@ async function runBusinessDataLeakageTests(): Promise<DataLeakTestResult[]> {
           leakedData: {
             recordCount: data.length,
             fields: Object.keys(data[0] || {}),
-            sampleTitles: data.slice(0, 3).map(p => p.title || 'untitled').map(t => t.substring(0, 20) + '...')
+            sampleContents: data.slice(0, 3).map(p => p.content || 'no content').map(t => t.substring(0, 20) + '...')
           },
           recommendations: ['投稿データのアクセス制御強化', 'ページネーション制限の実装']
         };

@@ -41,3 +41,16 @@ yarn-error.*
 # Production security
 security-reports/
 *.cert
+
+# Test reports and temporary files
+test-reports/
+test-login.html
+*.log
+
+# Archive directory (temporary files moved here)
+archive/
+
+# Backup and temporary files
+*.backup
+*.tmp
+*~

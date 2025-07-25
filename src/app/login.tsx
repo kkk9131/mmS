@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Keyboard, TouchableWithoutFeedback, Platform } from 'react-native';
+import { ImprovedButton } from '../components/ImprovedButton';
+import { UserFriendlyError } from '../components/UserFriendlyError';
 import { Heart, ArrowRight } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -73,26 +75,14 @@ export default function LoginScreen() {
     console.log('Supabase有効:', featureFlags.isSupabaseEnabled());
     console.log('デバッグモード:', featureFlags.isDebugModeEnabled());
     
-    // Input validation
+    // Input validation (簡素化版)
     if (!maternalBookNumber.trim()) {
       setLocalError('母子手帳番号を入力してください');
       return;
     }
     
-    if (!nickname.trim()) {
-      setLocalError('ニックネームを入力してください');
-      return;
-    }
-
-    if (maternalBookNumber.length < 8) {
-      setLocalError('母子手帳番号は正しい形式で入力してください');
-      return;
-    }
-
-    if (nickname.length < 2 || nickname.length > 20) {
-      setLocalError('ニックネームは2文字以上20文字以下で入力してください');
-      return;
-    }
+    // ニックネームが空の場合は自動生成を許可
+    const finalNickname = nickname.trim() || null;
 
     // Clear any previous errors
     setLocalError('');
@@ -103,10 +93,10 @@ export default function LoginScreen() {
         console.log('🔄 Redux認証開始');
         console.log('認証情報:', { maternalBookNumber: maternalBookNumber.trim(), nickname: nickname.trim() });
         
-        // Use Redux for login
+        // Use Redux for login (ニックネーム自動生成対応)
         const result = await dispatch(signInWithMaternalBook({
           mothersHandbookNumber: maternalBookNumber.trim(),
-          nickname: nickname.trim(),
+          nickname: finalNickname || 'ママ',
         }));
         
         console.log('📊 Redux結果:', result);
@@ -140,6 +130,23 @@ export default function LoginScreen() {
       console.error('エラースタック:', error?.stack);
       console.error('エラーオブジェクト全体:', error);
 
+      // デバッグ用の詳細エラー情報
+      const errorDetails = {
+        message: error?.message || 'Unknown error',
+        code: error?.code,
+        status: error?.status,
+        type: error?.type,
+        details: error?.details,
+        hint: error?.hint,
+        errorName: error?.name,
+        timestamp: new Date().toISOString(),
+        supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL?.substring(0, 30) + '...',
+        platform: Platform.OS,
+        version: Platform.Version,
+      };
+      
+      console.error('📊 詳細エラー情報:', errorDetails);
+
       // For non-Redux errors, set local error
       if (!isReduxEnabled) {
         if (error.type === 'network') {
@@ -149,11 +156,11 @@ export default function LoginScreen() {
         } else if (error.type === 'timeout') {
           setLocalError('接続がタイムアウトしました。もう一度お試しください。');
         } else {
-          setLocalError(`予期しないエラーが発生しました: ${error?.message || error}`);
+          setLocalError(`エラー: ${error?.message || error} (コード: ${error?.code || 'N/A'})`);
         }
       } else {
         // Redux使用時でもローカルエラーを設定
-        setLocalError(`予期しないエラーが発生しました: ${error?.message || error}`);
+        setLocalError(`エラー: ${error?.message || error} (コード: ${error?.code || 'N/A'})`);
       }
     }
   };
@@ -301,7 +308,7 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.formSection} accessible={true} accessibilityRole="none" accessibilityLabel="ログインフォーム">
-        <Text style={dynamicStyles.formTitle} accessibilityRole="text">匿名ログイン</Text>
+        <Text style={dynamicStyles.formTitle} accessibilityRole="text">新規登録・ログイン</Text>
         
         {/* Development Mode Helper */}
         {featureFlags.isDebugModeEnabled() && (
@@ -391,13 +398,12 @@ export default function LoginScreen() {
           </View>
         </TouchableWithoutFeedback>
 
-        {/* Show error from Redux state or local state */}
+        {/* Show error with improved component */}
         {((isReduxEnabled && auth.error) || localError) ? (
-          <View style={styles.errorContainer} accessible={true} accessibilityRole="alert" accessibilityLiveRegion="assertive">
-            <Text style={styles.errorText} accessibilityLabel={`エラー: ${isReduxEnabled ? auth.error : localError}`}>
-              {isReduxEnabled ? auth.error : localError}
-            </Text>
-          </View>
+          <UserFriendlyError 
+            message={isReduxEnabled ? auth.error : localError}
+            type="error"
+          />
         ) : null}
 
         <TouchableOpacity 
@@ -406,15 +412,15 @@ export default function LoginScreen() {
           disabled={isReduxEnabled ? auth.isLoading : false}
           accessible={true}
           accessibilityRole="button"
-          accessibilityLabel={isReduxEnabled && auth.isLoading ? "ログイン処理中" : "ログイン"}
-          accessibilityHint="タップしてログインします"
+          accessibilityLabel={isReduxEnabled && auth.isLoading ? "認証処理中" : "新規登録・ログイン"}
+          accessibilityHint="タップして新規登録またはログインします"
           accessibilityState={{ disabled: isReduxEnabled ? auth.isLoading : false }}
         >
           {(isReduxEnabled && auth.isLoading) ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <>
-              <Text style={styles.loginButtonText}>ログイン</Text>
+              <Text style={styles.loginButtonText}>新規登録・ログイン</Text>
               <ArrowRight size={20} color="#fff" />
             </>
           )}
@@ -422,13 +428,13 @@ export default function LoginScreen() {
       </View>
 
       <View style={dynamicStyles.infoSection} accessible={true} accessibilityRole="none">
-        <Text style={dynamicStyles.infoTitle} accessibilityRole="text">Mamapaceについて</Text>
+        <Text style={dynamicStyles.infoTitle} accessibilityRole="text">🔒 安心・安全な認証システム</Text>
         <Text style={dynamicStyles.infoText} accessibilityRole="text">
+          • <Text style={styles.highlightText}>新規ユーザー</Text>: 情報を入力して自動で新規登録{'\n'}
+          • <Text style={styles.highlightText}>既存ユーザー</Text>: 同じ情報でログイン{'\n'}
           • 完全匿名でご利用いただけます{'\n'}
           • メールアドレスや電話番号は不要です{'\n'}
-          • 24時間いつでも安心して投稿できます{'\n'}
-          • AI共感ボットがあなたの気持ちに寄り添います{'\n'}
-          • すべての投稿は暖かいコミュニティで共有されます
+          • 母子手帳番号はハッシュ化され安全に保管されます
         </Text>
       </View>
 
@@ -623,5 +629,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#000',
     fontWeight: '600',
+  },
+  highlightText: {
+    fontWeight: '600',
+    color: '#ff6b9d',
   },
 });
