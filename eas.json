@@ -1,0 +1,70 @@
+{
+  "cli": {
+    "version": ">= 5.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "base": {
+      "node": "18.17.0"
+    },
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "resourceClass": "default"
+      },
+      "android": {
+        "resourceClass": "default"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "resourceClass": "default"
+      },
+      "android": {
+        "resourceClass": "default"
+      }
+    },
+    "production": {
+      "ios": {
+        "resourceClass": "default",
+        "autoIncrement": true
+      },
+      "android": {
+        "resourceClass": "default",
+        "autoIncrement": true
+      }
+    },
+    "testflight": {
+      "extends": "production",
+      "distribution": "store",
+      "ios": {
+        "resourceClass": "default",
+        "autoIncrement": true
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://zfmqxdkqpeyvsuqyzuvy.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmbXF4ZGtxcGV5dnN1cXl6dXZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMxMzMzNDIsImV4cCI6MjA2ODcwOTM0Mn0.BUE7K0TzIMVzQTk6fsDecYNY6s-ftH1UCsm6eOm4BCA",
+        "EXPO_PUBLIC_USE_SUPABASE": "true",
+        "EXPO_PUBLIC_USE_REDUX": "true"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "kz.m29@icloud.com",
+        "ascAppId": "6749140121",
+        "appleTeamId": "JT9CNSVHX7"
+      }
+    },
+    "testflight": {
+      "ios": {
+        "appleId": "kz.m29@icloud.com",
+        "ascAppId": "6749140121",
+        "appleTeamId": "JT9CNSVHX7"
+      }
+    }
+  }
+}

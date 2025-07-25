@@ -10,6 +10,7 @@ import { useAppDispatch } from '../hooks/redux';
 // import { postsApi } from '../store/api/postsApi'; // Supabase無効時は使用しない
 import { User as UserType, UserProfile as UserProfileType } from '../types/users';
 import { useTheme } from '../contexts/ThemeContext';
+import { DefaultAvatar } from '../components/DefaultAvatar';
 
 // 画面表示用のプロフィールインターface（既存のUIとの互換性維持）
 interface DisplayProfile {
@@ -524,7 +525,11 @@ export default function ProfileScreen() {
           <View style={styles.profileHeader}>
             <View style={styles.userSection}>
               <View style={dynamicStyles.avatarContainer}>
-                <User size={60} color={theme.colors.primary} />
+                <DefaultAvatar 
+                  size={80}
+                  name={profile.name}
+                  imageUrl={profile.avatar}
+                />
               </View>
               <View style={styles.userInfo}>
                 <Text style={dynamicStyles.userName}>{profile.name}</Text>

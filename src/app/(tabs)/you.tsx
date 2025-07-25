@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, ScrollView } from 'react-native';
 import { User, Settings, Heart, MessageCircle, Shield, LogOut, Bell, Plus } from 'lucide-react-native';
+import { DefaultAvatar } from '../../components/DefaultAvatar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useHandPreference } from '../../contexts/HandPreferenceContext';
@@ -209,7 +210,10 @@ export default function YouScreen() {
               style={[styles.avatarContainer, { backgroundColor: theme.colors.card }]}
               onPress={() => router.push('/profile')}
             >
-              <User size={40} color={theme.colors.primary} />
+              <DefaultAvatar 
+                size={40}
+                name="みさき"
+              />
             </TouchableOpacity>
             <View style={styles.userInfo}>
               <Text style={[styles.username, { color: theme.colors.text.primary }]}>みさき</Text>

@@ -1,0 +1,38 @@
+{
+  "ios_specific_settings": {
+    "icon_variants": [
+      {
+        "size": "1024x1024",
+        "purpose": "App Store"
+      },
+      {
+        "size": "180x180",
+        "purpose": "iPhone App Icon"
+      },
+      {
+        "size": "120x120",
+        "purpose": "iPhone App Icon (2x)"
+      },
+      {
+        "size": "167x167",
+        "purpose": "iPad Pro App Icon"
+      },
+      {
+        "size": "152x152",
+        "purpose": "iPad App Icon"
+      }
+    ],
+    "requirements": [
+      "PNG形式必須",
+      "透明度なし（背景必須）",
+      "角丸なし（iOSが自動適用）",
+      "最高品質での保存"
+    ]
+  },
+  "testflight_checklist": [
+    "✅ 1024x1024 メインアイコン準備完了",
+    "✅ app.json にアイコンパス設定済み",
+    "✅ アイコンファイルの存在確認済み",
+    "✅ TestFlightビルド準備完了"
+  ]
+}

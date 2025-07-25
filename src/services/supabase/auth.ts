@@ -3,6 +3,7 @@ import { supabaseClient } from './client';
 import { UserInsert, User as DatabaseUser } from '../../types/supabase';
 // import { createHash } from 'expo-crypto'; // Not available
 import * as Crypto from 'expo-crypto';
+import { supabaseDebugger } from '../../utils/supabaseDebug';
 
 export interface MaternalBookCredentials {
   mothersHandbookNumber: string;
@@ -45,12 +46,53 @@ export class SupabaseAuthService {
         mothersHandbookNumber: credentials.mothersHandbookNumber,
         nickname: credentials.nickname
       });
+      
+      supabaseDebugger.log('signInWithMaternalBook:start', true, null, {
+        hasClient: !!client,
+        credentials: { 
+          mothersHandbookNumber: credentials.mothersHandbookNumber,
+          nickname: credentials.nickname 
+        }
+      });
 
-      const { data: authResult, error: functionError } = await client
-        .rpc('auth_with_maternal_book', {
-          maternal_book_param: credentials.mothersHandbookNumber,
-          user_nickname_param: credentials.nickname
-        });
+      // Try improved auth function first, fallback to original if not exists
+      let authResult, functionError;
+      
+      try {
+        const improvedAuth = await client
+          .rpc('auth_with_maternal_book_improved', {
+            maternal_book_param: credentials.mothersHandbookNumber,
+            user_nickname_param: credentials.nickname
+          });
+        
+        if (improvedAuth.data && improvedAuth.data.length > 0 && improvedAuth.data[0].error_message) {
+          // Handle user-friendly error from improved function
+          console.error('❌ 認証エラー:', improvedAuth.data[0].error_message);
+          const authError = new AuthError(
+            improvedAuth.data[0].error_message,
+            400,
+            'custom_auth_error'
+          );
+          return { 
+            user: null, 
+            session: null, 
+            error: authError
+          };
+        }
+        
+        authResult = improvedAuth.data;
+        functionError = improvedAuth.error;
+      } catch (error) {
+        // Fallback to original function if improved doesn't exist
+        console.log('🔄 改善された認証関数が見つかりません。元の関数を使用します。');
+        const originalAuth = await client
+          .rpc('auth_with_maternal_book', {
+            maternal_book_param: credentials.mothersHandbookNumber,
+            user_nickname_param: credentials.nickname
+          });
+        authResult = originalAuth.data;
+        functionError = originalAuth.error;
+      }
 
       if (functionError) {
         console.error('❌ カスタム認証関数エラー:', functionError);

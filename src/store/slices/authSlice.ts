@@ -80,18 +80,37 @@ export const signInWithMaternalBook = createAsyncThunk(
             return rejectWithValue(errorMessage);
           }
 
-          // Get user profile
-          const profile = await supabaseAuth.getUserProfile();
-          console.log('✅ Supabase認証成功, プロフィール:', profile);
+          // Get user profile (エラーを処理)
+          let profile = null;
+          try {
+            profile = await supabaseAuth.getUserProfile();
+            console.log('✅ Supabase認証成功, プロフィール:', profile);
+          } catch (profileError) {
+            console.warn('⚠️ プロフィール取得エラー（無視して続行）:', profileError);
+            // プロフィール取得エラーは無視して認証を続行
+          }
           
           return {
             user: result.user,
             session: result.session,
             profile,
           };
-        } catch (supabaseError) {
+        } catch (supabaseError: any) {
           console.error('💥 Supabase認証でエラー発生:', supabaseError);
-          throw supabaseError;
+          console.error('エラーの詳細:', {
+            message: supabaseError?.message,
+            name: supabaseError?.name,
+            code: supabaseError?.code,
+            status: supabaseError?.status,
+            stack: supabaseError?.stack?.substring(0, 200),
+          });
+          
+          // ユーザーフレンドリーなエラーメッセージ
+          if (supabaseError?.message) {
+            return rejectWithValue(`認証エラー: ${supabaseError.message}`);
+          } else {
+            return rejectWithValue('認証中に予期しないエラーが発生しました。');
+          }
         }
       } else {
         console.log('🟡 モック認証を使用');
