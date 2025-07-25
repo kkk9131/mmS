@@ -1,4 +1,5 @@
-import CryptoJS from 'crypto-js';
+ 
+import * as CryptoJS from 'crypto-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { supabase } from '../supabase/client';
@@ -444,7 +445,7 @@ class NotificationSecurityManager implements DataAnonymizer {
           action: 'tokens_limited',
           resource: 'push_token',
           metadata: { 
-            disabledCount: tokensToDisible.length,
+            disabledCount: tokensToDisable.length,
             maxAllowed: this.config.maxTokensPerUser 
           },
         });

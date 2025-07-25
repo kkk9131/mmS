@@ -1,14 +1,14 @@
-import { UserService } from '../../src/services/UserService';
-import { HttpClient } from '../../src/services/api/httpClient';
-import { FeatureFlagsManager } from '../../src/services/featureFlags';
-import { UpdateProfileData, User, UserProfile } from '../../src/types/users';
-import { ApiResponse } from '../../src/types/api';
+import { UserService } from '@/services/UserService';
+import { HttpClient } from '@/services/api/httpClient';
+import { FeatureFlagsManager } from '@/services/featureFlags';
+import { UpdateProfileData, User, UserProfile } from '@/types/users';
+import { ApiResponse } from '@/types/api';
 
 // モックの設定
-jest.mock('../../src/services/api/httpClient');
-jest.mock('../../src/services/featureFlags');
-jest.mock('../../src/utils/apiUtils');
-jest.mock('../../src/utils/errorUtils');
+jest.mock('@/services/api/httpClient');
+jest.mock('@/services/featureFlags');
+jest.mock('@/utils/apiUtils');
+jest.mock('@/utils/errorUtils');
 
 const MockedHttpClient = jest.mocked(HttpClient);
 const MockedFeatureFlagsManager = jest.mocked(FeatureFlagsManager);

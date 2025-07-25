@@ -1,5 +1,5 @@
-import { ApiClient } from '../../../src/services/api';
-import { FeatureFlagsManager } from '../../../src/services/featureFlags';
+import { ApiClient } from '@/services/api';
+import { FeatureFlagsManager } from '@/services/featureFlags';
 
 describe('API Integration Tests', () => {
   let apiClient: ApiClient;

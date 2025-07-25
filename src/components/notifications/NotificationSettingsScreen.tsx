@@ -123,7 +123,7 @@ export const NotificationSettingsScreen: React.FC = () => {
 
   const checkPermissions = async () => {
     try {
-      const { Notifications } = await import('expo-notifications');
+      const Notifications = await import('expo-notifications');
       const permissions = await Notifications.getPermissionsAsync();
       setHasPermission(permissions.status === 'granted');
     } catch (error) {
@@ -232,7 +232,13 @@ export const NotificationSettingsScreen: React.FC = () => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate('Home' as never);
+            }
+          }}
         >
           <Ionicons name="chevron-back" size={24} color="#374151" />
         </TouchableOpacity>

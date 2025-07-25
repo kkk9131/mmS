@@ -4,14 +4,14 @@ import { UserServiceAdapter } from './UserServiceAdapter';
 import { NotificationServiceAdapter } from './NotificationServiceAdapter';
 import { FollowServiceAdapter } from './FollowServiceAdapter';
 
-export { PostsServiceAdapter, UserServiceAdapter, NotificationServiceAdapter, FollowServiceAdapter };
-
 // Service factory to get the appropriate service based on feature flags
 import { FeatureFlagsManager } from '../featureFlags';
 import { PostsService } from '../PostsService';
 import { UserService } from '../UserService';
 import { NotificationService } from '../NotificationService';
 import { FollowService } from '../FollowService';
+
+export { PostsServiceAdapter, UserServiceAdapter, NotificationServiceAdapter, FollowServiceAdapter };
 
 export class ServiceFactory {
   private static featureFlags = FeatureFlagsManager.getInstance();

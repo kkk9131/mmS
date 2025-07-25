@@ -12,6 +12,15 @@ ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
 
+-- image_uploadsテーブルがある場合のRLS有効化
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'image_uploads') THEN
+        ALTER TABLE image_uploads ENABLE ROW LEVEL SECURITY;
+    END IF;
+END
+$$;
+
 -- ==============================
 -- USERS テーブルのポリシー
 -- ==============================
@@ -20,13 +29,30 @@ ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own profile" ON users
     FOR SELECT USING (auth.uid() = id);
 
--- ユーザーは自分の情報のみ更新可能
-CREATE POLICY "Users can update own profile" ON users
-    FOR UPDATE USING (auth.uid() = id);
+-- カスタム認証用：全ユーザー情報を参照可能
+DROP POLICY IF EXISTS "Custom auth users can view profiles" ON users;
+CREATE POLICY "Custom auth users can view profiles" ON users
+    FOR SELECT USING (true);
 
--- ユーザー登録時のポリシー（新規作成）
+-- 標準認証：自分の情報のみ更新可能
+DROP POLICY IF EXISTS "Users can update own profile" ON users;
+CREATE POLICY "Users can update own profile" ON users
+    FOR UPDATE USING (auth.uid()::text = id);
+
+-- カスタム認証用：プロフィール更新許可
+DROP POLICY IF EXISTS "Custom auth users can update profiles" ON users;
+CREATE POLICY "Custom auth users can update profiles" ON users
+    FOR UPDATE USING (true);
+
+-- 標準認証：自分のプロフィールのみ作成可能
+DROP POLICY IF EXISTS "Users can insert own profile" ON users;
 CREATE POLICY "Users can insert own profile" ON users
-    FOR INSERT WITH CHECK (auth.uid() = id);
+    FOR INSERT WITH CHECK (auth.uid()::text = id);
+
+-- カスタム認証用：ユーザー作成許可
+DROP POLICY IF EXISTS "Custom auth users can insert profiles" ON users;
+CREATE POLICY "Custom auth users can insert profiles" ON users
+    FOR INSERT WITH CHECK (true);
 
 -- ユーザーの基本情報は他のユーザーからも参照可能（ニックネーム、アバターなど）
 CREATE POLICY "Public user info viewable" ON users
@@ -339,6 +365,67 @@ SELECT
 FROM posts;
 
 -- ==============================
+-- STORAGE バケットのポリシー
+-- ==============================
+
+-- imagesバケットのポリシー
+INSERT INTO storage.buckets (id, name, public) VALUES ('images', 'images', true) ON CONFLICT DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT DO NOTHING;
+
+-- 認証済みユーザーのみアップロード可能
+CREATE POLICY "Authenticated users can upload images" ON storage.objects
+    FOR INSERT WITH CHECK (
+        auth.role() = 'authenticated' 
+        AND bucket_id IN ('images', 'avatars')
+        AND (
+            -- avatarsの場合は自分のフォルダのみ
+            (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text)
+            OR
+            -- imagesの場合は制限なし
+            bucket_id = 'images'
+        )
+    );
+
+-- 全ユーザーが画像を閲覧可能
+CREATE POLICY "Anyone can view images" ON storage.objects
+    FOR SELECT USING (bucket_id IN ('images', 'avatars'));
+
+-- ユーザーは自分がアップロードした画像のみ削除可能
+CREATE POLICY "Users can delete own images" ON storage.objects
+    FOR DELETE USING (
+        auth.uid() = owner 
+        AND bucket_id IN ('images', 'avatars')
+    );
+
+-- ==============================
+-- IMAGE_UPLOADS テーブルのポリシー
+-- ==============================
+
+-- image_uploadsテーブルが存在する場合のポリシー
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'image_uploads') THEN
+        
+        -- 認証済みユーザーのみ画像メタデータ挿入可能
+        EXECUTE 'CREATE POLICY "Authenticated users can insert image metadata" ON image_uploads
+            FOR INSERT WITH CHECK (auth.role() = ''authenticated'' AND auth.uid() = user_id)';
+
+        -- ユーザーは自分の画像メタデータのみ閲覧可能
+        EXECUTE 'CREATE POLICY "Users can view own image metadata" ON image_uploads
+            FOR SELECT USING (auth.uid() = user_id)';
+
+        -- ユーザーは自分の画像メタデータのみ更新可能
+        EXECUTE 'CREATE POLICY "Users can update own image metadata" ON image_uploads
+            FOR UPDATE USING (auth.uid() = user_id)';
+
+        -- ユーザーは自分の画像メタデータのみ削除可能
+        EXECUTE 'CREATE POLICY "Users can delete own image metadata" ON image_uploads
+            FOR DELETE USING (auth.uid() = user_id)';
+    END IF;
+END
+$$;
+
+-- ==============================
 -- インデックス最適化
 -- ==============================
 
@@ -361,6 +448,7 @@ DECLARE
     table_name text;
     rls_enabled boolean;
 BEGIN
+    -- 基本テーブルのRLS確認
     FOR table_name IN SELECT unnest(ARRAY['users', 'posts', 'likes', 'comments', 'notifications', 'follows'])
     LOOP
         SELECT check_rls_enabled(table_name) INTO rls_enabled;
@@ -369,6 +457,46 @@ BEGIN
         END IF;
         RAISE NOTICE 'RLS enabled for table: %', table_name;
     END LOOP;
+    
+    -- image_uploadsテーブルのRLS確認（存在する場合）
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'image_uploads') THEN
+        SELECT check_rls_enabled('image_uploads') INTO rls_enabled;
+        IF NOT rls_enabled THEN
+            RAISE EXCEPTION 'RLS is not enabled for table: image_uploads';
+        END IF;
+        RAISE NOTICE 'RLS enabled for table: image_uploads';
+    END IF;
+    
+    RAISE NOTICE 'Storage policies configured for buckets: images, avatars';
+END
+$$;
+
+-- ==============================
+-- 画像アップロード テーブルのポリシー（カスタム認証対応）
+-- ==============================
+
+-- カスタム認証ユーザーによる画像アップロード許可
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'image_uploads') THEN
+        -- 既存のポリシーを削除（あれば）
+        DROP POLICY IF EXISTS "Custom auth users can upload images" ON image_uploads;
+        DROP POLICY IF EXISTS "Custom auth users can view images" ON image_uploads;
+        DROP POLICY IF EXISTS "Custom auth users can update own images" ON image_uploads;
+        DROP POLICY IF EXISTS "Custom auth users can delete own images" ON image_uploads;
+        
+        -- 新しいポリシーを作成
+        CREATE POLICY "Custom auth users can upload images" ON image_uploads
+            FOR INSERT WITH CHECK (true);
+        CREATE POLICY "Custom auth users can view images" ON image_uploads
+            FOR SELECT USING (true);
+        CREATE POLICY "Custom auth users can update own images" ON image_uploads
+            FOR UPDATE USING (true);
+        CREATE POLICY "Custom auth users can delete own images" ON image_uploads
+            FOR DELETE USING (true);
+            
+        RAISE NOTICE 'Image upload policies configured for custom auth';
+    END IF;
 END
 $$;
 

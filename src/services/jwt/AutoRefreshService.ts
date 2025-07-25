@@ -20,7 +20,7 @@ interface RefreshEvent {
 export class AutoRefreshService {
   private config: RefreshConfig;
   private tokenManager: JWTTokenManager;
-  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private refreshTimer: number | null = null;
   private isRefreshing: boolean = false;
   private retryCount: number = 0;
   private appState: AppStateStatus = 'active';

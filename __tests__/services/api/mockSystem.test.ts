@@ -1,8 +1,8 @@
-import { MockSystem } from '../../../src/services/api/mockSystem';
-import { FeatureFlagsManager } from '../../../src/services/featureFlags';
-import { MockEndpoint } from '../../../src/types/api';
+import { MockSystem } from '@/services/api/mockSystem';
+import { FeatureFlagsManager } from '@/services/featureFlags';
+import { MockEndpoint } from '@/types/api';
 
-jest.mock('../../../src/services/featureFlags');
+jest.mock('@/services/featureFlags');
 
 describe('MockSystem', () => {
   let mockSystem: MockSystem;

@@ -6,6 +6,9 @@
 import { Platform, Dimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Timeout型の定義
+type Timeout = ReturnType<typeof setTimeout>;
+
 export interface PerformanceMetrics {
   // 処理時間メトリクス
   imageSelectionTime: number;
@@ -81,7 +84,7 @@ export class PerformanceMonitor {
   private timers: Map<string, number> = new Map();
   private memoryBaseline: number = 0;
   private isMonitoring: boolean = false;
-  private monitoringInterval?: NodeJS.Timeout;
+  private monitoringInterval?: Timeout;
 
   static getInstance(): PerformanceMonitor {
     if (!PerformanceMonitor.instance) {
@@ -383,7 +386,18 @@ export class PerformanceMonitor {
   generatePerformanceReport(): {
     summary: string;
     metrics: Partial<PerformanceMetrics>;
-    statistics: ReturnType<typeof this.getPerformanceStatistics>;
+    statistics: {
+      averageProcessingTime: number;
+      averageUploadTime: number;
+      averageMemoryUsage: number;
+      averageFPS: number;
+      errorRate: number;
+      trends: {
+        processingTime: 'improving' | 'stable' | 'degrading';
+        memoryUsage: 'improving' | 'stable' | 'degrading';
+        errorRate: 'improving' | 'stable' | 'degrading';
+      };
+    };
     suggestions: OptimizationSuggestion[];
     deviceInfo: {
       platform: string;
@@ -573,7 +587,18 @@ export class PerformanceMonitor {
    * サマリーテキストを生成
    */
   private generateSummaryText(
-    statistics: ReturnType<typeof this.getPerformanceStatistics>,
+    statistics: {
+      averageProcessingTime: number;
+      averageUploadTime: number;
+      averageMemoryUsage: number;
+      averageFPS: number;
+      errorRate: number;
+      trends: {
+        processingTime: 'improving' | 'stable' | 'degrading';
+        memoryUsage: 'improving' | 'stable' | 'degrading';
+        errorRate: 'improving' | 'stable' | 'degrading';
+      };
+    },
     suggestions: OptimizationSuggestion[]
   ): string {
     const criticalIssues = suggestions.filter(s => s.severity === 'critical').length;

@@ -267,6 +267,83 @@ export class JWTAuthService {
     };
   }
 
+  // Public methods for token management
+  async getAccessToken(): Promise<string | null> {
+    try {
+      const token = await this.tokenManager.getAccessToken();
+      if (!token) {
+        return null;
+      }
+
+      // トークンの有効性を確認
+      const validationResult = this.validator.validateAccessToken(token);
+      if (!validationResult.isValid) {
+        console.warn('Access token is invalid:', validationResult.errors);
+        return null;
+      }
+
+      return token;
+    } catch (error) {
+      if (error instanceof JWTAuthError && error.code === 'BIOMETRIC_ERROR') {
+        // 生体認証が必要な場合の処理
+        throw error;
+      }
+      console.error('Error getting access token:', error);
+      return null;
+    }
+  }
+
+  async login(email: string, password: string): Promise<AuthenticationState> {
+    return this.authenticateWithCredentials(email, password);
+  }
+
+  async isTokenExpired(token?: string): Promise<boolean> {
+    try {
+      const accessToken = token || await this.tokenManager.getAccessToken();
+      if (!accessToken) {
+        return true;
+      }
+      const validationResult = this.validator.validateAccessToken(accessToken);
+      return !validationResult.isValid;
+    } catch (error) {
+      console.error('Error checking token expiry:', error);
+      return true;
+    }
+  }
+
+  async storeTokens(tokens: TokenPair): Promise<void> {
+    await this.tokenManager.storeTokens(tokens);
+  }
+
+  async getTokens(): Promise<TokenPair | null> {
+    try {
+      const accessToken = await this.tokenManager.getAccessToken();
+      const refreshToken = await this.tokenManager.getRefreshToken();
+      
+      if (!accessToken || !refreshToken) {
+        return null;
+      }
+      
+      return {
+        accessToken,
+        refreshToken,
+        expiresAt: new Date(),
+        refreshExpiresAt: new Date()
+      };
+    } catch (error) {
+      console.error('Error getting tokens:', error);
+      return null;
+    }
+  }
+
+  async clearTokens(): Promise<void> {
+    await this.tokenManager.clearTokens();
+  }
+
+  async createMockJWT(payload: any, expiresIn: number): Promise<string> {
+    return JWTUtils.createMockJWT(payload, expiresIn);
+  }
+
   async isBiometricEnabled(): Promise<boolean> {
     try {
       const enabled = await AsyncStorage.getItem('biometric_enabled');
@@ -355,6 +432,29 @@ export class JWTAuthService {
       console.error('Failed to load user from token:', error);
       throw new JWTAuthError('ユーザー情報の読み込みに失敗しました', 'TOKEN_INVALID');
     }
+  }
+
+  public async createMockTokenPair(userId: string): Promise<TokenPair> {
+    const accessToken = await JWTUtils.createMockJWT({
+      sub: userId,
+      email: 'mock@example.com',
+      scope: ['read', 'write'],
+      token_type: 'access',
+    }, 60 * 60);
+
+    const refreshToken = await JWTUtils.createMockJWT({
+      sub: userId,
+      token_type: 'refresh',
+      jti: `refresh_${Date.now()}`,
+    }, 30 * 24 * 60 * 60);
+
+    const now = new Date();
+    return {
+      accessToken,
+      refreshToken,
+      expiresAt: new Date(now.getTime() + this.config.tokenConfig.accessTokenExpiry!),
+      refreshExpiresAt: new Date(now.getTime() + this.config.tokenConfig.refreshTokenExpiry!),
+    };
   }
 
   private createTokenPair(authResult: any): TokenPair {

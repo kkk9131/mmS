@@ -103,11 +103,16 @@ export class LogoutManager {
     } catch (error) {
       console.error('Logout error:', error);
       
+      // unknownエラーの型ガード
+      const errorMessage = error instanceof Error ? error.message : 
+                          typeof error === 'string' ? error : 
+                          'Unknown error occurred';
+      
       const result: LogoutResult = {
         success: false,
         method,
         clearedData: [],
-        error: `Logout failed: ${error.message}`,
+        error: `Logout failed: ${errorMessage}`,
       };
 
       // エラーが発生した場合でも強制ログアウトを試行
@@ -331,7 +336,7 @@ export class LogoutManager {
   }
 
   // 自動ログアウトの設定
-  scheduleAutoLogout(delayMs: number, reason: string): ReturnType<typeof setTimeout> {
+  scheduleAutoLogout(delayMs: number, reason: string): number {
     console.log(`Auto logout scheduled in ${delayMs}ms: ${reason}`);
     
     return setTimeout(async () => {
@@ -345,7 +350,7 @@ export class LogoutManager {
   }
 
   // ログアウトタイマーのキャンセル
-  cancelAutoLogout(timer: ReturnType<typeof setTimeout>): void {
+  cancelAutoLogout(timer: number): void {
     clearTimeout(timer);
     console.log('Auto logout cancelled');
   }

@@ -172,6 +172,10 @@ export const ImageSelectionModal: React.FC<ImageSelectionModalProps> = ({
       transparent
       animationType="slide"
       onRequestClose={handleClose}
+      accessible={true}
+      accessibilityViewIsModal={true}
+      accessibilityRole="none"
+      accessibilityLabel="画像選択モーダル"
     >
       <View style={styles.overlay}>
         <TouchableOpacity 
@@ -194,11 +198,11 @@ export const ImageSelectionModal: React.FC<ImageSelectionModalProps> = ({
           </TouchableOpacity>
 
           {/* ヘッダー */}
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: theme.colors.text.primary }]}>
+          <View style={styles.header} accessible={true} accessibilityRole="header">
+            <Text style={[styles.title, { color: theme.colors.text.primary }]} accessibilityRole="text">
               画像を選択
             </Text>
-            <Text style={[styles.subtitle, { color: theme.colors.text.secondary }]}>
+            <Text style={[styles.subtitle, { color: theme.colors.text.secondary }]} accessibilityRole="text">
               {maxImages > 1 ? `最大${maxImages}枚まで選択できます` : '画像を1枚選択してください'}
             </Text>
           </View>
@@ -252,16 +256,16 @@ export const ImageSelectionModal: React.FC<ImageSelectionModalProps> = ({
 
           {/* ローディング表示 */}
           {isLoading && (
-            <View style={styles.loadingContainer}>
-              <Text style={[styles.loadingText, { color: theme.colors.text.secondary }]}>
+            <View style={styles.loadingContainer} accessible={true}>
+              <Text style={[styles.loadingText, { color: theme.colors.text.secondary }]} accessibilityRole="text" accessibilityLiveRegion="polite">
                 処理中...
               </Text>
             </View>
           )}
 
           {/* 権限説明 */}
-          <View style={styles.permissionInfo}>
-            <Text style={[styles.permissionText, { color: theme.colors.text.secondary }]}>
+          <View style={styles.permissionInfo} accessible={true}>
+            <Text style={[styles.permissionText, { color: theme.colors.text.secondary }]} accessibilityRole="text">
               ※ 初回利用時にカメラとフォトライブラリへのアクセス許可が必要です
             </Text>
           </View>

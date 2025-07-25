@@ -2,6 +2,13 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { supabase } from '../supabase/client';
 
+export interface BadgeSettings {
+  enabled: boolean;
+  maxCount: number;
+  showZero: boolean;
+  syncAcrossDevices: boolean;
+}
+
 export interface BadgeManager {
   updateBadgeCount(): Promise<void>;
   setBadgeCount(count: number): Promise<void>;
@@ -258,18 +265,18 @@ class BadgeManagerImpl implements BadgeManager {
 
   // バッジ制御設定
 
-  private badgeSettings = {
+  private badgeSettings: BadgeSettings = {
     enabled: true,
     maxCount: 99,
     showZero: false,
     syncAcrossDevices: true,
   };
 
-  updateBadgeSettings(settings: Partial<typeof this.badgeSettings>): void {
+  updateBadgeSettings(settings: Partial<BadgeSettings>): void {
     this.badgeSettings = { ...this.badgeSettings, ...settings };
   }
 
-  getBadgeSettings(): typeof this.badgeSettings {
+  getBadgeSettings(): BadgeSettings {
     return { ...this.badgeSettings };
   }
 
@@ -308,7 +315,7 @@ class BadgeManagerImpl implements BadgeManager {
     platform: string;
     currentCount: number;
     maxCount: number;
-    settings: typeof this.badgeSettings;
+    settings: BadgeSettings;
     deviceId: string;
   }> {
     return {

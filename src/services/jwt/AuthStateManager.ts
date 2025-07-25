@@ -186,7 +186,7 @@ export class AuthStateManager {
       console.log('Attempting login for:', credentials.email);
 
       // JWTAuthServiceを使用してログイン
-      const result = await this.jwtAuthService.login(credentials);
+      const result = await this.jwtAuthService.login(credentials.email, credentials.password);
       
       if (result.success && result.user) {
         const sessionInfo: SessionInfo = {
@@ -208,7 +208,7 @@ export class AuthStateManager {
         await this.loadUserPermissions(result.user);
         console.log('Login successful');
       } else {
-        throw new Error(result.error || 'Login failed');
+        throw new Error('Login failed');
       }
 
     } catch (error) {
@@ -247,7 +247,7 @@ export class AuthStateManager {
     try {
       console.log('Refreshing auth state...');
       
-      await this.jwtAuthService.refreshToken();
+      await this.jwtAuthService.refreshTokens();
       this.dispatch({ type: 'UPDATE_LAST_ACTIVITY' });
       
       // セッション情報を更新
@@ -287,7 +287,7 @@ export class AuthStateManager {
     try {
       console.log('Enabling biometric authentication...');
       const result = await this.jwtAuthService.enableBiometric();
-      return result.success;
+      return result;
     } catch (error) {
       console.error('Enable biometric error:', error);
       this.handleError(error as Error, 'enable_biometric');

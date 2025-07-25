@@ -58,7 +58,7 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 export class ErrorRecoveryService {
   private static instance: ErrorRecoveryService;
   private i18nService: InternationalizationService;
-  private errorLogs: Array<{ context: ErrorContext; analysis: ErrorAnalysis }> = [];
+  private errorLogs: { context: ErrorContext; analysis: ErrorAnalysis }[] = [];
   private retryConfig: RetryConfig = DEFAULT_RETRY_CONFIG;
   private ongoingRecoveries: Map<string, Promise<boolean>> = new Map();
 
@@ -354,7 +354,7 @@ export class ErrorRecoveryService {
         rootCause = '画像処理エラー';
         strategies.push({
           type: 'fallback',
-          description = 'シンプルな処理モードに切り替え',
+          description: 'シンプルな処理モードに切り替え',
           autoExecute: true,
           priority: 8,
           estimatedSuccessRate: 0.7,
@@ -467,10 +467,15 @@ export class ErrorRecoveryService {
   private async performNetworkTest(): Promise<boolean> {
     try {
       // 簡単なネットワークテスト
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
       const response = await fetch('https://httpbin.org/status/200', {
         method: 'HEAD',
-        timeout: 5000
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
       return false;

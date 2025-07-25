@@ -242,8 +242,8 @@ export class ImageUploadManager {
       height: asset.height,
       fileSize: asset.fileSize || 0,
       mimeType: asset.mimeType || 'image/jpeg',
-      fileName: asset.fileName,
-      exif: asset.exif
+      fileName: asset.fileName || undefined,
+      exif: asset.exif || undefined
     };
   }
 

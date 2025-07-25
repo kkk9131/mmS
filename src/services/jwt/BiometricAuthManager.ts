@@ -148,7 +148,16 @@ export class BiometricAuthManager {
   async disableBiometric(): Promise<void> {
     // 生体認証の無効化は設定のリセットのみ
     // 実際のセキュリティ設定はアプリの設定で管理
-    console.log('Biometric authentication disabled');
+  }
+
+  async disable(): Promise<void> {
+    await this.disableBiometric();
+  }
+
+  get isEnabled(): boolean {
+    // This is a getter property, not a method
+    // Returns true if biometric is enabled in config
+    return this.config.enableFingerprint || this.config.enableFaceID;
   }
 
   async getBiometricInfo(): Promise<{

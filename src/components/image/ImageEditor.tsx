@@ -280,7 +280,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({
         accessibilityLabel="画像の代替テキスト"
         accessibilityHint="スクリーンリーダー用の画像説明を入力してください"
       />
-      <Text style={[styles.characterCount, { color: theme.colors.text.primarySecondary }]}>
+      <Text style={[styles.characterCount, { color: theme.colors.text.secondary }]}>
         {altText.length}/200
       </Text>
     </View>

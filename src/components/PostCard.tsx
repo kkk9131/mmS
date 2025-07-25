@@ -181,20 +181,29 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
             style={dynamicStyles.container}
             onLongPress={handleLongPress}
             delayLongPress={800}
+            accessible={true}
+            accessibilityRole="none"
+            accessibilityLabel={`${post.author}の投稿`}
+            accessibilityHint="長押しで追加の操作メニューを表示"
         >
-            <View style={styles.header}>
-                <Text style={dynamicStyles.authorName}>{post.author}</Text>
-                <Text style={dynamicStyles.timestamp}>{post.timestamp}</Text>
+            <View style={styles.header} accessible={true} accessibilityRole="none">
+                <Text style={dynamicStyles.authorName} accessibilityRole="text">{post.author}</Text>
+                <Text style={dynamicStyles.timestamp} accessibilityRole="text" accessibilityLabel={`投稿日時: ${post.timestamp}`}>{post.timestamp}</Text>
             </View>
 
-            <Text style={dynamicStyles.content}>{post.content}</Text>
+            <Text style={dynamicStyles.content} accessible={true} accessibilityRole="text" accessibilityLabel={`投稿内容: ${post.content}`}>{post.content}</Text>
 
             {/* 画像表示 */}
             {imageList.length > 0 && (
                 <View style={dynamicStyles.imageContainer}>
                     {imageList.length === 1 ? (
-                        // 唰1枚の場合
-                        <TouchableOpacity onPress={() => handleImagePress(0)}>
+                        // 画像1枚の場合
+                        <TouchableOpacity 
+                            onPress={() => handleImagePress(0)}
+                            accessible={true}
+                            accessibilityRole="imagebutton"
+                            accessibilityLabel="投稿画像、タップして拡大表示"
+                        >
                             <LazyImage
                                 uri={imageList[0]}
                                 style={dynamicStyles.singleImage}
@@ -210,7 +219,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
                         <View style={dynamicStyles.imageGrid}>
                             {imageList.slice(0, 4).map((imageUri, index) => (
                                 <View key={index} style={{ position: 'relative' }}>
-                                    <TouchableOpacity onPress={() => handleImagePress(index)}>
+                                    <TouchableOpacity 
+                                        onPress={() => handleImagePress(index)}
+                                        accessible={true}
+                                        accessibilityRole="imagebutton"
+                                        accessibilityLabel={`投稿画像 ${index + 1}/${imageList.length}、タップして拡大表示`}
+                                    >
                                         <LazyImage
                                             uri={imageUri}
                                             style={dynamicStyles.gridImage}
@@ -226,8 +240,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
                                         <TouchableOpacity 
                                             style={dynamicStyles.imageOverlay}
                                             onPress={() => handleImagePress(index)}
+                                            accessible={true}
+                                            accessibilityRole="button"
+                                            accessibilityLabel={`他${imageList.length - 4}枚の画像を表示`}
                                         >
-                                            <Text style={dynamicStyles.overlayText}>
+                                            <Text style={dynamicStyles.overlayText} accessibilityElementsHidden={true}>
                                                 +{imageList.length - 4}
                                             </Text>
                                         </TouchableOpacity>
@@ -239,16 +256,16 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
                 </View>
             )}
 
-            <View style={styles.tagsContainer}>
+            <View style={styles.tagsContainer} accessible={true} accessibilityRole="list" accessibilityLabel={`タグ: ${post.tags.join(', ')}`}>
                 {post.tags.map((tag, index) => (
-                    <Text key={index} style={dynamicStyles.tag}>#{tag}</Text>
+                    <Text key={index} style={dynamicStyles.tag} accessibilityRole="none">#{tag}</Text>
                 ))}
             </View>
 
             {post.aiResponse && (
-                <View style={dynamicStyles.aiResponseContainer}>
-                    <Text style={dynamicStyles.aiResponseLabel}>ママの味方</Text>
-                    <Text style={dynamicStyles.aiResponseText}>{post.aiResponse}</Text>
+                <View style={dynamicStyles.aiResponseContainer} accessible={true} accessibilityRole="none" accessibilityLabel="AIによる共感メッセージ">
+                    <Text style={dynamicStyles.aiResponseLabel} accessibilityRole="text">ママの味方</Text>
+                    <Text style={dynamicStyles.aiResponseText} accessibilityRole="text">{post.aiResponse}</Text>
                 </View>
             )}
 
@@ -256,6 +273,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
                 <TouchableOpacity
                     style={[styles.actionButton, post.isLiked && dynamicStyles.likedButton]}
                     onPress={() => onLike(post.id)}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel={post.isLiked ? `${post.likes}件の共感、共感を取り消す` : `${post.likes}件の共感、共感する`}
+                    accessibilityState={{ selected: post.isLiked }}
                 >
                     <Heart size={20} color={post.isLiked ? theme.colors.primary : theme.colors.text.secondary} fill={post.isLiked ? theme.colors.primary : 'none'} />
                     <Text style={[dynamicStyles.actionText, post.isLiked && dynamicStyles.likedText]}>
@@ -263,12 +284,26 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
                     </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.actionButton} onPress={() => onComment(post.id)}>
+                <TouchableOpacity 
+                    style={styles.actionButton} 
+                    onPress={() => onComment(post.id)}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${post.comments}件のコメント、コメントを追加する`}
+                    accessibilityHint="タップしてコメントを表示または追加"
+                >
                     <MessageCircle size={20} color={theme.colors.text.secondary} />
                     <Text style={dynamicStyles.actionText}>{post.comments} コメント</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.moreButton} onPress={() => onMore(post.id)}>
+                <TouchableOpacity 
+                    style={styles.moreButton} 
+                    onPress={() => onMore(post.id)}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel="その他のオプション"
+                    accessibilityHint="投稿の追加操作メニューを表示"
+                >
                     <MoreHorizontal size={20} color={theme.colors.text.secondary} />
                 </TouchableOpacity>
             </View>

@@ -161,7 +161,7 @@ export class AuthErrorHandler {
       };
     }
 
-    if (error.status >= 500) {
+    if (error.status && error.status >= 500) {
       return {
         handled: true,
         userMessage: 'サーバーでエラーが発生しました。しばらく待ってから再試行してください。',

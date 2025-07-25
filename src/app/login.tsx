@@ -286,22 +286,22 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-        <Heart size={48} color={theme.colors.primary} fill={theme.colors.primary} />
-        <Text style={dynamicStyles.title}>Mamapace</Text>
-        <Text style={dynamicStyles.subtitle}>ママの共感コミュニティ</Text>
+          <View style={styles.header} accessible={true} accessibilityRole="header">
+        <Heart size={48} color={theme.colors.primary} fill={theme.colors.primary} accessibilityElementsHidden={true} />
+        <Text style={dynamicStyles.title} accessibilityRole="text">Mamapace</Text>
+        <Text style={dynamicStyles.subtitle} accessibilityRole="text">ママの共感コミュニティ</Text>
       </View>
 
-      <View style={styles.welcomeSection}>
-        <Text style={dynamicStyles.welcomeTitle}>おかえりなさい</Text>
-        <Text style={dynamicStyles.welcomeText}>
+      <View style={styles.welcomeSection} accessible={true}>
+        <Text style={dynamicStyles.welcomeTitle} accessibilityRole="text">おかえりなさい</Text>
+        <Text style={dynamicStyles.welcomeText} accessibilityRole="text">
           深夜でも早朝でも、いつでもママたちがあなたを待っています。
           今日も一日お疲れさまでした。
         </Text>
       </View>
 
-      <View style={styles.formSection}>
-        <Text style={dynamicStyles.formTitle}>匿名ログイン</Text>
+      <View style={styles.formSection} accessible={true} accessibilityRole="none" accessibilityLabel="ログインフォーム">
+        <Text style={dynamicStyles.formTitle} accessibilityRole="text">匿名ログイン</Text>
         
         {/* Development Mode Helper */}
         {featureFlags.isDebugModeEnabled() && (
@@ -318,6 +318,10 @@ export default function LoginScreen() {
                 setMaternalBookNumber('12345678');
                 setNickname('テストユーザー');
               }}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel="クイックログイン"
+              accessibilityHint="テスト用の認証情報を自動入力します"
             >
               <Text style={styles.devQuickLoginText}>クイックログイン</Text>
             </TouchableOpacity>
@@ -325,8 +329,8 @@ export default function LoginScreen() {
         )}
         
         <TouchableWithoutFeedback onPress={() => handleInputContainerPress(maternalBookRef)}>
-          <View style={styles.inputGroup}>
-            <Text style={dynamicStyles.inputLabel}>母子手帳番号</Text>
+          <View style={styles.inputGroup} accessible={true}>
+            <Text style={dynamicStyles.inputLabel} accessibilityRole="text" nativeID="maternalBookLabel">母子手帳番号</Text>
           <TextInput
             ref={maternalBookRef}
             style={dynamicStyles.textInput}
@@ -347,6 +351,10 @@ export default function LoginScreen() {
             autoCorrect={false}
             autoCapitalize="none"
             selectTextOnFocus={Platform.OS === 'web'}
+            accessible={true}
+            accessibilityLabel="母子手帳番号入力"
+            accessibilityHint="自治体発行の母子手帳に記載されている番号を入力してください"
+            accessibilityLabelledBy="maternalBookLabel"
           />
             <Text style={dynamicStyles.inputHelper}>
               自治体発行の母子手帳に記載されている番号を入力してください
@@ -355,8 +363,8 @@ export default function LoginScreen() {
         </TouchableWithoutFeedback>
 
         <TouchableWithoutFeedback onPress={() => handleInputContainerPress(nicknameRef)}>
-          <View style={styles.inputGroup}>
-            <Text style={dynamicStyles.inputLabel}>ニックネーム</Text>
+          <View style={styles.inputGroup} accessible={true}>
+            <Text style={dynamicStyles.inputLabel} accessibilityRole="text" nativeID="nicknameLabel">ニックネーム</Text>
           <TextInput
             ref={nicknameRef}
             style={dynamicStyles.textInput}
@@ -372,6 +380,10 @@ export default function LoginScreen() {
             autoCorrect={false}
             autoCapitalize="words"
             selectTextOnFocus={Platform.OS === 'web'}
+            accessible={true}
+            accessibilityLabel="ニックネーム入力"
+            accessibilityHint="コミュニティ内で表示される名前を2文字から20文字で入力してください"
+            accessibilityLabelledBy="nicknameLabel"
           />
             <Text style={dynamicStyles.inputHelper}>
               コミュニティ内で表示される名前（2-20文字）
@@ -381,8 +393,8 @@ export default function LoginScreen() {
 
         {/* Show error from Redux state or local state */}
         {((isReduxEnabled && auth.error) || localError) ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>
+          <View style={styles.errorContainer} accessible={true} accessibilityRole="alert" accessibilityLiveRegion="assertive">
+            <Text style={styles.errorText} accessibilityLabel={`エラー: ${isReduxEnabled ? auth.error : localError}`}>
               {isReduxEnabled ? auth.error : localError}
             </Text>
           </View>
@@ -392,6 +404,11 @@ export default function LoginScreen() {
           style={[styles.loginButton, ((isReduxEnabled && auth.isLoading) || (!isReduxEnabled && false)) && styles.loginButtonDisabled]} 
           onPress={handleLogin}
           disabled={isReduxEnabled ? auth.isLoading : false}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={isReduxEnabled && auth.isLoading ? "ログイン処理中" : "ログイン"}
+          accessibilityHint="タップしてログインします"
+          accessibilityState={{ disabled: isReduxEnabled ? auth.isLoading : false }}
         >
           {(isReduxEnabled && auth.isLoading) ? (
             <ActivityIndicator size="small" color="#fff" />
@@ -404,9 +421,9 @@ export default function LoginScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={dynamicStyles.infoSection}>
-        <Text style={dynamicStyles.infoTitle}>Mamapaceについて</Text>
-        <Text style={dynamicStyles.infoText}>
+      <View style={dynamicStyles.infoSection} accessible={true} accessibilityRole="none">
+        <Text style={dynamicStyles.infoTitle} accessibilityRole="text">Mamapaceについて</Text>
+        <Text style={dynamicStyles.infoText} accessibilityRole="text">
           • 完全匿名でご利用いただけます{'\n'}
           • メールアドレスや電話番号は不要です{'\n'}
           • 24時間いつでも安心して投稿できます{'\n'}
@@ -415,11 +432,11 @@ export default function LoginScreen() {
         </Text>
       </View>
 
-      <View style={styles.footer}>
-        <Text style={dynamicStyles.footerText}>
+      <View style={styles.footer} accessible={true} accessibilityRole="none">
+        <Text style={dynamicStyles.footerText} accessibilityRole="text">
           プライバシーポリシー | 利用規約 | お問い合わせ
         </Text>
-        <Text style={dynamicStyles.versionText}>
+        <Text style={dynamicStyles.versionText} accessibilityRole="text">
           Version 1.0.0 | Made with ♡ for moms
         </Text>
           </View>

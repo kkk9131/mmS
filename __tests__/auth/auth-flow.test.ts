@@ -1,5 +1,5 @@
-import { AuthService } from '../../src/services/api/auth';
-import { FeatureFlagsManager } from '../../src/services/featureFlags';
+import { AuthService } from '@/services/api/auth';
+import { FeatureFlagsManager } from '@/services/featureFlags';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Mock AsyncStorage

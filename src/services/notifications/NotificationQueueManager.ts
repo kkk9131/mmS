@@ -2,6 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabase/client';
 import { NotificationType } from './NotificationHandler';
 
+// Timeoutタイプの定義
+type Timeout = ReturnType<typeof setTimeout>;
+
 export interface PendingNotification {
   id: string;
   userId: string;
@@ -45,7 +48,7 @@ class NotificationQueueManagerImpl implements NotificationQueueManager {
   private readonly DEFAULT_MAX_ATTEMPTS = 3;
   private readonly RETRY_DELAYS = [1000, 5000, 15000]; // 1s, 5s, 15s
 
-  private processingInterval: NodeJS.Timer | null = null;
+  private processingInterval: Timeout | null = null;
   private isProcessing = false;
 
   public static getInstance(): NotificationQueueManagerImpl {
@@ -155,7 +158,7 @@ class NotificationQueueManagerImpl implements NotificationQueueManager {
           
           notification.attempts++;
           notification.lastAttemptAt = new Date().toISOString();
-          notification.error = error.message;
+          notification.error = error instanceof Error ? error.message : String(error);
 
           if (notification.attempts < notification.maxAttempts) {
             // 再試行のためキューに戻す（指数バックオフ）
@@ -424,7 +427,11 @@ class NotificationQueueManagerImpl implements NotificationQueueManager {
   async generateReport(): Promise<{
     timestamp: string;
     stats: QueueStats;
-    health: Awaited<ReturnType<typeof this.getQueueHealth>>;
+    health: {
+      isHealthy: boolean;
+      issues: string[];
+      recommendations: string[];
+    };
     recentErrors: string[];
   }> {
     const failedQueue = await this.getFailedQueue();

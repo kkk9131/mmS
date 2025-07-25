@@ -9,6 +9,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const NOTIFICATION_SETTINGS_KEY = 'notification_settings';
 
+interface NotificationSettings {
+  pushEnabled: boolean;
+  likesEnabled: boolean;
+  commentsEnabled: boolean;
+  followsEnabled: boolean;
+  messagesEnabled: boolean;
+  mentionsEnabled: boolean;
+}
+
 export default function YouScreen() {
   const { handPreference, setHandPreference } = useHandPreference();
   const { theme, isLightMode, setThemeMode } = useTheme();
@@ -28,7 +37,7 @@ export default function YouScreen() {
     try {
       const savedSettings = await AsyncStorage.getItem(NOTIFICATION_SETTINGS_KEY);
       if (savedSettings) {
-        const settings = JSON.parse(savedSettings);
+        const settings: NotificationSettings = JSON.parse(savedSettings);
         setNotificationsEnabled(settings.pushEnabled ?? true);
       }
     } catch (error) {
@@ -42,13 +51,13 @@ export default function YouScreen() {
     try {
       // 既存の設定を読み込んで更新
       const savedSettings = await AsyncStorage.getItem(NOTIFICATION_SETTINGS_KEY);
-      let settings = {};
+      let settings: Partial<NotificationSettings> = {};
       if (savedSettings) {
         settings = JSON.parse(savedSettings);
       }
       
       // pushEnabledのみ更新
-      const updatedSettings = {
+      const updatedSettings: NotificationSettings = {
         ...settings,
         pushEnabled: enabled,
         // 無効化された場合は全ての通知を無効化

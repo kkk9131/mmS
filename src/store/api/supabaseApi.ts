@@ -150,7 +150,7 @@ export const enhancedSupabaseApi = supabaseApi.injectEndpoints({
               timestamp: new Date().toISOString(),
             },
           };
-        } catch (error) {
+        } catch {
           return {
             error: {
               message: 'Health check failed',
@@ -165,7 +165,7 @@ export const enhancedSupabaseApi = supabaseApi.injectEndpoints({
 });
 
 // Enhanced base query with error handling and debugging
-export const createSupabaseEndpoint = <T = any>(
+export const createSupabaseEndpoint = (
   queryFn: (args: any) => {
     table: string;
     method: 'select' | 'insert' | 'update' | 'delete' | 'upsert' | 'rpc';
@@ -188,7 +188,7 @@ export const createOptimisticMutation = <T, U>(
     invalidatesTags: tagTypes,
     onQueryStarted: optimisticUpdate ? async (args: U, { dispatch, queryFulfilled, getCacheEntry }: any) => {
       try {
-        const result = await queryFulfilled;
+        await queryFulfilled;
         // Handle successful optimistic update
       } catch (error) {
         // Revert optimistic update on error

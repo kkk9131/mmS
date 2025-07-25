@@ -54,19 +54,29 @@ export class SupabaseAuthService {
 
       if (functionError) {
         console.error('❌ カスタム認証関数エラー:', functionError);
+        const authError = new AuthError(
+          functionError.message || 'カスタム認証エラー',
+          400,
+          'custom_auth_error'
+        );
         return { 
           user: null, 
           session: null, 
-          error: functionError as AuthError 
+          error: authError
         };
       }
 
       if (!authResult || authResult.length === 0) {
         console.error('❌ 認証結果が空です');
+        const authError = new AuthError(
+          '認証に失敗しました',
+          401,
+          'authentication_failed'
+        );
         return { 
           user: null, 
           session: null, 
-          error: new Error('認証に失敗しました') as AuthError 
+          error: authError
         };
       }
 
@@ -86,7 +96,7 @@ export class SupabaseAuthService {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         email_confirmed_at: new Date().toISOString(),
-        phone_confirmed_at: null,
+        phone_confirmed_at: undefined,
         confirmed_at: new Date().toISOString(),
         last_sign_in_at: new Date().toISOString(),
         role: 'authenticated',

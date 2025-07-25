@@ -1,12 +1,5 @@
 import { JWTAuthService } from './JWTAuthService';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { User } from '../../types/users';
 
 export interface GuardConfig {
   redirectTo: string;
@@ -131,10 +124,16 @@ export class AuthGuard {
 
     } catch (error) {
       console.error('Auth guard error:', error);
+      
+      // unknownエラーの型ガード
+      const errorMessage = error instanceof Error ? error.message : 
+                          typeof error === 'string' ? error : 
+                          'Unknown error occurred';
+      
       return {
         allowed: false,
         redirectTo: this.config.redirectTo,
-        reason: `Authentication check failed: ${error.message}`,
+        reason: `Authentication check failed: ${errorMessage}`,
         requiredAction: 'login',
       };
     }
@@ -239,10 +238,10 @@ export class AuthGuard {
       }
 
       // トークンの期限確認
-      if (this.authService.isTokenExpired(accessToken)) {
+      if (await this.authService.isTokenExpired(accessToken)) {
         // リフレッシュトークンを試行
         try {
-          await this.authService.refreshToken();
+          await this.authService.refreshTokens();
           return true;
         } catch (refreshError) {
           console.error('Token refresh failed during guard check:', refreshError);

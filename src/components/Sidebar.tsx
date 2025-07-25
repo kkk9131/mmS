@@ -170,12 +170,22 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
             transparent={true}
             visible={visible}
             onRequestClose={onClose}
+            accessible={true}
+            accessibilityViewIsModal={true}
+            accessibilityLabel="メニューパネル"
         >
             <View style={styles.modalOverlay}>
                 <View style={dynamicStyles.sidebar}>
                     <View style={dynamicStyles.header}>
-                        <Text style={dynamicStyles.headerTitle}>Mamapace</Text>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                        <Text style={dynamicStyles.headerTitle} accessibilityRole="header">Mamapace</Text>
+                        <TouchableOpacity 
+                            onPress={onClose} 
+                            style={styles.closeButton}
+                            accessible={true}
+                            accessibilityRole="button"
+                            accessibilityLabel="メニューを閉じる"
+                            accessibilityHint="ダブルタップしてメニューを閉じます"
+                        >
                             <X size={24} color={theme.colors.primary} />
                         </TouchableOpacity>
                     </View>
@@ -189,11 +199,15 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
                                     router.push('/complaint-room');
                                     onClose();
                                 }}
+                                accessible={true}
+                                accessibilityRole="button"
+                                accessibilityLabel="愚痴もたまにはさ。愚痴ルームへ移動"
+                                accessibilityHint="匿名で愚痴を投稿できるルームへ移動します"
                             >
                                 <MessageCircle size={20} color="#fff" />
                                 <Text style={styles.specialRoomText}>愚痴もたまにはさ。</Text>
                             </TouchableOpacity>
-                            <Text style={dynamicStyles.specialRoomDescription}>
+                            <Text style={dynamicStyles.specialRoomDescription} accessibilityRole="text">
                                 匿名で愚痴をポスト。1時間で自動削除されます
                             </Text>
                         </View>
@@ -203,30 +217,38 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
                             <TouchableOpacity
                                 style={styles.sectionHeader}
                                 onPress={navigateToDirectMessages}
+                                accessible={true}
+                                accessibilityRole="link"
+                                accessibilityLabel="チャット、チャット一覧へ移動"
+                                accessibilityHint="他のママとダイレクトメッセージを送ることができます"
                             >
                                 <MessageCircle size={20} color="#4a9eff" />
                                 <Text style={dynamicStyles.sectionTitle}>チャット</Text>
                             </TouchableOpacity>
-                            <Text style={dynamicStyles.sectionDescription}>
+                            <Text style={dynamicStyles.sectionDescription} accessibilityRole="text">
                                 他のママと直接やり取りができます
                             </Text>
                         </View>
 
                         {/* Joined Rooms Section */}
                         <View style={styles.section}>
-                            <View style={styles.sectionHeader}>
+                            <View style={styles.sectionHeader} accessible={true} accessibilityRole="header">
                                 <Hash size={20} color={theme.colors.primary} />
-                                <Text style={dynamicStyles.sectionTitle}>参加しているルーム</Text>
+                                <Text style={dynamicStyles.sectionTitle} accessibilityRole="text">参加しているルーム</Text>
                             </View>
 
                             {joinedRooms.length === 0 ? (
-                                <Text style={dynamicStyles.emptyText}>参加しているルームはありません</Text>
+                                <Text style={dynamicStyles.emptyText} accessibilityRole="text">参加しているルームはありません</Text>
                             ) : (
                                 joinedRooms.map((room) => (
                                     <TouchableOpacity
                                         key={room.id}
                                         style={dynamicStyles.roomItem}
                                         onPress={() => navigateToRoom(room.id)}
+                                        accessible={true}
+                                        accessibilityRole="link"
+                                        accessibilityLabel={`${room.name}ルーム、メンバー${room.memberCount}人${room.isActive ? '、アクティブ' : ''}`}
+                                        accessibilityHint={`${room.name}ルームへ移動します`}
                                     >
                                         <View style={styles.roomInfo}>
                                             <Hash size={16} color={theme.colors.primary} />
@@ -244,9 +266,9 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
 
                         {/* Available Rooms Section */}
                         <View style={styles.section}>
-                            <View style={styles.sectionHeader}>
+                            <View style={styles.sectionHeader} accessible={true} accessibilityRole="header">
                                 <Users size={20} color="#4a9eff" />
-                                <Text style={dynamicStyles.sectionTitle}>ルーム</Text>
+                                <Text style={dynamicStyles.sectionTitle} accessibilityRole="text">ルーム</Text>
                             </View>
 
                             {availableRooms.map((room) => (
@@ -260,6 +282,10 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
                                         });
                                         onClose();
                                     }}
+                                    accessible={true}
+                                    accessibilityRole="link"
+                                    accessibilityLabel={`${room.name}ルーム、メンバー${room.memberCount}人${room.isActive ? '、アクティブ' : ''}`}
+                                    accessibilityHint={`${room.name}ルームの詳細を表示します`}
                                 >
                                     <View style={styles.roomInfo}>
                                         <Hash size={16} color={theme.colors.text.disabled} />
@@ -272,6 +298,10 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
                                         <TouchableOpacity
                                             style={styles.joinButton}
                                             onPress={() => toggleRoomJoin(room.id)}
+                                            accessible={true}
+                                            accessibilityRole="button"
+                                            accessibilityLabel={`${room.name}ルームに参加する`}
+                                            accessibilityHint="タップしてルームに参加します"
                                         >
                                             <Plus size={16} color={theme.colors.primary} />
                                         </TouchableOpacity>
@@ -282,18 +312,30 @@ const Sidebar: React.FC<SidebarProps> = ({ visible, onClose }) => {
 
                         {/* Room Creation Section */}
                         <View style={styles.section}>
-                            <TouchableOpacity style={styles.createRoomButton}>
+                            <TouchableOpacity 
+                                style={styles.createRoomButton}
+                                accessible={true}
+                                accessibilityRole="button"
+                                accessibilityLabel="新しいルームを作成"
+                                accessibilityHint="同じ悩みを持つママたちのための新しいルームを作成します"
+                            >
                                 <Plus size={20} color="#fff" />
                                 <Text style={styles.createRoomText}>新しいルームを作成</Text>
                             </TouchableOpacity>
-                            <Text style={dynamicStyles.createRoomDescription}>
+                            <Text style={dynamicStyles.createRoomDescription} accessibilityRole="text">
                                 同じ悩みを持つママたちのためのルームを作成できます
                             </Text>
                         </View>
                     </ScrollView>
 
                     <View style={dynamicStyles.footer}>
-                        <TouchableOpacity style={dynamicStyles.searchButton}>
+                        <TouchableOpacity 
+                            style={dynamicStyles.searchButton}
+                            accessible={true}
+                            accessibilityRole="button"
+                            accessibilityLabel="ルームを検索"
+                            accessibilityHint="参加可能なルームを検索します"
+                        >
                             <Search size={20} color={theme.colors.text.secondary} />
                             <Text style={dynamicStyles.searchText}>ルームを検索</Text>
                         </TouchableOpacity>

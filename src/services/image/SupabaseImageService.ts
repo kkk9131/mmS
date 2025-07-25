@@ -93,7 +93,6 @@ export class SupabaseImageService {
         console.error('❌ Supabaseアップロードエラー:', error);
         console.error('エラー詳細:', {
           message: error.message,
-          statusCode: error.statusCode,
           error: error
         });
         return {

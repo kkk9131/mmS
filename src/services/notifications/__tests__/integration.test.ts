@@ -1,7 +1,8 @@
+import React from 'react';
 import { jest } from '@jest/globals';
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { Provider } from 'react-redux';
-import { store } from '../../store';
+import { store } from '@/store';
 
 // Mock dependencies
 jest.mock('../NotificationService');
@@ -197,16 +198,16 @@ describe('Push Notification System Integration Tests', () => {
         pushEnabled: true,
       };
 
-      mockSupabase.from.mockReturnValue({
-        upsert: jest.fn().mockResolvedValue({ error: null }),
-      });
+      const mockQueryBuilder = {
+        upsert: (jest.fn() as any).mockResolvedValue({ data: null, error: null }),
+      };
+      mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       // Dynamic import to avoid mocking issues
-      const { useEnhancedNotifications } = await import('../../hooks/useEnhancedNotifications');
+      const { useEnhancedNotifications } = await import('@/hooks/useEnhancedNotifications');
 
-      const wrapper = ({ children }: { children: React.ReactNode }) => (
-        <Provider store={store}>{children}</Provider>
-      );
+      const wrapper = ({ children }: { children: React.ReactNode }) =>
+        React.createElement(Provider, { store } as any, children);
 
       // Act
       const { result } = renderHook(() => useEnhancedNotifications(), { wrapper });
@@ -281,7 +282,7 @@ describe('Push Notification System Integration Tests', () => {
 
     it('should retry failed notifications with exponential backoff', async () => {
       // Arrange
-      const operation = jest.fn()
+      const operation = jest.fn<() => Promise<string>>()
         .mockRejectedValueOnce(new Error('Network error'))
         .mockRejectedValueOnce(new Error('Network error'))
         .mockResolvedValue('success');
@@ -390,16 +391,16 @@ describe('Push Notification System Integration Tests', () => {
       ];
 
       const mockNotificationQueueManager = {
-        getQueueStats: jest.fn().mockResolvedValue({
+        getQueueStats: jest.fn<() => Promise<{totalPending: number; totalFailed: number}>>().mockResolvedValue({
           totalPending: 2,
           totalFailed: 0,
         }),
-        processBatch: jest.fn().mockResolvedValue(undefined),
-        dequeue: jest.fn()
+        processBatch: jest.fn<(batchSize: number) => Promise<void>>().mockResolvedValue(undefined),
+        dequeue: jest.fn<() => Promise<any>>()
           .mockResolvedValueOnce(mockPendingNotifications[0])
           .mockResolvedValueOnce(mockPendingNotifications[1])
           .mockResolvedValue(null),
-      };
+      } as any;
 
       jest.doMock('../NotificationQueueManager', () => ({
         notificationQueueManager: mockNotificationQueueManager,
@@ -492,10 +493,11 @@ describe('Push Notification System Integration Tests', () => {
 
       mockSupabase.channel.mockReturnValue(mockChannel);
 
-      const { notificationRealtimeManager } = await import('../../store/api/notificationsApi');
+      const { notificationRealtimeManager } = await import('@/store/api/notificationsApi');
 
       let realtimeCallback: any;
-      mockChannel.on.mockImplementation((event: string, config: any, callback: any) => {
+      mockChannel.on.mockImplementation((...args: any[]) => {
+        const [event, config, callback] = args;
         realtimeCallback = callback;
         return mockChannel;
       });
