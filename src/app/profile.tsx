@@ -104,6 +104,9 @@ export default function ProfileScreen() {
   const isOwnProfile = !userId || userId === 'own';
   const [refreshing, setRefreshing] = useState(false);
   
+  // モック投稿データを状態として管理
+  const [mockPostsState, setMockPostsState] = useState<UserPost[]>(mockUserPosts);
+  
   // Mock user profile (Supabase is disabled)
   const userProfile = isOwnProfile ? null : mockUserProfile;
   const userProfileError = null;
@@ -116,8 +119,8 @@ export default function ProfileScreen() {
   const ownProfileLoading = false;
   const refetchOwnProfile = async () => {};
   
-  // Mock posts data (Supabase is disabled)
-  const postsData = { posts: mockUserPosts };
+  // Mock posts data (Supabase is disabled) - use state version
+  const postsData = { posts: mockPostsState };
   const postsLoading = false;
   const refetchPosts = async () => {};
   
@@ -212,18 +215,30 @@ export default function ProfileScreen() {
   };
 
   const handleLike = async (postId: string) => {
-    const post = posts.find(p => p.id === postId);
-    if (!post) return;
+    // Update local state for immediate UI feedback
+    setMockPostsState(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? {
+              ...post,
+              isLiked: !post.isLiked,
+              likes: post.isLiked ? post.likes - 1 : post.likes + 1
+            }
+          : post
+      )
+    );
+    
+    console.log('Like toggled for post:', postId);
+  };
 
-    try {
-      if (post.isLiked) {
-        await (await unlikePost()).unwrap();
-      } else {
-        await (await likePost()).unwrap();
-      }
-    } catch (error) {
-      console.error('Failed to toggle like:', error);
-      Alert.alert('エラー', 'いいねの処理に失敗しました。');
+  const handleComment = (postId: string) => {
+    const post = mockPostsState.find(p => p.id === postId);
+    if (post) {
+      Alert.alert(
+        'コメント',
+        `「${post.content.substring(0, 50)}...」へのコメント機能は開発中です。`,
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -648,7 +663,10 @@ export default function ProfileScreen() {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity style={styles.actionButton}>
+                  <TouchableOpacity 
+                    style={styles.actionButton}
+                    onPress={() => handleComment(post.id)}
+                  >
                     <MessageCircle size={20} color={theme.colors.text.disabled} />
                     <Text style={dynamicStyles.actionText}>{post.comments}</Text>
                   </TouchableOpacity>

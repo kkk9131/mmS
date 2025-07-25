@@ -1,0 +1,68 @@
+{
+  "timestamp": "2025-07-25T01:45:02.399Z",
+  "project": {
+    "name": "Mamapace",
+    "url": "https://zfmqxdkqpeyvsuqyzuvy.supabase.co",
+    "environment": "production"
+  },
+  "summary": {
+    "total": 5,
+    "healthy": 5,
+    "warnings": 0,
+    "errors": 0
+  },
+  "checks": [
+    {
+      "service": "Database",
+      "status": "healthy",
+      "responseTime": 516,
+      "message": "正常 (516ms)",
+      "timestamp": "2025-07-25T01:45:00.576Z"
+    },
+    {
+      "service": "API",
+      "status": "healthy",
+      "responseTime": 87,
+      "message": "正常 (87ms)",
+      "timestamp": "2025-07-25T01:45:00.664Z"
+    },
+    {
+      "service": "Auth",
+      "status": "healthy",
+      "responseTime": 0,
+      "message": "認証システム正常 (0ms)",
+      "timestamp": "2025-07-25T01:45:00.664Z"
+    },
+    {
+      "service": "Storage",
+      "status": "healthy",
+      "responseTime": 227,
+      "message": "ストレージ正常 (0バケット, 227ms)",
+      "timestamp": "2025-07-25T01:45:00.892Z"
+    },
+    {
+      "service": "Realtime",
+      "status": "healthy",
+      "responseTime": 1501,
+      "message": "リアルタイム正常 (1501ms)",
+      "timestamp": "2025-07-25T01:45:02.393Z"
+    }
+  ],
+  "performance": {
+    "averageResponseTime": 466,
+    "slowestService": {
+      "service": "Realtime",
+      "status": "healthy",
+      "responseTime": 1501,
+      "message": "リアルタイム正常 (1501ms)",
+      "timestamp": "2025-07-25T01:45:02.393Z"
+    },
+    "fastestService": {
+      "service": "Auth",
+      "status": "healthy",
+      "responseTime": 0,
+      "message": "認証システム正常 (0ms)",
+      "timestamp": "2025-07-25T01:45:00.664Z"
+    }
+  }
+}

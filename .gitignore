@@ -30,9 +30,14 @@ yarn-error.*
 # local env files
 .env*.local
 .env
+.env.production
 
 # typescript
 *.tsbuildinfo
 
 # YoYo AI version control directory
 .yoyo/
+
+# Production security
+security-reports/
+*.cert

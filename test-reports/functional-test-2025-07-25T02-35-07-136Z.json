@@ -1,0 +1,81 @@
+{
+  "timestamp": "2025-07-25T02:35:07.136Z",
+  "environment": "production",
+  "project": {
+    "name": "Mamapace",
+    "url": "https://zfmqxdkqpeyvsuqyzuvy.supabase.co"
+  },
+  "summary": {
+    "total": 9,
+    "passed": 6,
+    "failed": 3,
+    "skipped": 0,
+    "successRate": 67,
+    "totalDuration": 1531
+  },
+  "tests": [
+    {
+      "testName": "テーブル存在確認",
+      "status": "pass",
+      "duration": 575,
+      "message": "すべてのテーブルが存在し、アクセス可能です"
+    },
+    {
+      "testName": "RLS設定確認",
+      "status": "fail",
+      "duration": 104,
+      "message": "RLSが正しく設定されていない可能性があります",
+      "details": {}
+    },
+    {
+      "testName": "セッション状態確認",
+      "status": "pass",
+      "duration": 0,
+      "message": "セッションなし（正常）"
+    },
+    {
+      "testName": "認証機能確認",
+      "status": "pass",
+      "duration": 74,
+      "message": "認証エンドポイントが正常に動作しています"
+    },
+    {
+      "testName": "投稿データ取得（RLS制限）",
+      "status": "pass",
+      "duration": 100,
+      "message": "データ取得成功（1件）"
+    },
+    {
+      "testName": "いいね機能テーブル確認",
+      "status": "fail",
+      "duration": 60,
+      "message": "likesテーブルの設定に問題があります",
+      "details": {}
+    },
+    {
+      "testName": "リアルタイム接続",
+      "status": "pass",
+      "duration": 376,
+      "message": "リアルタイム接続成功"
+    },
+    {
+      "testName": "ストレージバケット確認",
+      "status": "pass",
+      "duration": 142,
+      "message": "ストレージバケット: 0個"
+    },
+    {
+      "testName": "通知テーブル確認",
+      "status": "fail",
+      "duration": 100,
+      "message": "notificationsテーブルの設定に問題があります",
+      "details": {}
+    }
+  ],
+  "recommendations": [
+    "3個のテストが失敗しました。以下の問題を修正してください：",
+    "- RLS設定確認: RLSが正しく設定されていない可能性があります",
+    "- いいね機能テーブル確認: likesテーブルの設定に問題があります",
+    "- 通知テーブル確認: notificationsテーブルの設定に問題があります"
+  ]
+}
