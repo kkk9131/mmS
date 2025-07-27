@@ -72,34 +72,8 @@ export class SupabaseImageService {
       
       onProgress?.(30);
       
-      // バケットの存在確認と作成
-      try {
-        const { data: buckets, error: listError } = await client.storage.listBuckets();
-        
-        if (!listError && buckets) {
-          const bucketExists = buckets.some(b => b.name === bucket);
-          if (!bucketExists) {
-            console.log(`📦 バケット '${bucket}' が存在しないため作成します`);
-            const { error: createError } = await client.storage.createBucket(bucket, {
-              public: true,
-              fileSizeLimit: 10485760 // 10MB
-            });
-            
-            if (createError) {
-              console.error('❌ バケット作成エラー:', createError);
-              // バケットが既に存在する場合のエラーは無視
-              if (!createError.message?.includes('already exists')) {
-                throw createError;
-              }
-            } else {
-              console.log(`✅ バケット '${bucket}' を作成しました`);
-            }
-          }
-        }
-      } catch (bucketError) {
-        console.warn('⚠️ バケット確認/作成エラー:', bucketError);
-        // バケット作成に失敗してもアップロードは試行する
-      }
+      // バケット作成はSupabaseダッシュボードで事前に行う必要があります
+      // setup-storage-buckets.sqlを実行してください
       
       // Supabase Storageにアップロード
       console.log('📤 アップロード詳細:', {
@@ -123,11 +97,24 @@ export class SupabaseImageService {
         console.error('❌ Supabaseアップロードエラー:', error);
         console.error('エラー詳細:', {
           message: error.message,
-          error: error
+          error: error,
+          bucket,
+          filePath
         });
+        
+        // エラーメッセージをユーザーフレンドリーに変換
+        let userMessage = error.message;
+        if (error.message.includes('not found')) {
+          userMessage = `バケット '${bucket}' が存在しません。setup-storage-buckets.sqlを実行してください。`;
+        } else if (error.message.includes('row-level security')) {
+          userMessage = 'アップロード権限がありません。ログインし直してください。';
+        } else if (error.message.includes('Invalid JWT')) {
+          userMessage = '認証エラーが発生しました。ログインし直してください。';
+        }
+        
         return {
           success: false,
-          error: error.message
+          error: userMessage
         };
       }
       
