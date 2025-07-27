@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch, ScrollView, Keyboard, TouchableWithoutFeedback, ActivityIndicator, Platform, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch, ScrollView, Keyboard, TouchableWithoutFeedback, ActivityIndicator, Platform } from 'react-native';
 import { Send, Heart, Bot } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -7,7 +7,7 @@ import { PostsService } from '../../services/PostsService';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCreatePostMutation, postsApi } from '../../store/api/postsApi';
 import { FeatureFlagsManager } from '../../services/featureFlags';
-import { useAppSelector } from '../../hooks/redux';
+// import { useAppSelector } from '../../hooks/redux';
 import { useAuth } from '../../contexts/AuthContext';
 import { ImageUploadButton } from '../../components/image/ImageUploadButton';
 // import { ProcessedImage } from '../../types/image';
@@ -30,12 +30,12 @@ declare global {
   }
 }
 
-// ViewのWeb用型拡張
-interface WebViewProps {
-  onClick?: () => void;
-  onMouseDown?: () => void;
-  onMouseUp?: () => void;
-}
+// ViewのWeb用型拡張（未使用のためコメントアウト）
+// interface WebViewProps {
+//   onClick?: () => void;
+//   onMouseDown?: () => void;
+//   onMouseUp?: () => void;
+// }
 
 export default function PostScreen() {
   const { theme } = useTheme();
@@ -50,8 +50,8 @@ export default function PostScreen() {
   const isOverLimit = characterCount > maxCharacters;
   const postsService = PostsService.getInstance();
   
-  // RTK Query hooks for post creation
-  const [createPost] = useCreatePostMutation();
+  // RTK Query hooks for post creation（現在未使用）
+  // const [createPost] = useCreatePostMutation();
   const featureFlags = FeatureFlagsManager.getInstance();
   
   // Get current user from AuthContext
@@ -197,7 +197,7 @@ export default function PostScreen() {
               const blob = await response.blob();
               
               // Supabase Storageにアップロード
-              const { data, error } = await supabase.storage
+              const { error } = await supabase.storage
                 .from('posts')
                 .upload(fileName, blob, {
                   contentType: image.mimeType || 'image/jpeg'

@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { Camera, Image as ImageIcon, X, Plus } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useHandPreference } from '../../contexts/HandPreferenceContext';
+// import { useHandPreference } from '../../contexts/HandPreferenceContext';
 import * as ImagePicker from 'expo-image-picker';
 
 // シンプルな型定義
@@ -47,7 +47,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
   showPreview = true
 }) => {
   const { theme } = useTheme();
-  const { handPreference } = useHandPreference();
+  // const { handPreference } = useHandPreference();
   const [isUploading, setIsUploading] = useState(false);
 
   const canAddMore = selectedImages.length < maxImages;
@@ -101,20 +101,19 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
     }
   };
 
-  // カメラ撮影処理
+  // カメラ撮影処理（現在未使用のためコメントアウト）
+  /*
   const handleCameraCapture = async () => {
     try {
       setIsUploading(true);
       console.log('📸 カメラ撮影開始');
 
-      // 権限チェック
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('権限エラー', 'カメラへのアクセス権限が必要です');
         return;
       }
 
-      // カメラで撮影
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.8,
@@ -148,6 +147,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
       setIsUploading(false);
     }
   };
+  */
 
   // 画像削除処理
   const handleImageRemove = (imageId: string) => {
