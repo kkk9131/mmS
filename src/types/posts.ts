@@ -9,6 +9,7 @@ export interface Post {
   likesCount: number;
   commentsCount: number;
   isLiked: boolean;
+  isCommented?: boolean;
   images?: string[];
 }
 
@@ -47,6 +48,7 @@ export interface CommentsResponse {
 
 export interface CreatePostRequest {
   content: string;
+  userId?: string; // オプション（Reduxから取得する場合は不要）
   images?: string[];
 }
 

@@ -80,14 +80,42 @@ export const signInWithMaternalBook = createAsyncThunk(
             return rejectWithValue(errorMessage);
           }
 
-          // Get user profile (エラーを処理)
+          // Get user profile from the auth result
           let profile = null;
           try {
-            profile = await supabaseAuth.getUserProfile();
+            // Use the user_id from auth result to get full profile
+            profile = await supabaseAuth.getUserProfile(result.user_id);
             console.log('✅ Supabase認証成功, プロフィール:', profile);
+            
+            // ニックネームの確認
+            if (profile?.nickname) {
+              console.log('🔍 取得したプロフィールのニックネーム:', profile.nickname);
+              if (profile.nickname.includes('_修正')) {
+                console.warn('⚠️ データベースに「_修正」が含まれるニックネームが保存されています');
+              }
+            }
+            
+            // If profile fetch fails, create a minimal profile from auth result
+            if (!profile) {
+              console.log('⚠️ プロフィール取得失敗、認証結果から最小プロフィールを作成');
+              profile = {
+                id: result.user_id,
+                nickname: credentials.nickname,
+                maternal_book_number: credentials.mothersHandbookNumber,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              };
+            }
           } catch (profileError) {
-            console.warn('⚠️ プロフィール取得エラー（無視して続行）:', profileError);
-            // プロフィール取得エラーは無視して認証を続行
+            console.warn('⚠️ プロフィール取得エラー、認証結果から最小プロフィールを作成:', profileError);
+            // Create minimal profile from auth result
+            profile = {
+              id: result.user_id,
+              nickname: credentials.nickname,
+              maternal_book_number: credentials.mothersHandbookNumber,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
           }
           
           return {

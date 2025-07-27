@@ -5,9 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { PostsService } from '../../services/PostsService';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useCreatePostMutation } from '../../store/api/postsApi';
+import { useCreatePostMutation, postsApi } from '../../store/api/postsApi';
 import { FeatureFlagsManager } from '../../services/featureFlags';
 import { useAppSelector } from '../../hooks/redux';
+import { useAuth } from '../../contexts/AuthContext';
 import { ImageUploadButton } from '../../components/image/ImageUploadButton';
 import { ProcessedImage } from '../../types/image';
 // @ts-ignore - For web DOM events support
@@ -43,8 +44,8 @@ export default function PostScreen() {
   const [createPost] = useCreatePostMutation();
   const featureFlags = FeatureFlagsManager.getInstance();
   
-  // Get current user from Redux state
-  const currentUser = useAppSelector((state) => state.auth.user);
+  // Get current user from AuthContext
+  const { user: currentUser, isAuthenticated } = useAuth();
 
   // デバッグログを完全に削除
   // useEffect(() => {
@@ -155,8 +156,10 @@ export default function PostScreen() {
         console.log('🔍 selectedImages:', selectedImages.length);
         console.log('==================================================');
         
-        if (!currentUser) {
+        if (!currentUser || !isAuthenticated) {
           console.error('❌ ユーザー未認証エラー');
+          console.error('currentUser:', currentUser);
+          console.error('isAuthenticated:', isAuthenticated);
           throw new Error('ユーザーが認証されていません');
         }
         
@@ -187,71 +190,68 @@ export default function PostScreen() {
           console.log('✅ 全画像アップロード完了:', uploadedImageUrls);
         }
         
-        if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
-          console.log('🔵 RTK Queryで投稿作成を試行');
-          // Use RTK Query for post creation
-          // アップロードされた画像URLを使用
-          const imageUrl = uploadedImageUrls.length > 0 
-            ? uploadedImageUrls.length === 1 
-              ? uploadedImageUrls[0] 
-              : JSON.stringify(uploadedImageUrls)
-            : null;
-
-          const result = await createPost({
+        // Supabaseを強制的に使用して投稿作成を試行
+        console.log('🟡 PostsServiceで投稿作成を試行（Supabase強制）');
+        console.log('🔍 postText.trim():', JSON.stringify(postText.trim()));
+        console.log('🔍 PostsService method:', postsService.createPost);
+        
+        // 一時的にSupabaseを有効化
+        const originalSupabaseFlag = featureFlags.getFlag('USE_SUPABASE');
+        featureFlags.setFlag('USE_SUPABASE', true);
+        
+        try {
+          // PostsService を使用 - アップロードされた画像URLを使用
+          const result = await postsService.createPost({
             content: postText.trim(),
-            user_id: currentUser.id,
-            is_anonymous: false,
-            image_url: imageUrl,
-            likes_count: 0,
-            comments_count: 0
+            userId: currentUser.id, // ユーザーIDを明示的に渡す
+            images: uploadedImageUrls.length > 0 ? uploadedImageUrls : undefined
           });
-          
-          if ('error' in result) {
-            console.error('❌ RTK Query投稿作成エラー:', result.error);
-            throw new Error('投稿の作成に失敗しました');
-          }
-          
-          console.log('✅ RTK Query投稿作成成功:', result.data);
-        } else {
-          console.log('🟡 PostsServiceで投稿作成を試行');
-          console.log('🔍 postText.trim():', JSON.stringify(postText.trim()));
-          console.log('🔍 PostsService method:', postsService.createPost);
-          
-          try {
-            // Fallback to PostsService - アップロードされた画像URLを使用
-            const result = await postsService.createPost({
-              content: postText.trim(),
-              images: uploadedImageUrls.length > 0 ? uploadedImageUrls : undefined
-            });
-            console.log('✅ PostsService投稿作成成功:', result);
-          } catch (postsServiceError) {
-            console.error('❌ PostsService投稿作成エラー:', postsServiceError);
-            throw postsServiceError;
-          }
+          console.log('✅ PostsService投稿作成成功:', result);
+        } catch (postsServiceError) {
+          console.error('❌ PostsService投稿作成エラー:', postsServiceError);
+          throw postsServiceError;
+        } finally {
+          // フラグを元に戻す
+          featureFlags.setFlag('USE_SUPABASE', originalSupabaseFlag);
         }
         
         console.log('✅ 投稿作成成功');
         
+        // 投稿完了後の処理
+        setPostText('');
+        setSelectedImages([]);
+        
+        // RTK Queryキャッシュを無効化（投稿リストを更新）
+        try {
+          const { store } = await import('../../store');
+          // 全ての投稿関連キャッシュを無効化
+          store.dispatch(postsApi.util.invalidateTags(['Post']));
+          // ユーザー固有の投稿キャッシュも無効化
+          store.dispatch(postsApi.util.invalidateTags([{ type: 'Post', id: `USER_${currentUser.id}` }]));
+          console.log('✅ RTK Queryキャッシュを無効化しました（ユーザー固有も含む）');
+        } catch (cacheError) {
+          console.warn('⚠️ キャッシュ無効化に失敗:', cacheError);
+        }
+        
+        // 少し遅延を入れてからホーム画面に戻る（キャッシュ更新を確実にするため）
+        const navigateBack = () => {
+          setTimeout(() => {
+            router.back();
+          }, 100); // 100ms遅延
+        };
+        
         // Web版での成功メッセージ
         if (Platform.OS === 'web') {
           alert('投稿が正常に送信されました！');
+          navigateBack();
         } else {
           Alert.alert('投稿完了', '投稿が正常に送信されました', [
             { 
               text: 'OK', 
-              onPress: () => {
-                setPostText('');
-                setSelectedImages([]);
-                router.back();
-              }
+              onPress: navigateBack
             }
           ]);
         }
-        
-        // 投稿後のクリーンアップ
-        setPostText('');
-        setSelectedImages([]);
-        router.back();
         
       } catch (error) {
         console.error('❌ 投稿エラー:', error);

@@ -85,6 +85,42 @@ export class PostsService {
     }
   }
 
+  public async getUserPosts(userId: string, params: PostsQueryParams = {}): Promise<PostsResponse> {
+    console.log('🚀 PostsService.getUserPosts開始');
+    console.log('🔍 userId:', userId);
+    console.log('🔍 params:', params);
+    console.log('🔍 Supabase有効:', this.featureFlags.isSupabaseEnabled());
+    
+    // Note: If RTK Query is enabled, components should use hooks directly
+    // This method serves as fallback or for direct service usage
+    if (this.shouldUseRTKQuery()) {
+      console.info('RTK Query is available - consider using useGetUserPostsQuery hook for better caching');
+    }
+
+    if (this.featureFlags.isSupabaseEnabled()) {
+      console.log('📡 Supabaseでユーザー投稿を取得');
+      return this.getSupabaseUserPosts(userId, params);
+    } else if (this.featureFlags.isApiEnabled()) {
+      const queryParams = new URLSearchParams();
+      if (params.page) queryParams.append('page', params.page.toString());
+      if (params.limit) queryParams.append('limit', params.limit.toString());
+      if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+      if (params.order) queryParams.append('order', params.order);
+
+      const url = `/users/${userId}/posts?${queryParams.toString()}`;
+
+      try {
+        const response: ApiResponse<PostsResponse> = await this.httpClient.get<PostsResponse>(url);
+        return response.data;
+      } catch (error) {
+        console.error('Failed to fetch user posts:', error);
+        throw error;
+      }
+    } else {
+      return this.getMockUserPosts(userId, params);
+    }
+  }
+
   public async createPost(data: CreatePostRequest): Promise<Post> {
     if (this.featureFlags.isSupabaseEnabled()) {
       return this.createSupabasePost(data);
@@ -423,31 +459,23 @@ export class PostsService {
         (posts || []).map(async (post) => {
           const user = Array.isArray(post.users) ? post.users[0] : post.users;
           
-          // Get user's like status for this post
-          const currentUser = await supabaseClient.getCurrentUser();
+          // Get user's like status for this post - skip for custom auth
           let isLiked = false;
-          
-          if (currentUser) {
-            const { data: like } = await client
-              .from('likes')
-              .select('id')
-              .eq('post_id', post.id)
-              .eq('user_id', currentUser.id)
-              .single();
-            isLiked = !!like;
-          }
+          // Note: Like status retrieval is handled by RTK Query with RPC function
+          // For direct PostsService calls, we skip like status to avoid auth complexity
 
           return {
             id: post.id,
             content: post.content,
             authorId: post.user_id,
-            authorName: user?.nickname || 'Unknown',
+            authorName: (user?.nickname || 'Unknown').replace(/_修正$/, ''),
             authorAvatar: user?.avatar_url || 'https://via.placeholder.com/40',
             createdAt: post.created_at || new Date().toISOString(),
             updatedAt: post.updated_at || new Date().toISOString(),
             likesCount: post.likes_count || 0,
             commentsCount: post.comments_count || 0,
             isLiked,
+            isCommented: false, // TODO: PostsServiceでは直接的にコメント済み状態を取得できないため、RTK Queryの使用を推奨
             images: post.image_url ? [post.image_url] : undefined,
           };
         })
@@ -488,15 +516,23 @@ export class PostsService {
     // For custom auth, get user ID from Redux state instead of Supabase client
     let currentUserId: string | null = null;
     
-    // Use Redux store to get current user (for custom auth)
-    try {
-      const { store } = await import('../store');
-      const state = store.getState();
-      currentUserId = state.auth?.user?.id || null;
-      console.log('🔍 Current user ID from Redux:', currentUserId);
-      console.log('🔍 Full auth state:', state.auth);
-    } catch (error) {
-      console.error('❌ Failed to get user ID from Redux:', error);
+    // Use explicit userId if provided, otherwise get from Redux store
+    if (data.userId) {
+      currentUserId = data.userId;
+      console.log('🔍 Using explicit user ID from request:', currentUserId);
+    } else {
+      // Use Redux store to get current user (for custom auth)
+      try {
+        const { store } = await import('../store');
+        const state = store.getState();
+        currentUserId = state.auth?.profile?.id || state.auth?.user?.id || null;
+        console.log('🔍 Current user ID from Redux:', currentUserId);
+        console.log('🔍 Full auth state:', state.auth);
+        console.log('🔍 Auth profile:', state.auth?.profile);
+        console.log('🔍 Auth user:', state.auth?.user);
+      } catch (error) {
+        console.error('❌ Failed to get user ID from Redux:', error);
+      }
     }
 
     if (!currentUserId) {
@@ -554,6 +590,8 @@ export class PostsService {
         };
 
         console.log('🔍 Creating post with data:', postData);
+        console.log('🔍 投稿作成時のユーザーID:', currentUserId);
+        console.log('🔍 投稿作成時のコンテンツ:', data.content?.substring(0, 50) + '...');
         
         // Supabase接続テストを追加
         console.log('=================== Supabase接続テスト ===================');
@@ -576,43 +614,54 @@ export class PostsService {
         // 投稿を作成 - カスタム認証の場合はRPCファンクションを使用
         console.log('💡 投稿作成処理を開始します');
         
-        // まず通常の方法を試す
+        // カスタム認証用のRPCファンクションを最初に試す
         let post, error;
         try {
-          const result = await client
-            .from('posts')
-            .insert(postData)
-            .select()
-            .single();
-          post = result.data;
-          error = result.error;
-        } catch (insertError) {
-          console.error('直接INSERT失敗:', insertError);
-          error = insertError;
+          console.log('🔵 RPC関数 create_post_custom_auth を使用して投稿作成');
+          const rpcResult = await client.rpc('create_post_custom_auth', {
+            p_content: postData.content,
+            p_user_id: postData.user_id,
+            p_image_url: postData.image_url,
+            p_is_anonymous: postData.is_anonymous
+          });
+          
+          if (rpcResult.error) {
+            console.error('❌ RPC関数エラー:', rpcResult.error);
+            error = rpcResult.error;
+          } else {
+            console.log('✅ RPC関数で投稿作成成功:', rpcResult.data);
+            console.log('✅ 作成された投稿のuser_id:', rpcResult.data?.user_id);
+            console.log('✅ 作成された投稿のID:', rpcResult.data?.id);
+            post = rpcResult.data;
+            error = null;
+          }
+        } catch (rpcError) {
+          console.error('❌ RPC関数例外:', rpcError);
+          error = rpcError;
         }
         
-        // 直接INSERTが失敗した場合、RPC関数を試す
+        // RPC関数が失敗した場合、直接INSERTを試行
         if (error) {
-          console.log('🔄 直接INSERT失敗、RPC関数を試します');
+          console.log('🔄 RPC関数失敗、直接INSERTを試行');
+          
           try {
-            const rpcResult = await client.rpc('create_post_custom_auth', {
-              p_content: postData.content,
-              p_user_id: postData.user_id,
-              p_image_url: postData.image_url,
-              p_is_anonymous: postData.is_anonymous
-            });
+            const insertResult = await client
+              .from('posts')
+              .insert(postData)
+              .select()
+              .single();
             
-            if (rpcResult.error) {
-              console.error('RPC関数エラー:', rpcResult.error);
-              error = rpcResult.error;
+            if (insertResult.error) {
+              console.error('❌ 直接INSERT失敗:', insertResult.error);
+              error = insertResult.error;
             } else {
-              console.log('✅ RPC関数で投稿作成成功');
-              post = rpcResult.data[0] || rpcResult.data;
+              console.log('✅ 直接INSERTで投稿作成成功');
+              post = insertResult.data;
               error = null;
             }
-          } catch (rpcError) {
-            console.error('RPC関数例外:', rpcError);
-            // RPC関数が存在しない場合はそのまま元のエラーを使用
+          } catch (insertError) {
+            console.error('❌ 直接INSERT例外:', insertError);
+            // 元のエラーを保持
           }
         }
 
@@ -687,9 +736,20 @@ export class PostsService {
 
   private async supabaseLikePost(postId: string): Promise<void> {
     await this.ensureSupabaseConnection();
-    const currentUser = await supabaseClient.getCurrentUser();
+    
+    // カスタム認証の場合、ReduxからユーザーIDを取得
+    let currentUserId: string | null = null;
+    
+    try {
+      const { store } = await import('../store');
+      const state = store.getState();
+      currentUserId = state.auth?.profile?.id || state.auth?.user?.id || null;
+      console.log('🔍 いいね処理のユーザーID:', currentUserId);
+    } catch (error) {
+      console.error('❌ Redux stateからユーザーIDを取得できませんでした:', error);
+    }
 
-    if (!currentUser) {
+    if (!currentUserId) {
       throw new Error('User not authenticated');
     }
 
@@ -697,41 +757,41 @@ export class PostsService {
       const client = supabaseClient.getClient();
 
       try {
-      // Check if already liked
-      const { data: existingLike } = await client
-        .from('likes')
-        .select('id')
-        .eq('post_id', postId)
-        .eq('user_id', currentUser.id)
-        .single();
+        // Check if already liked
+        const { data: existingLike } = await client
+          .from('likes')
+          .select('id')
+          .eq('post_id', postId)
+          .eq('user_id', currentUserId)
+          .single();
 
-      if (existingLike) {
-        return; // Already liked
-      }
+        if (existingLike) {
+          return; // Already liked
+        }
 
-      // Create like
-      const { error: likeError } = await client
-        .from('likes')
-        .insert({
-          post_id: postId,
-          user_id: currentUser.id,
-        });
+        // Create like
+        const { error: likeError } = await client
+          .from('likes')
+          .insert({
+            post_id: postId,
+            user_id: currentUserId,
+          });
 
-      if (likeError) {
-        throw new Error(`Failed to like post: ${likeError.message}`);
-      }
+        if (likeError) {
+          throw new Error(`Failed to like post: ${likeError.message}`);
+        }
 
-      // Update likes count
-      const { data: post } = await client
-        .from('posts')
-        .select('likes_count')
-        .eq('id', postId)
-        .single();
+        // Update likes count
+        const { data: post } = await client
+          .from('posts')
+          .select('likes_count')
+          .eq('id', postId)
+          .single();
 
-      await client
-        .from('posts')
-        .update({ likes_count: (post?.likes_count || 0) + 1 })
-        .eq('id', postId);
+        await client
+          .from('posts')
+          .update({ likes_count: (post?.likes_count || 0) + 1 })
+          .eq('id', postId);
       } catch (error) {
         console.error('Failed to like post in Supabase:', error);
         throw error;
@@ -741,9 +801,20 @@ export class PostsService {
 
   private async supabaseUnlikePost(postId: string): Promise<void> {
     const client = supabaseClient.getClient();
-    const currentUser = await supabaseClient.getCurrentUser();
+    
+    // カスタム認証の場合、ReduxからユーザーIDを取得
+    let currentUserId: string | null = null;
+    
+    try {
+      const { store } = await import('../store');
+      const state = store.getState();
+      currentUserId = state.auth?.profile?.id || state.auth?.user?.id || null;
+      console.log('🔍 いいね解除処理のユーザーID:', currentUserId);
+    } catch (error) {
+      console.error('❌ Redux stateからユーザーIDを取得できませんでした:', error);
+    }
 
-    if (!currentUser) {
+    if (!currentUserId) {
       throw new Error('User not authenticated');
     }
 
@@ -753,7 +824,7 @@ export class PostsService {
         .from('likes')
         .delete()
         .eq('post_id', postId)
-        .eq('user_id', currentUser.id);
+        .eq('user_id', currentUserId);
 
       if (deleteError) {
         throw new Error(`Failed to unlike post: ${deleteError.message}`);
@@ -842,9 +913,20 @@ export class PostsService {
 
   private async createSupabaseComment(postId: string, data: CreateCommentRequest): Promise<Comment> {
     const client = supabaseClient.getClient();
-    const currentUser = await supabaseClient.getCurrentUser();
+    
+    // カスタム認証の場合、ReduxからユーザーIDを取得
+    let currentUserId: string | null = null;
+    
+    try {
+      const { store } = await import('../store');
+      const state = store.getState();
+      currentUserId = state.auth?.profile?.id || state.auth?.user?.id || null;
+      console.log('🔍 コメント作成のユーザーID:', currentUserId);
+    } catch (error) {
+      console.error('❌ Redux stateからユーザーIDを取得できませんでした:', error);
+    }
 
-    if (!currentUser) {
+    if (!currentUserId) {
       throw new Error('User not authenticated');
     }
 
@@ -852,7 +934,7 @@ export class PostsService {
       const commentData: CommentInsert = {
         content: data.content,
         post_id: postId,
-        user_id: currentUser.id,
+        user_id: currentUserId,
         is_anonymous: false,
       };
 
@@ -902,5 +984,130 @@ export class PostsService {
       console.error('Failed to create comment in Supabase:', error);
       throw error;
     }
+  }
+
+  private async getSupabaseUserPosts(userId: string, params: PostsQueryParams = {}): Promise<PostsResponse> {
+    console.log('🔵 getSupabaseUserPosts開始');
+    console.log('🔍 対象ユーザーID:', userId);
+    
+    await this.ensureSupabaseConnection();
+
+    return this.withRetry(async () => {
+      const client = supabaseClient.getClient();
+      const page = params.page || 1;
+      const limit = params.limit || 10;
+      const sortBy = params.sortBy === 'createdAt' ? 'created_at' : (params.sortBy || 'created_at');
+      const order = params.order || 'desc';
+      
+      console.log('🔍 クエリパラメータ:', { page, limit, sortBy, order });
+
+      try {
+        const from = (page - 1) * limit;
+        
+        // 現在ログインしているユーザーIDを取得
+        let currentUserId: string | null = null;
+        try {
+          const { store } = await import('../store');
+          const state = store.getState();
+          currentUserId = state.auth?.profile?.id || state.auth?.user?.id || null;
+          console.log('🔍 現在ログインしているユーザーID:', currentUserId);
+        } catch (error) {
+          console.error('❌ Redux stateからユーザーIDを取得できませんでした:', error);
+        }
+        
+        // RLSポリシーをバイパスするためRPC関数を使用
+        console.log('📊 RPC関数でユーザー投稿を取得中...');
+        const { data: rpcPosts, error } = await client
+          .rpc('get_posts_with_like_status', {
+            requesting_user_id: currentUserId, // 現在ログインしているユーザーID
+            limit_count: limit,
+            offset_count: from
+          });
+
+        if (error) {
+          console.error('❌ RPC関数エラー:', error);
+          throw new Error(`Failed to fetch user posts: ${error.message}`);
+        }
+
+        // RPC結果から特定ユーザーの投稿のみをフィルタリング
+        const userPosts = (rpcPosts || []).filter((post: any) => post.user_id === userId);
+        console.log('📋 フィルタリング後のユーザー投稿数:', userPosts.length);
+        
+        // 各投稿の詳細を確認
+        if (userPosts.length > 0) {
+          console.log('📋 取得したユーザー投稿の詳細:');
+          userPosts.forEach((post: any, index: number) => {
+            console.log(`  ${index + 1}. ID: ${post.id}, User ID: ${post.user_id}, Content: ${post.content?.substring(0, 50)}...`);
+          });
+        } else {
+          console.log('📋 このユーザーの投稿が見つかりませんでした');
+          console.log('📋 RPC関数で取得した全投稿のユーザーID一覧:');
+          (rpcPosts || []).forEach((post: any, index: number) => {
+            console.log(`  ${index + 1}. User ID: ${post.user_id}, Nickname: ${post.user_nickname}`);
+          });
+        }
+
+        const transformedPosts = (userPosts || []).map((post: any) => {
+          // RPC関数の結果なので、userの情報は直接含まれている
+          console.log('🔧 投稿変換中:', {
+            id: post.id,
+            user_id: post.user_id,
+            user_nickname: post.user_nickname,
+            content: post.content?.substring(0, 30),
+            is_liked_by_user: post.is_liked_by_user,
+            is_commented_by_user: post.is_commented_by_user,
+            likes_count: post.likes_count
+          });
+          
+          return {
+            id: post.id,
+            content: post.content,
+            authorId: post.user_id,
+            authorName: (post.user_nickname || 'Unknown').replace(/_修正$/, ''),
+            authorAvatar: post.user_avatar_url || 'https://via.placeholder.com/40',
+            createdAt: post.created_at || new Date().toISOString(),
+            updatedAt: post.updated_at || new Date().toISOString(),
+            likesCount: post.likes_count || 0,
+            commentsCount: post.comments_count || 0,
+            isLiked: post.is_liked_by_user || false,  // RPC関数では is_liked_by_user というフィールド名
+            isCommented: post.is_commented_by_user || false,
+            images: post.image_url ? [post.image_url] : undefined,
+          };
+        });
+
+        const totalItems = userPosts.length;
+        const totalPages = Math.ceil(totalItems / limit);
+
+        return {
+          posts: transformedPosts,
+          pagination: {
+            currentPage: page,
+            totalPages,
+            totalItems,
+            hasNext: page < totalPages,
+            hasPrevious: page > 1,
+          },
+        };
+      } catch (error) {
+        console.error('Failed to fetch user posts from Supabase:', error);
+        throw error;
+      }
+    });
+  }
+
+  private async getMockUserPosts(userId: string, params: PostsQueryParams = {}): Promise<PostsResponse> {
+    await this.delay(this.featureFlags.getMockDelay());
+
+    // モックデータでは空の結果を返す（実際のSupabaseデータのみ使用）
+    return {
+      posts: [],
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        totalItems: 0,
+        hasNext: false,
+        hasPrevious: false,
+      },
+    };
   }
 }

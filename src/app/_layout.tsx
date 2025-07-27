@@ -38,6 +38,16 @@ function RootLayoutNav() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="login" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="liked-posts" />
+        <Stack.Screen name="profile" />
+        <Stack.Screen name="profile-edit" />
+        <Stack.Screen name="follow-list" />
+        <Stack.Screen name="post-history" />
+        <Stack.Screen name="chat-list" />
+        <Stack.Screen name="chat" />
+        <Stack.Screen name="room" />
+        <Stack.Screen name="complaint-room" />
+        <Stack.Screen name="notifications/settings" />
         <Stack.Screen name="+not-found" />
       </Stack>
     </>

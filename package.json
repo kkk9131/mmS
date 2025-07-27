@@ -41,7 +41,9 @@
     "test:production": "npx tsx src/scripts/production-functional-test.ts",
     "test:performance": "npx tsx src/scripts/production-performance-test.ts",
     "test:security": "npx tsx src/scripts/production-security-test.ts",
-    "test:production:all": "npm run test:production && npm run test:performance && npm run test:security"
+    "test:production:all": "npm run test:production && npm run test:performance && npm run test:security",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
