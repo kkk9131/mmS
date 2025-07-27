@@ -10,7 +10,17 @@ import { FeatureFlagsManager } from '../../services/featureFlags';
 import { useAppSelector } from '../../hooks/redux';
 import { useAuth } from '../../contexts/AuthContext';
 import { ImageUploadButton } from '../../components/image/ImageUploadButton';
-import { ProcessedImage } from '../../types/image';
+// import { ProcessedImage } from '../../types/image';
+
+// シンプルな画像型定義
+interface SimpleImage {
+  id: string;
+  uri: string;
+  width: number;
+  height: number;
+  fileSize?: number;
+  mimeType?: string;
+}
 // @ts-ignore - For web DOM events support
 declare global {
   namespace JSX {
@@ -32,7 +42,7 @@ export default function PostScreen() {
   const [postText, setPostText] = useState('');
   const [aiEmpathyEnabled, setAiEmpathyEnabled] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
-  const [selectedImages, setSelectedImages] = useState<ProcessedImage[]>([]);
+  const [selectedImages, setSelectedImages] = useState<SimpleImage[]>([]);
   const textInputRef = useRef<TextInput>(null);
 
   const maxCharacters = 600;
@@ -76,7 +86,7 @@ export default function PostScreen() {
   }, []);
 
   // 画像選択ハンドラー
-  const handleImageSelected = (images: ProcessedImage[]) => {
+  const handleImageSelected = (images: SimpleImage[]) => {
     setSelectedImages(prev => [...prev, ...images].slice(0, 4)); // 最大4枚まで
   };
 
@@ -167,21 +177,45 @@ export default function PostScreen() {
         let uploadedImageUrls: string[] = [];
         if (selectedImages.length > 0) {
           console.log('📤 画像アップロード開始:', selectedImages.length);
-          const { ImageUploadManager } = await import('../../services/image/ImageUploadManager');
-          const uploadManager = new ImageUploadManager();
           
           for (const image of selectedImages) {
             try {
               console.log('📤 画像アップロード中:', image.id);
-              const uploadResult = await uploadManager.uploadImage(image, 'posts');
               
-              if (uploadResult.success && uploadResult.url) {
-                uploadedImageUrls.push(uploadResult.url);
-                console.log('✅ 画像アップロード成功:', uploadResult.url);
-              } else {
-                console.error('❌ 画像アップロード失敗:', uploadResult.error);
-                throw new Error(`画像のアップロードに失敗しました: ${uploadResult.error}`);
+              // Supabaseに直接アップロード
+              const supabaseUrl = 'https://zfmqxdkqpeyvsuqyzuvy.supabase.co';
+              const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmbXF4ZGtxcGV5dnN1cXl6dXZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMxMzMzNDIsImV4cCI6MjA2ODcwOTM0Mn0.BUE7K0TzIMVzQTk6fsDecYNY6s-ftH1UCsm6eOm4BCA';
+              
+              const { createClient } = await import('@supabase/supabase-js');
+              const supabase = createClient(supabaseUrl, supabaseKey);
+              
+              // ファイル名を生成
+              const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+              
+              // 画像データを取得
+              const response = await fetch(image.uri);
+              const blob = await response.blob();
+              
+              // Supabase Storageにアップロード
+              const { data, error } = await supabase.storage
+                .from('posts')
+                .upload(fileName, blob, {
+                  contentType: image.mimeType || 'image/jpeg'
+                });
+              
+              if (error) {
+                console.error('❌ Supabaseアップロードエラー:', error);
+                throw new Error(`画像のアップロードに失敗しました: ${error.message}`);
               }
+              
+              // 公開URLを取得
+              const { data: urlData } = supabase.storage
+                .from('posts')
+                .getPublicUrl(fileName);
+              
+              uploadedImageUrls.push(urlData.publicUrl);
+              console.log('✅ 画像アップロード成功:', urlData.publicUrl);
+              
             } catch (uploadError) {
               console.error('❌ 画像アップロードエラー:', uploadError);
               throw new Error(`画像のアップロードに失敗しました: ${uploadError}`);
