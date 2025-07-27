@@ -171,7 +171,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
               <ImageIcon size={16} color={theme.colors.text.secondary} style={styles.overlayIcon} />
             </View>
             <Text style={[styles.buttonText, { color: theme.colors.text.primary }]}>
-              {canAddMore ? t.selectImage : '上限達成'}
+              {canAddMore ? '画像を選択' : '上限達成'}
             </Text>
             <Text style={[styles.countText, { color: theme.colors.text.secondary }]}>
               {selectedImages.length}/{maxImages}
