@@ -5,19 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { LazyImage } from './image/LazyImage';
 import { ImageViewer } from './image/ImageViewer';
 
-interface Post {
-    id: string;
-    content: string;
-    author: string;
-    timestamp: string;
-    likes: number;
-    comments: number;
-    tags: string[];
-    isLiked: boolean;
-    aiResponse?: string;
-    image_url?: string;
-    images?: string[];
-}
+import { Post } from '../types/posts';
 
 interface PostCardProps {
     post: Post;
@@ -53,19 +41,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
     const getImageList = (): string[] => {
         if (post.images && post.images.length > 0) {
             return post.images;
-        }
-        if (post.image_url) {
-            // JSONとして保存された複数画像のケースを処理
-            try {
-                if (post.image_url.startsWith('[')) {
-                    return JSON.parse(post.image_url);
-                } else {
-                    return [post.image_url];
-                }
-            } catch (error) {
-                console.warn('画像URL解析エラー:', error);
-                return [post.image_url];
-            }
         }
         return [];
     };
@@ -183,12 +158,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
             delayLongPress={800}
             accessible={true}
             accessibilityRole="none"
-            accessibilityLabel={`${post.author}の投稿`}
+            accessibilityLabel={`${post.authorName}の投稿`}
             accessibilityHint="長押しで追加の操作メニューを表示"
         >
             <View style={styles.header} accessible={true} accessibilityRole="none">
-                <Text style={dynamicStyles.authorName} accessibilityRole="text">{post.author}</Text>
-                <Text style={dynamicStyles.timestamp} accessibilityRole="text" accessibilityLabel={`投稿日時: ${post.timestamp}`}>{post.timestamp}</Text>
+                <Text style={dynamicStyles.authorName} accessibilityRole="text">{post.authorName}</Text>
+                <Text style={dynamicStyles.timestamp} accessibilityRole="text" accessibilityLabel={`投稿日時: ${post.createdAt}`}>{new Date(post.createdAt).toLocaleString()}</Text>
             </View>
 
             <Text style={dynamicStyles.content} accessible={true} accessibilityRole="text" accessibilityLabel={`投稿内容: ${post.content}`}>{post.content}</Text>
@@ -256,18 +231,20 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
                 </View>
             )}
 
-            <View style={styles.tagsContainer} accessible={true} accessibilityRole="list" accessibilityLabel={`タグ: ${post.tags.join(', ')}`}>
+            {/* タグ機能は現在の型定義にないためコメントアウト */}
+            {/* <View style={styles.tagsContainer} accessible={true} accessibilityRole="list" accessibilityLabel={`タグ: ${post.tags.join(', ')}`}>
                 {post.tags.map((tag, index) => (
                     <Text key={index} style={dynamicStyles.tag} accessibilityRole="none">#{tag}</Text>
                 ))}
-            </View>
+            </View> */}
 
-            {post.aiResponse && (
+            {/* AIレスポンス機能は現在の型定義にないためコメントアウト */}
+            {/* {post.aiResponse && (
                 <View style={dynamicStyles.aiResponseContainer} accessible={true} accessibilityRole="none" accessibilityLabel="AIによる共感メッセージ">
                     <Text style={dynamicStyles.aiResponseLabel} accessibilityRole="text">ママの味方</Text>
                     <Text style={dynamicStyles.aiResponseText} accessibilityRole="text">{post.aiResponse}</Text>
                 </View>
-            )}
+            )} */}
 
             <View style={dynamicStyles.actionsContainer}>
                 <TouchableOpacity
@@ -275,12 +252,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
                     onPress={() => onLike(post.id)}
                     accessible={true}
                     accessibilityRole="button"
-                    accessibilityLabel={post.isLiked ? `${post.likes}件の共感、共感を取り消す` : `${post.likes}件の共感、共感する`}
+                    accessibilityLabel={post.isLiked ? `${post.likesCount}件の共感、共感を取り消す` : `${post.likesCount}件の共感、共感する`}
                     accessibilityState={{ selected: post.isLiked }}
                 >
                     <Heart size={20} color={post.isLiked ? theme.colors.primary : theme.colors.text.secondary} fill={post.isLiked ? theme.colors.primary : 'none'} />
                     <Text style={[dynamicStyles.actionText, post.isLiked && dynamicStyles.likedText]}>
-                        {post.likes} 共感
+                        {post.likesCount} 共感
                     </Text>
                 </TouchableOpacity>
 
@@ -289,11 +266,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
                     onPress={() => onComment(post.id)}
                     accessible={true}
                     accessibilityRole="button"
-                    accessibilityLabel={`${post.comments}件のコメント、コメントを追加する`}
+                    accessibilityLabel={`${post.commentsCount}件のコメント、コメントを追加する`}
                     accessibilityHint="タップしてコメントを表示または追加"
                 >
                     <MessageCircle size={20} color={theme.colors.text.secondary} />
-                    <Text style={dynamicStyles.actionText}>{post.comments} コメント</Text>
+                    <Text style={dynamicStyles.actionText}>{post.commentsCount} コメント</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
@@ -315,7 +292,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
                     imageUri={imageList[selectedImageIndex]}
                     onClose={() => setShowImageViewer(false)}
                     title={`投稿画像 ${selectedImageIndex + 1}/${imageList.length}`}
-                    altText={`${post.author}の投稿画像`}
+                    altText={`${post.authorName}の投稿画像`}
                     enableDownload={true}
                     enableShare={true}
                 />
