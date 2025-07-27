@@ -28,8 +28,8 @@ export class SupabaseImageService {
         console.log('🔧 Supabaseクライアント初期化開始');
         try {
           // React Native/Expoでは環境変数を直接読み込む
-          const supabaseUrl = 'https://jikjfizabtmvogijjspn.supabase.co';
-          const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppa2pmaXphYnRtdm9naWpqc3BuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjc5MzYwMDEsImV4cCI6MjA0MzUxMjAwMX0.p3eYUzLKAOY0iF5M1grYT99N3MDcEfAtuFU7h9jKG0A';
+          const supabaseUrl = 'https://zfmqxdkqpeyvsuqyzuvy.supabase.co';
+          const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmbXF4ZGtxcGV5dnN1cXl6dXZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMxMzMzNDIsImV4cCI6MjA2ODcwOTM0Mn0.BUE7K0TzIMVzQTk6fsDecYNY6s-ftH1UCsm6eOm4BCA';
           
           if (!supabaseUrl || !supabaseKey) {
             throw new Error('Supabase環境変数が設定されていません');
