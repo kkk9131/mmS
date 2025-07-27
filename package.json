@@ -37,6 +37,7 @@
     "monitoring:check": "npx tsx src/scripts/basic-monitoring.ts",
     "monitoring:start": "npx tsx src/scripts/continuous-monitoring.ts start",
     "monitoring:stats": "npx tsx src/scripts/continuous-monitoring.ts stats",
+    "setup:storage": "node setup-storage.js",
     "monitoring:help": "npx tsx src/scripts/continuous-monitoring.ts help",
     "test:production": "npx tsx src/scripts/production-functional-test.ts",
     "test:performance": "npx tsx src/scripts/production-performance-test.ts",
