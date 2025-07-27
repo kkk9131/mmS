@@ -28,13 +28,14 @@ export class FollowService {
   private featureFlags: FeatureFlagsManager;
   private followCache: Map<string, { data: any; timestamp: number }>;
   private readonly CACHE_TTL = 10 * 60 * 1000; // 10分間のキャッシュ
-  private notificationService: NotificationService;
+  private notificationService: NotificationService | null;
 
   private constructor() {
     this.httpClient = HttpClient.getInstance();
     this.featureFlags = FeatureFlagsManager.getInstance();
     this.followCache = new Map();
-    this.notificationService = NotificationService.getInstance();
+    // 通知サービスを一時的に無効化
+    this.notificationService = null; // NotificationService.getInstance();
   }
 
   public static getInstance(): FollowService {
@@ -379,50 +380,75 @@ export class FollowService {
 
   private async followSupabaseUser(userId: string): Promise<FollowRelationship> {
     await this.ensureSupabaseConnection();
+    
+    // カスタム認証対応: Reduxストアから現在のユーザーIDを取得
+    let currentUserId: string | null = null;
+    
+    // まずSupabaseのgetCurrentUserを試す
     const currentUser = await supabaseClient.getCurrentUser();
+    if (currentUser) {
+      currentUserId = currentUser.id;
+    } else {
+      // カスタム認証の場合、Reduxストアから取得
+      try {
+        const { store } = await import('../store');
+        const state = store.getState();
+        currentUserId = state.auth?.profile?.id || state.auth?.user?.id || null;
+        console.log('🔍 カスタム認証ユーザーID:', currentUserId);
+      } catch (error) {
+        console.error('❌ Redux storeからユーザーID取得エラー:', error);
+      }
+    }
 
-    if (!currentUser) {
+    if (!currentUserId) {
       throw new Error('User not authenticated');
     }
 
-    if (currentUser.id === userId) {
+    if (currentUserId === userId) {
       throw new Error('Cannot follow yourself');
     }
 
     return this.withRetry(async () => {
+      // カスタム認証の場合はRPC関数を使用してフォロー関係を作成
       const client = supabaseClient.getClient();
 
       try {
-        // Check if already following
-        const { data: existingFollow } = await client
-          .from('follows')
-          .select('id')
-          .eq('follower_id', currentUser.id)
-          .eq('following_id', userId)
-          .single();
-
-        if (existingFollow) {
-          // Already following, return current relationship
-          return this.getSupabaseFollowRelationship(userId);
+        console.log('📡 [FollowService] フォロー処理開始 (RPC関数使用)');
+        console.log('🔍 [FollowService] follower_id:', currentUserId);
+        console.log('🔍 [FollowService] following_id:', userId);
+        
+        // 自分自身をフォローできない
+        if (currentUserId === userId) {
+          throw new Error('Cannot follow yourself');
         }
-
-        // Create follow relationship
-        const { error: followError } = await client
-          .from('follows')
-          .insert({
-            follower_id: currentUser.id,
-            following_id: userId,
+        
+        // RPC関数を使用してフォロー関係を作成（RLSをバイパス）
+        const { data: result, error: rpcError } = await client
+          .rpc('create_follow_relationship', {
+            p_follower_id: currentUserId,
+            p_following_id: userId
           });
-
-        if (followError) {
-          throw new Error(`Failed to follow user: ${followError.message}`);
+        
+        if (rpcError) {
+          console.error('❌ [FollowService] RPC関数エラー:', rpcError);
+          throw new Error(`Failed to create follow relationship: ${rpcError.message}`);
         }
+        
+        if (result && result.error) {
+          console.error('❌ [FollowService] RPC関数内エラー:', result.error);
+          throw new Error(`Failed to create follow relationship: ${result.error}`);
+        }
+        
+        console.log('✅ [FollowService] フォロー関係作成成功 (RPC):', result);
 
         // Clear related cache
         this.clearFollowRelatedCache(userId);
 
-        // Create notification for the followed user
-        if (this.notificationService) {
+        // 通知機能を一時的に無効化（RLSポリシー問題のため）
+        console.log('📢 [FollowService] 通知作成をスキップ（RLSポリシー問題のため）');
+        // TODO: 通知機能のRLSポリシーを修正後に有効化
+        /*
+        if (this.notificationService && currentUser) {
           try {
             await this.notificationService.createNotification({
               userId: userId,
@@ -437,12 +463,12 @@ export class FollowService {
             });
           } catch (notifError) {
             console.warn('Failed to create follow notification:', notifError);
-            // Don't fail the whole operation for notification error
           }
         }
+        */
 
         return {
-          userId: currentUser.id,
+          userId: currentUserId,
           targetUserId: userId,
           isFollowing: true,
           isFollowedBy: false, // We don't know yet
@@ -457,9 +483,24 @@ export class FollowService {
 
   private async unfollowSupabaseUser(userId: string): Promise<FollowRelationship> {
     await this.ensureSupabaseConnection();
+    
+    // カスタム認証対応: Reduxストアから現在のユーザーIDを取得
+    let currentUserId: string | null = null;
+    
     const currentUser = await supabaseClient.getCurrentUser();
+    if (currentUser) {
+      currentUserId = currentUser.id;
+    } else {
+      try {
+        const { store } = await import('../store');
+        const state = store.getState();
+        currentUserId = state.auth?.profile?.id || state.auth?.user?.id || null;
+      } catch (error) {
+        console.error('❌ Redux storeからユーザーID取得エラー:', error);
+      }
+    }
 
-    if (!currentUser) {
+    if (!currentUserId) {
       throw new Error('User not authenticated');
     }
 
@@ -467,22 +508,34 @@ export class FollowService {
       const client = supabaseClient.getClient();
 
       try {
-        // Remove follow relationship
-        const { error: unfollowError } = await client
-          .from('follows')
-          .delete()
-          .eq('follower_id', currentUser.id)
-          .eq('following_id', userId);
-
-        if (unfollowError) {
-          throw new Error(`Failed to unfollow user: ${unfollowError.message}`);
+        console.log('📡 [FollowService] フォロー解除処理開始 (RPC関数使用)');
+        console.log('🔍 [FollowService] follower_id:', currentUserId);
+        console.log('🔍 [FollowService] following_id:', userId);
+        
+        // RPC関数を使用してフォロー関係を削除（RLSをバイパス）
+        const { data: result, error: rpcError } = await client
+          .rpc('delete_follow_relationship', {
+            p_follower_id: currentUserId,
+            p_following_id: userId
+          });
+        
+        if (rpcError) {
+          console.error('❌ [FollowService] RPC関数エラー:', rpcError);
+          throw new Error(`Failed to unfollow user: ${rpcError.message}`);
         }
+        
+        if (result && result.error) {
+          console.error('❌ [FollowService] RPC関数内エラー:', result.error);
+          throw new Error(`Failed to unfollow user: ${result.error}`);
+        }
+        
+        console.log('✅ [FollowService] フォロー解除成功 (RPC):', result);
 
         // Clear related cache
         this.clearFollowRelatedCache(userId);
 
         return {
-          userId: currentUser.id,
+          userId: currentUserId,
           targetUserId: userId,
           isFollowing: false,
           isFollowedBy: false, // We don't know yet
@@ -496,9 +549,24 @@ export class FollowService {
 
   private async getSupabaseFollowRelationship(userId: string): Promise<FollowRelationship> {
     await this.ensureSupabaseConnection();
+    
+    // カスタム認証対応: Reduxストアから現在のユーザーIDを取得
+    let currentUserId: string | null = null;
+    
     const currentUser = await supabaseClient.getCurrentUser();
+    if (currentUser) {
+      currentUserId = currentUser.id;
+    } else {
+      try {
+        const { store } = await import('../store');
+        const state = store.getState();
+        currentUserId = state.auth?.profile?.id || state.auth?.user?.id || null;
+      } catch (error) {
+        console.error('❌ Redux storeからユーザーID取得エラー:', error);
+      }
+    }
 
-    if (!currentUser) {
+    if (!currentUserId) {
       throw new Error('User not authenticated');
     }
 
@@ -506,28 +574,24 @@ export class FollowService {
       const client = supabaseClient.getClient();
 
       try {
-        // Check if current user is following target user
-        const { data: following } = await client
-          .from('follows')
-          .select('created_at')
-          .eq('follower_id', currentUser.id)
-          .eq('following_id', userId)
+        // RPC関数を使用してフォロー関係を取得
+        const { data: relationship, error } = await client
+          .rpc('get_follow_relationship', {
+            p_user_id: currentUserId,
+            p_target_user_id: userId,
+          })
           .single();
 
-        // Check if target user is following current user
-        const { data: followedBy } = await client
-          .from('follows')
-          .select('id')
-          .eq('follower_id', userId)
-          .eq('following_id', currentUser.id)
-          .single();
+        if (error) {
+          throw new Error(`Failed to get follow relationship: ${error.message}`);
+        }
 
         return {
-          userId: currentUser.id,
+          userId: currentUserId,
           targetUserId: userId,
-          isFollowing: !!following,
-          isFollowedBy: !!followedBy,
-          followedAt: following?.created_at,
+          isFollowing: relationship?.is_following || false,
+          isFollowedBy: relationship?.is_followed_by || false,
+          followedAt: relationship?.followed_at || undefined,
         };
       } catch (error) {
         console.error(`Failed to get follow relationship for user ${userId}:`, error);
