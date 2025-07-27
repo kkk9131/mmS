@@ -9,7 +9,10 @@ import { JWTAuthService, createJWTAuthService } from '../services/jwt';
 interface User {
   id: string;
   nickname: string;
-  createdAt: string;
+  maternal_book_number?: string;
+  avatar_url?: string;
+  created_at: string;
+  createdAt: string; // legacy support
 }
 
 interface AuthContextType {
@@ -59,8 +62,11 @@ const ReduxAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const contextValue: AuthContextType = {
     user: auth.profile ? {
       id: auth.profile.id,
-      nickname: auth.profile.nickname,
-      createdAt: auth.profile.created_at || '',
+      nickname: (auth.profile.nickname || 'Unknown').replace(/_修正$/, ''), // 「_修正」を削除
+      maternal_book_number: auth.profile.maternal_book_number,
+      avatar_url: auth.profile.avatar_url,
+      created_at: auth.profile.created_at || new Date().toISOString(),
+      createdAt: auth.profile.created_at || new Date().toISOString(),
     } : null,
     isLoading: auth.isLoading || !auth.isInitialized,
     isAuthenticated: auth.isAuthenticated,

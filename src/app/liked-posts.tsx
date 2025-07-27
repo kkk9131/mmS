@@ -1,84 +1,79 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, FlatList } from 'react-native';
 import { ArrowLeft, Heart, MessageCircle, Calendar, Clock, User } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAppSelector } from '../hooks/redux';
+import { postsApi } from '../store/api/postsApi';
 
-interface LikedPost {
+// Interface for displaying liked posts - based on PostWithExtras from postsApi
+interface LikedPostDisplay {
   id: string;
   content: string;
   author: string;
   timestamp: string;
   likes: number;
   comments: number;
-  tags: string[];
   likedAt: string;
-  aiResponse?: string;
+  authorId: string;
+  image_url?: string;
 }
-
-const mockLikedPosts: LikedPost[] = [
-  {
-    id: '1',
-    content: '今日は息子の夜泣きがひどくて、もう限界かも...😢 みんなはどうやって乗り切ってる？',
-    author: 'ゆかちゃん',
-    timestamp: '2024年1月20日 2:30',
-    likes: 12,
-    comments: 3,
-    tags: ['夜泣き', '新生児', 'しんどい'],
-    likedAt: '2024年1月20日 2:35',
-    aiResponse: '夜泣き本当にお疲れ様です。一人で頑張らないで、少しでも休める時間を作ってくださいね ♡'
-  },
-  {
-    id: '2',
-    content: '離乳食を全然食べてくれない... 栄養面が心配で毎日不安です。何かいい方法はないでしょうか？',
-    author: 'さくら',
-    timestamp: '2024年1月19日 12:15',
-    likes: 8,
-    comments: 5,
-    tags: ['離乳食', '食べない', '心配'],
-    likedAt: '2024年1月19日 12:20',
-    aiResponse: '離乳食の悩み、よくわかります。無理をせず、お子さんのペースに合わせて大丈夫ですよ'
-  },
-  {
-    id: '3',
-    content: '保育園の送迎で他のママとの会話が苦手... 人見知りな性格で毎朝憂鬱になっちゃう',
-    author: 'あい',
-    timestamp: '2024年1月18日 8:45',
-    likes: 15,
-    comments: 7,
-    tags: ['保育園', '人見知り', 'ママ友'],
-    likedAt: '2024年1月18日 9:00',
-    aiResponse: '人見知りは恥ずかしいことじゃないですよ。無理をしないで、自分らしくいることが一番です'
-  },
-  {
-    id: '4',
-    content: '深夜の授乳で眠すぎて意識朦朧... みんなどうやって乗り切ってるの？',
-    author: 'まり',
-    timestamp: '2024年1月17日 3:20',
-    likes: 34,
-    comments: 15,
-    tags: ['授乳', '睡眠不足', '新生児'],
-    likedAt: '2024年1月17日 3:25',
-    aiResponse: '深夜の授乳は本当に大変ですよね。無理をしないで、昼間に少しでも休んでくださいね'
-  },
-  {
-    id: '5',
-    content: '娘が初めて「ママ」って言ってくれました！涙が出るほど嬉しい瞬間でした 😭✨',
-    author: 'りか',
-    timestamp: '2024年1月16日 14:30',
-    likes: 45,
-    comments: 12,
-    tags: ['初めての言葉', '嬉しい', '成長'],
-    likedAt: '2024年1月16日 14:35',
-    aiResponse: '初めての「ママ」は本当に特別な瞬間ですね！お疲れ様でした、素敵な思い出ができましたね'
-  }
-];
 
 export default function LikedPostsScreen() {
   const { theme } = useTheme();
-  const [likedPosts, setLikedPosts] = useState<LikedPost[]>(mockLikedPosts);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Get current user ID from Redux state
+  const currentUserId = useAppSelector(state => state.auth?.profile?.id || state.auth?.user?.id);
+  
+  console.log('🔍 LikedPosts - currentUserId:', currentUserId);
+  console.log('🔍 LikedPosts - auth state:', useAppSelector(state => state.auth));
+  
+  // RTK Query hook for fetching liked posts
+  const {
+    data: likedPostsData,
+    error,
+    isLoading,
+    refetch
+  } = postsApi.useGetLikedPostsQuery(
+    { userId: currentUserId || '' },
+    { skip: !currentUserId }
+  );
+  
+  console.log('🔍 LikedPosts - query result:', {
+    dataLength: likedPostsData?.length,
+    error,
+    isLoading,
+    skip: !currentUserId,
+    rawData: likedPostsData
+  });
+  
+  // Transform RTK Query data to display format
+  console.log('🔍 LikedPosts - likedPostsData:', likedPostsData);
+  console.log('🔍 LikedPosts - likedPostsData type:', typeof likedPostsData);
+  console.log('🔍 LikedPosts - isArray:', Array.isArray(likedPostsData));
+  
+  const likedPosts: LikedPostDisplay[] = (Array.isArray(likedPostsData) ? likedPostsData : []).map(post => {
+    console.log('🔍 LikedPosts - transforming post:', {
+      id: post.id,
+      content: post.content,
+      users: post.users,
+      nickname: post.users?.nickname
+    });
+    
+    return {
+      id: post.id,
+      content: post.content || '',
+      author: post.users?.nickname || 'Unknown',
+      authorId: post.user_id || '',
+      timestamp: post.created_at || '',
+      likes: post.likes_count || 0,
+      comments: post.comments_count || 0,
+      likedAt: post.liked_at || '',
+      image_url: post.image_url || undefined
+    };
+  });
 
   const dynamicStyles = StyleSheet.create({
     container: {
@@ -199,11 +194,17 @@ export default function LikedPostsScreen() {
     },
   });
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
+    if (!currentUserId) return;
+    
     setRefreshing(true);
-    setTimeout(() => {
+    try {
+      await refetch();
+    } catch (err) {
+      console.error('共感履歴のリフレッシュに失敗:', err);
+    } finally {
       setRefreshing(false);
-    }, 2000);
+    }
   };
 
   const handleBack = () => {
@@ -229,6 +230,63 @@ export default function LikedPostsScreen() {
 
   const totalLikes = likedPosts.reduce((sum, post) => sum + post.likes, 0);
   const totalComments = likedPosts.reduce((sum, post) => sum + post.comments, 0);
+  
+  // Loading state
+  if (isLoading && likedPosts.length === 0) {
+    return (
+      <SafeAreaView style={[dynamicStyles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={[dynamicStyles.emptyDescription, { marginTop: 16 }]}>共感履歴を読み込み中...</Text>
+      </SafeAreaView>
+    );
+  }
+  
+  // Error state
+  if (error && likedPosts.length === 0) {
+    return (
+      <SafeAreaView style={dynamicStyles.container}>
+        <View style={dynamicStyles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <ArrowLeft size={24} color={theme.colors.primary} />
+          </TouchableOpacity>
+          <Text style={dynamicStyles.headerTitle}>共感したポスト</Text>
+          <View style={styles.headerRight} />
+        </View>
+        <View style={styles.emptyState}>
+          <Heart size={48} color={theme.colors.text.disabled} />
+          <Text style={dynamicStyles.emptyTitle}>データの読み込みに失敗しました</Text>
+          <Text style={dynamicStyles.emptyDescription}>
+            ネットワーク接続を確認して、再試行してください。
+          </Text>
+          <TouchableOpacity onPress={onRefresh} style={styles.retryButton}>
+            <Text style={styles.retryButtonText}>再試行</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  
+  // No user logged in
+  if (!currentUserId) {
+    return (
+      <SafeAreaView style={dynamicStyles.container}>
+        <View style={dynamicStyles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <ArrowLeft size={24} color={theme.colors.primary} />
+          </TouchableOpacity>
+          <Text style={dynamicStyles.headerTitle}>共感したポスト</Text>
+          <View style={styles.headerRight} />
+        </View>
+        <View style={styles.emptyState}>
+          <Heart size={48} color={theme.colors.text.disabled} />
+          <Text style={dynamicStyles.emptyTitle}>ログインが必要です</Text>
+          <Text style={dynamicStyles.emptyDescription}>
+            共感履歴を表示するにはログインしてください。
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={dynamicStyles.container}>
@@ -255,13 +313,51 @@ export default function LikedPostsScreen() {
         </View>
       </View>
 
-      <ScrollView
+      <FlatList
+        data={likedPosts}
+        keyExtractor={(item) => item.id}
         style={styles.content}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
         }
-      >
-        {likedPosts.length === 0 ? (
+        renderItem={({ item: post }) => (
+          <TouchableOpacity
+            style={dynamicStyles.postContainer}
+            onPress={() => router.push({ pathname: '/profile', params: { userId: post.authorId } })}
+          >
+            <View style={styles.postHeader}>
+              <View style={styles.authorInfo}>
+                <User size={16} color={theme.colors.primary} />
+                <Text style={dynamicStyles.authorName}>{post.author}</Text>
+              </View>
+              <View style={styles.postDate}>
+                <Calendar size={14} color={theme.colors.text.disabled} />
+                <Text style={dynamicStyles.dateText}>{formatDate(post.timestamp)}</Text>
+              </View>
+            </View>
+            
+            <Text style={dynamicStyles.postContent}>{post.content}</Text>
+            
+            <View style={dynamicStyles.postStats}>
+              <View style={styles.statGroup}>
+                <Heart size={16} color={theme.colors.primary} fill={theme.colors.primary} />
+                <Text style={dynamicStyles.statTextLiked}>{post.likes} 共感</Text>
+              </View>
+              <View style={styles.statGroup}>
+                <MessageCircle size={16} color={theme.colors.text.disabled} />
+                <Text style={dynamicStyles.statText}>{post.comments} コメント</Text>
+              </View>
+            </View>
+            
+            <View style={styles.likedAtContainer}>
+              <Clock size={12} color={theme.colors.text.disabled} />
+              <Text style={dynamicStyles.likedAtText}>
+                {formatDate(post.likedAt)} に共感
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
+        ListEmptyComponent={() => (
           <View style={styles.emptyState}>
             <Heart size={48} color={theme.colors.text.disabled} />
             <Text style={dynamicStyles.emptyTitle}>共感したポストがありません</Text>
@@ -269,56 +365,8 @@ export default function LikedPostsScreen() {
               気になるポストに共感してみませんか？
             </Text>
           </View>
-        ) : (
-          likedPosts.map((post) => (
-            <View key={post.id} style={dynamicStyles.postContainer}>
-              <View style={styles.postHeader}>
-                <View style={styles.authorInfo}>
-                  <User size={16} color={theme.colors.primary} />
-                  <Text style={dynamicStyles.authorName}>{post.author}</Text>
-                </View>
-                <View style={styles.postDate}>
-                  <Calendar size={14} color={theme.colors.text.disabled} />
-                  <Text style={dynamicStyles.dateText}>{formatDate(post.timestamp)}</Text>
-                </View>
-              </View>
-              
-              <Text style={dynamicStyles.postContent}>{post.content}</Text>
-              
-              <View style={styles.tagsContainer}>
-                {post.tags.map((tag, index) => (
-                  <Text key={index} style={styles.tag}>#{tag}</Text>
-                ))}
-              </View>
-              
-              {post.aiResponse && (
-                <View style={dynamicStyles.aiResponseContainer}>
-                  <Text style={dynamicStyles.aiResponseLabel}>ママの味方</Text>
-                  <Text style={dynamicStyles.aiResponseText}>{post.aiResponse}</Text>
-                </View>
-              )}
-              
-              <View style={dynamicStyles.postStats}>
-                <View style={styles.statGroup}>
-                  <Heart size={16} color={theme.colors.primary} fill={theme.colors.primary} />
-                  <Text style={dynamicStyles.statTextLiked}>{post.likes} 共感</Text>
-                </View>
-                <View style={styles.statGroup}>
-                  <MessageCircle size={16} color="#4a9eff" />
-                  <Text style={dynamicStyles.statText}>{post.comments} コメント</Text>
-                </View>
-              </View>
-              
-              <View style={styles.likedAtContainer}>
-                <Clock size={12} color={theme.colors.text.disabled} />
-                <Text style={dynamicStyles.likedAtText}>
-                  {formatDate(post.likedAt)} に共感
-                </Text>
-              </View>
-            </View>
-          ))
         )}
-      </ScrollView>
+      />
     </SafeAreaView>
   );
 }
@@ -357,16 +405,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
+  retryButton: {
+    backgroundColor: '#ff6b9d',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 16,
   },
-  tag: {
-    fontSize: 14,
-    color: '#4a9eff',
-    marginRight: 8,
-    marginBottom: 4,
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   statGroup: {
     flexDirection: 'row',

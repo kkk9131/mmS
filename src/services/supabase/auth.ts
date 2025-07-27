@@ -13,6 +13,7 @@ export interface MaternalBookCredentials {
 export interface AuthResult {
   user: User | null;
   session: Session | null;
+  user_id?: string;
   error?: AuthError | null;
 }
 
@@ -46,6 +47,12 @@ export class SupabaseAuthService {
         mothersHandbookNumber: credentials.mothersHandbookNumber,
         nickname: credentials.nickname
       });
+      
+      // ニックネームの詳細チェック
+      if (credentials.nickname.includes('_修正')) {
+        console.warn('⚠️ 送信されるニックネームに「_修正」が含まれています:', credentials.nickname);
+        console.warn('⚠️ これはユーザーが入力した値です');
+      }
       
       supabaseDebugger.log('signInWithMaternalBook:start', true, null, {
         hasClient: !!client,
@@ -157,6 +164,7 @@ export class SupabaseAuthService {
       return { 
         user: mockUser, 
         session: mockSession, 
+        user_id: result.user_id,
         error: null 
       };
     } catch (error) {

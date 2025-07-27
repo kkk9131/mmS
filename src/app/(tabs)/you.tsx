@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { User, Settings, Heart, MessageCircle, Shield, LogOut, Bell, Plus } from 'lucide-react-native';
 import { DefaultAvatar } from '../../components/DefaultAvatar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +7,10 @@ import { router, useFocusEffect } from 'expo-router';
 import { useHandPreference } from '../../contexts/HandPreferenceContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../../contexts/AuthContext';
+import { PostsService } from '../../services/PostsService';
+import { FeatureFlagsManager } from '../../services/featureFlags';
+import { UserStatsService } from '../../services/UserStatsService';
 
 const NOTIFICATION_SETTINGS_KEY = 'notification_settings';
 
@@ -22,15 +26,23 @@ interface NotificationSettings {
 export default function YouScreen() {
   const { handPreference, setHandPreference } = useHandPreference();
   const { theme, isLightMode, setThemeMode } = useTheme();
+  const { user, logout } = useAuth();
   const [aiEmpathyEnabled, setAiEmpathyEnabled] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [followCount, setFollowCount] = useState(67);
-  const [followerCount, setFollowerCount] = useState(89);
+  const [followCount, setFollowCount] = useState(0);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [postCount, setPostCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  
+  const postsService = PostsService.getInstance();
+  const featureFlags = FeatureFlagsManager.getInstance();
+  const userStatsService = UserStatsService.getInstance();
 
-  // 画面フォーカス時に通知設定を再読み込み
+  // 画面フォーカス時に通知設定とユーザーデータを再読み込み
   useFocusEffect(
     React.useCallback(() => {
       loadNotificationSettings();
+      loadUserData();
     }, [])
   );
 
@@ -43,6 +55,40 @@ export default function YouScreen() {
       }
     } catch (error) {
       console.error('通知設定の読み込みに失敗:', error);
+    }
+  };
+
+  const loadUserData = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      console.log('📊 ユーザーデータ読み込み開始:', user.id);
+      
+      // Supabaseを強制的に有効化
+      const originalSupabaseFlag = featureFlags.getFlag('USE_SUPABASE');
+      featureFlags.setFlag('USE_SUPABASE', true);
+      
+      try {
+        // UserStatsServiceで統計情報を一括取得
+        const stats = await userStatsService.getUserStats(user.id);
+        
+        setPostCount(stats.postCount);
+        setFollowCount(stats.followingCount);
+        setFollowerCount(stats.followerCount);
+        
+        console.log('✅ ユーザー統計情報:', stats);
+      } finally {
+        featureFlags.setFlag('USE_SUPABASE', originalSupabaseFlag);
+      }
+      
+    } catch (error) {
+      console.error('❌ ユーザーデータ読み込みエラー:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -175,7 +221,15 @@ export default function YouScreen() {
       '本当にログアウトしますか？',
       [
         { text: 'キャンセル', style: 'cancel' },
-        { text: 'ログアウト', style: 'destructive', onPress: () => console.log('Logout') }
+        { text: 'ログアウト', style: 'destructive', onPress: async () => {
+          try {
+            await logout();
+            router.replace('/login');
+          } catch (error) {
+            console.error('ログアウトエラー:', error);
+            Alert.alert('エラー', 'ログアウトに失敗しました');
+          }
+        }}
       ]
     );
   };
@@ -203,6 +257,15 @@ export default function YouScreen() {
       </View>
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.colors.text.secondary }]}>
+            データを読み込んでいます...
+          </Text>
+        </View>
+      ) : (
+        <>
       <View style={dynamicStyles.profileSection}>
         <View style={[styles.profileCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
           <View style={styles.profileInfo}>
@@ -212,17 +275,34 @@ export default function YouScreen() {
             >
               <DefaultAvatar 
                 size={40}
-                name="みさき"
+                name={user?.nickname || 'ユーザー'}
+                imageUrl={user?.avatar_url}
               />
             </TouchableOpacity>
             <View style={styles.userInfo}>
-              <Text style={[styles.username, { color: theme.colors.text.primary }]}>みさき</Text>
-              <Text style={[styles.userStats, { color: theme.colors.text.secondary }]}>母子手帳番号: ****-****-123</Text>
-              <Text style={[styles.joinDate, { color: theme.colors.text.secondary }]}>参加日: 2024年1月15日</Text>
+              <Text style={[styles.username, { color: theme.colors.text.primary }]}>{user?.nickname || 'ユーザー'}</Text>
+              <Text style={[styles.userStats, { color: theme.colors.text.secondary }]}>
+                母子手帳番号: {user?.maternal_book_number ? 
+                  `****-****-${user.maternal_book_number.slice(-3)}` : 
+                  '未設定'}
+              </Text>
+              <Text style={[styles.joinDate, { color: theme.colors.text.secondary }]}>
+                参加日: {user?.created_at ? 
+                  new Date(user.created_at).toLocaleDateString('ja-JP', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  }) : 
+                  '不明'}
+              </Text>
             </View>
           </View>
           
           <View style={[styles.statsContainer, { borderTopColor: theme.colors.border }]}>
+            <View style={styles.statItem}>
+              <Text style={[styles.statNumber, { color: theme.colors.primary }]}>{postCount}</Text>
+              <Text style={[styles.statLabel, { color: theme.colors.text.secondary }]}>投稿</Text>
+            </View>
             <TouchableOpacity 
               style={styles.statItem}
               onPress={() => router.push('/follow-list')}
@@ -360,6 +440,8 @@ export default function YouScreen() {
           <Text style={styles.deleteText}>アカウント削除</Text>
         </TouchableOpacity>
       </View>
+        </>
+      )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -593,5 +675,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#aaa',
     lineHeight: 18,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
   },
 });

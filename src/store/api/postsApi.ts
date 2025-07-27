@@ -1,6 +1,7 @@
 import { supabaseApi } from './supabaseApi';
 import { Post, PostInsert, PostUpdate, Like, Comment, CommentInsert } from '../../types/supabase';
 import { supabaseClient } from '../../services/supabase/client';
+import { sql } from '@supabase/supabase-js';
 import { 
   CACHE_TIMES, 
   TAG_TYPES, 
@@ -21,6 +22,8 @@ interface PostWithExtras extends Omit<Post, 'likes_count' | 'comments_count'> {
   likes_count?: number;
   comments_count?: number;
   user_liked?: boolean;
+  user_commented?: boolean;
+  liked_at?: string; // When the user liked this post (for liked posts screen)
 }
 
 // Query parameters interface
@@ -104,9 +107,10 @@ export const postsApi = supabaseApi.injectEndpoints({
             likes_count: post.likes_count || 0,
             comments_count: post.comments_count || 0,
             user_liked: post.is_liked_by_user || false,
+            user_commented: post.is_commented_by_user || false,
             users: {
               id: post.user_id,
-              nickname: post.user_nickname || 'Unknown User',
+              nickname: (post.user_nickname || 'Unknown User').replace(/_修正$/, ''),
               avatar_url: post.user_avatar_url,
               is_anonymous: post.is_anonymous
             }
@@ -332,33 +336,41 @@ export const postsApi = supabaseApi.injectEndpoints({
       { liked: boolean; likesCount: number }, 
       { postId: string; userId: string }
     >({
-      queryFn: async ({ postId, userId }, { dispatch }) => {
+      queryFn: async ({ postId, userId }) => {
         try {
+          const supabase = supabaseClient.getClient();
+          
           // Check if already liked
-          const existingLikeResult = await dispatch(
-            postsApi.endpoints.checkLike.initiate({ postId, userId })
-          );
-          const existingLike = (existingLikeResult as any).data;
+          const { data: existingLike } = await supabase
+            .from('likes')
+            .select('id')
+            .eq('post_id', postId)
+            .eq('user_id', userId)
+            .maybeSingle();
           
           if (existingLike) {
-            // Unlike
-            await dispatch(
-              postsApi.endpoints.deleteLike.initiate({ postId, userId })
-            );
+            // Unlike - 削除のみ実行
+            const { error } = await supabase
+              .from('likes')
+              .delete()
+              .eq('post_id', postId)
+              .eq('user_id', userId);
+              
+            if (error) throw error;
             
-            return { data: { liked: false, likesCount: 0 } };
+            return { data: { liked: false, likesCount: -1 } };
           } else {
-            // Like
-            await dispatch(
-              postsApi.endpoints.createLike.initiate({ 
-                post_id: postId, 
-                user_id: userId 
-              })
-            );
+            // Like - 挿入のみ実行
+            const { error } = await supabase
+              .from('likes')
+              .insert({ post_id: postId, user_id: userId });
+              
+            if (error) throw error;
             
             return { data: { liked: true, likesCount: 1 } };
           }
         } catch (error) {
+          console.error('❌ toggleLikeエラー:', error);
           return { error: { message: 'Failed to toggle like', error } };
         }
       },
@@ -423,15 +435,26 @@ export const postsApi = supabaseApi.injectEndpoints({
 
     // Check if user liked a post
     checkLike: builder.query<Like | null, { postId: string; userId: string }>({
-      query: ({ postId, userId }) => ({
-        table: 'likes',
-        method: 'select',
-        query: 'id, created_at',
-        options: {
-          eq: { post_id: postId, user_id: userId },
-          single: true,
-        },
-      }),
+      queryFn: async ({ postId, userId }) => {
+        try {
+          const supabase = supabaseClient.getClient();
+          const { data, error } = await supabase
+            .from('likes')
+            .select('id, created_at')
+            .eq('post_id', postId)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (error) {
+            console.error('❌ いいね状態確認エラー:', error);
+            throw error;
+          }
+
+          return { data };
+        } catch (error) {
+          return { error: { message: 'Failed to check like', error } };
+        }
+      },
       providesTags: (result, error, { postId }) => [
         { type: 'Like', id: `POST_${postId}` },
       ],
@@ -439,11 +462,31 @@ export const postsApi = supabaseApi.injectEndpoints({
 
     // Create like
     createLike: builder.mutation<Like, { post_id: string; user_id: string }>({
-      query: (like) => ({
-        table: 'likes',
-        method: 'insert',
-        data: like,
-      }),
+      queryFn: async (like) => {
+        try {
+          const supabase = supabaseClient.getClient();
+          const { data, error } = await supabase
+            .from('likes')
+            .insert(like)
+            .select()
+            .single();
+
+          if (error) {
+            console.error('❌ いいね作成エラー:', error);
+            throw error;
+          }
+
+          console.log('✅ いいね作成成功:', data);
+          
+          // likes_countの更新はトリガーまたはRPCで実装することを推奨
+          // ここでは重複更新を避けるためコメントアウト
+          
+          return { data };
+        } catch (error) {
+          console.error('💥 いいね作成で例外:', error);
+          return { error: { message: 'Failed to create like', error } };
+        }
+      },
       invalidatesTags: (result, error, { post_id }) => [
         { type: 'Post', id: post_id },
         { type: 'Post', id: 'LIST' },
@@ -452,13 +495,31 @@ export const postsApi = supabaseApi.injectEndpoints({
 
     // Delete like
     deleteLike: builder.mutation<void, { postId: string; userId: string }>({
-      query: ({ postId, userId }) => ({
-        table: 'likes',
-        method: 'delete',
-        options: {
-          eq: { post_id: postId, user_id: userId },
-        },
-      }),
+      queryFn: async ({ postId, userId }) => {
+        try {
+          const supabase = supabaseClient.getClient();
+          const { error } = await supabase
+            .from('likes')
+            .delete()
+            .eq('post_id', postId)
+            .eq('user_id', userId);
+
+          if (error) {
+            console.error('❌ いいね削除エラー:', error);
+            throw error;
+          }
+
+          console.log('✅ いいね削除成功');
+          
+          // likes_countの更新はトリガーまたはRPCで実装することを推奨
+          // ここでは重複更新を避けるためコメントアウト
+          
+          return { data: undefined };
+        } catch (error) {
+          console.error('💥 いいね削除で例外:', error);
+          return { error: { message: 'Failed to delete like', error } };
+        }
+      },
       invalidatesTags: (result, error, { postId }) => [
         { type: 'Post', id: postId },
         { type: 'Post', id: 'LIST' },
@@ -467,23 +528,35 @@ export const postsApi = supabaseApi.injectEndpoints({
 
     // Get comments for a post
     getComments: builder.query<Comment[], string>({
-      query: (postId) => ({
-        table: 'comments',
-        method: 'select',
-        query: `
-          *,
-          users:user_id (
-            id,
-            nickname,
-            avatar_url,
-            is_anonymous
-          )
-        `,
-        options: {
-          eq: { post_id: postId },
-          order: { column: 'created_at', ascending: true },
-        },
-      }),
+      queryFn: async (postId) => {
+        try {
+          const supabase = supabaseClient.getClient();
+          const { data, error } = await supabase
+            .from('comments')
+            .select(`
+              *,
+              users!inner (
+                id,
+                nickname,
+                avatar_url,
+                is_anonymous
+              )
+            `)
+            .eq('post_id', postId)
+            .order('created_at', { ascending: true });
+
+          if (error) {
+            console.error('❌ コメント取得エラー:', error);
+            throw error;
+          }
+
+          console.log('✅ コメント取得成功:', data);
+          return { data: data || [] };
+        } catch (error) {
+          console.error('💥 コメント取得で例外:', error);
+          return { error: { message: 'Failed to fetch comments', error } };
+        }
+      },
       providesTags: (result, error, postId) =>
         result
           ? [
@@ -495,20 +568,35 @@ export const postsApi = supabaseApi.injectEndpoints({
 
     // Enhanced create comment with better optimistic updates
     createComment: builder.mutation<Comment, CommentInsert>({
-      query: (comment) => ({
-        table: 'comments',
-        method: 'insert',
-        data: comment,
-        query: `
-          *,
-          users:user_id (
-            id,
-            nickname,
-            avatar_url,
-            is_anonymous
-          )
-        `,
-      }),
+      queryFn: async (comment) => {
+        try {
+          const supabase = supabaseClient.getClient();
+          const { data, error } = await supabase
+            .from('comments')
+            .insert(comment)
+            .select(`
+              *,
+              users!inner (
+                id,
+                nickname,
+                avatar_url,
+                is_anonymous
+              )
+            `)
+            .single();
+
+          if (error) {
+            console.error('❌ コメント作成エラー:', error);
+            throw error;
+          }
+
+          console.log('✅ コメント作成成功:', data);
+          return { data };
+        } catch (error) {
+          console.error('💥 コメント作成で例外:', error);
+          return { error: { message: 'Failed to create comment', error } };
+        }
+      },
       invalidatesTags: (result, error, { post_id }) => [
         { type: 'Comment', id: `POST_${post_id}` },
         { type: 'Post', id: post_id },
@@ -685,6 +773,168 @@ export const postsApi = supabaseApi.injectEndpoints({
         { type: 'Post', id: userId ? `COUNT_USER_${userId}` : 'COUNT_ALL' },
       ],
     }),
+
+    // Get liked posts for a user
+    getLikedPosts: builder.query<PostWithExtras[], { userId: string; limit?: number; offset?: number }>({
+      queryFn: async ({ userId, limit = 20, offset = 0 }) => {
+        try {
+          const supabase = supabaseClient.getClient();
+          
+          console.log('🔍 いいねした投稿を取得中:', { userId, limit, offset });
+          
+          // SQLクエリと同等の直接的なアプローチ
+          console.log('📝 直接SQLクエリで取得');
+          
+          const { data: rawData, error } = await supabase
+            .from('likes')
+            .select(`
+              id,
+              created_at,
+              post_id,
+              posts (
+                id,
+                content,
+                created_at,
+                updated_at,
+                likes_count,
+                comments_count,
+                image_url,
+                is_anonymous,
+                user_id,
+                users (
+                  id,
+                  nickname,
+                  avatar_url,
+                  is_anonymous
+                )
+              )
+            `)
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+          
+          console.log('📝 取得したrawData:', rawData);
+          console.log('📝 エラー:', error);
+          
+          if (error) {
+            console.error('❌ データ取得エラー:', error);
+            // エラーがあってもフォールバックを試す
+          }
+          
+          // 強制的にフォールバック: 段階的取得（ネストクエリでusersがnullになるため）
+          if (true) {
+            console.log('🔄 フォールバック: 段階的取得');
+            
+            // 1. いいねデータだけ取得
+            const { data: likes } = await supabase
+              .from('likes')
+              .select('*')
+              .eq('user_id', userId)
+              .order('created_at', { ascending: false })
+              .limit(limit);
+            
+            console.log('📝 いいねデータ:', likes);
+            
+            if (!likes || likes.length === 0) {
+              console.log('⚠️ いいねデータが見つかりません');
+              return { data: [] };
+            }
+            
+            // 2. 各いいねに対して投稿データを取得
+            const transformedData: PostWithExtras[] = [];
+            
+            for (const like of likes) {
+              // 投稿取得
+              const { data: post, error: postError } = await supabase
+                .from('posts')
+                .select('*')
+                .eq('id', like.post_id)
+                .maybeSingle();
+              
+              if (postError) {
+                console.error('❌ 投稿取得エラー:', postError);
+                continue;
+              }
+              
+              if (!post) {
+                console.warn('⚠️ 投稿が見つかりません:', like.post_id);
+                continue;
+              }
+              
+              // ユーザー取得 - 単純なクエリで再試行
+              console.log('🔍 ユーザー取得開始:', { post_user_id: post.user_id });
+              let user = null;
+              let userError = null;
+              
+              try {
+                const result = await supabase
+                  .from('users')
+                  .select('id, nickname, avatar_url, is_anonymous')
+                  .eq('id', post.user_id);
+                
+                console.log('🔍 ユーザー取得 raw result:', result);
+                
+                if (result.data && result.data.length > 0) {
+                  user = result.data[0];
+                } else {
+                  userError = result.error || 'ユーザーが見つかりません';
+                }
+              } catch (e) {
+                console.error('💥 ユーザー取得例外:', e);
+                userError = e;
+              }
+              
+              console.log('🔍 ユーザー取得結果:', { 
+                user_id: post.user_id, 
+                user_data: user, 
+                error: userError 
+              });
+              
+              if (userError) {
+                console.error('❌ ユーザー取得エラー:', userError);
+              }
+              
+              console.log('📊 取得データ:', { post: post.id, user: user?.nickname });
+              
+              transformedData.push({
+                id: post.id,
+                user_id: post.user_id,
+                content: post.content || '',
+                image_url: post.image_url,
+                is_anonymous: post.is_anonymous || false,
+                created_at: post.created_at,
+                updated_at: post.updated_at,
+                likes_count: post.likes_count || 0,
+                comments_count: post.comments_count || 0,
+                user_liked: true,
+                users: user ? {
+                  id: user.id,
+                  nickname: (user.nickname || 'Unknown User').replace(/_修正$/, ''),
+                  avatar_url: user.avatar_url,
+                  is_anonymous: user.is_anonymous || false
+                } : null,
+                liked_at: like.created_at
+              });
+            }
+            
+            console.log('✅ フォールバック結果:', transformedData);
+            return { data: transformedData };
+          }
+          
+          // ネストクエリは使用せず、常にフォールバックを使用
+          console.log('⚠️ ネストクエリはスキップ（usersがnullになるため）');
+        } catch (error) {
+          console.error('💥 いいねした投稿取得で予期しないエラー:', error);
+          return { error: { message: 'Failed to fetch liked posts', error } };
+        }
+      },
+      providesTags: (result, error, { userId }) => [
+        { type: 'Post', id: `LIKED_USER_${userId}` },
+        { type: 'Like', id: `USER_${userId}` },
+        ...(result || []).map(post => ({ type: 'Post' as const, id: post.id }))
+      ],
+      keepUnusedDataFor: CACHE_TIMES.MEDIUM
+    }),
   }),
   overrideExisting: true,
 });
@@ -695,6 +945,7 @@ export const {
   useGetPostsQuery,
   useGetPostQuery,
   useGetPostsCountQuery,
+  useGetLikedPostsQuery,
   
   // Post mutations
   useCreatePostMutation,

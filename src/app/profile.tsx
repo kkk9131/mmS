@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, FlatList, ActivityIndicator } from 'react-native';
 import { ArrowLeft, User, MessageCircle, UserPlus, UserMinus, Heart, Calendar, MapPin, Share, MoveHorizontal as MoreHorizontal, LogOut } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
-import { useAppDispatch } from '../hooks/redux';
-// import { usersApi } from '../store/api/usersApi'; // Supabase無効時は使用しない
-// import { followsApi } from '../store/api/followsApi'; // Supabase無効時は使用しない
-// import { postsApi } from '../store/api/postsApi'; // Supabase無効時は使用しない
+import { useAppDispatch, useAppSelector } from '../hooks/redux';
+import { PostsService } from '../services/PostsService';
+import { FeatureFlagsManager } from '../services/featureFlags';
 import { User as UserType, UserProfile as UserProfileType } from '../types/users';
 import { useTheme } from '../contexts/ThemeContext';
 import { DefaultAvatar } from '../components/DefaultAvatar';
+import { FollowService } from '../services/FollowService';
+import { UserStatsService } from '../services/UserStatsService';
+import { postsApi } from '../store/api/postsApi';
 
 // 画面表示用のプロフィールインターface（既存のUIとの互換性維持）
 interface DisplayProfile {
@@ -34,66 +36,12 @@ interface UserPost {
   likes: number;
   comments: number;
   isLiked: boolean;
+  isCommented: boolean;
   tags: string[];
   aiResponse?: string;
 }
 
-const mockUserProfile: DisplayProfile = {
-  id: '1',
-  name: 'ゆかちゃん',
-  bio: '2歳の男の子のママです♡ 毎日の子育て、お互いに支え合いましょう！夜泣きや離乳食の悩みをシェアしています。',
-  location: '東京都',
-  joinDate: '2024年1月',
-  postCount: 24,
-  followingCount: 156,
-  followerCount: 203,
-  isFollowing: false,
-  isOwnProfile: false,
-};
-
-const mockOwnProfile: DisplayProfile = {
-  id: 'own',
-  name: 'みさき',
-  bio: '新米ママです！みんなのアドバイスに助けられています。よろしくお願いします♪',
-  location: '神奈川県',
-  joinDate: '2024年1月',
-  postCount: 18,
-  followingCount: 67,
-  followerCount: 89,
-  isFollowing: false,
-  isOwnProfile: true
-};
-
-const mockUserPosts: UserPost[] = [
-  {
-    id: '1',
-    content: '今日は息子の夜泣きがひどくて、もう限界かも...😢 みんなはどうやって乗り切ってる？',
-    timestamp: '2時間前',
-    likes: 12,
-    comments: 3,
-    isLiked: false,
-    tags: ['夜泣き', '新生児', 'しんどい'],
-    aiResponse: '夜泣き本当にお疲れ様です。一人で頑張らないで、少しでも休める時間を作ってくださいね ♡'
-  },
-  {
-    id: '2',
-    content: '離乳食を全然食べてくれない... 栄養面が心配で毎日不安です。何かいい方法はないでしょうか？',
-    timestamp: '1日前',
-    likes: 8,
-    comments: 5,
-    isLiked: true,
-    tags: ['離乳食', '食べない', '心配']
-  },
-  {
-    id: '3',
-    content: '保育園の送迎で他のママとの会話が苦手... 人見知りな性格で毎朝憂鬱になっちゃう',
-    timestamp: '3日前',
-    likes: 15,
-    comments: 7,
-    isLiked: false,
-    tags: ['保育園', '人見知り', 'ママ友']
-  }
-];
+// モックデータは削除 - Supabaseの実データを使用
 
 export default function ProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId?: string }>();
@@ -101,156 +49,395 @@ export default function ProfileScreen() {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
   
+  // Services
+  const postsService = PostsService.getInstance();
+  const featureFlags = FeatureFlagsManager.getInstance();
+  const followService = FollowService.getInstance();
+  const userStatsService = UserStatsService.getInstance();
+  
   // 自分のプロフィールかどうかを判定
   const isOwnProfile = !userId || userId === 'own';
+  
+  // デバッグ: ユーザー情報を確認
+  console.log('🔍 Debug - user from useAuth:', user);
+  console.log('🔍 Debug - user.nickname:', user?.nickname);
+  console.log('🔍 Debug - user.maternal_book_number:', user?.maternal_book_number);
+  console.log('🔍 Debug - userId from params:', userId);
+  console.log('🔍 Debug - isOwnProfile:', isOwnProfile);
+  
+  // 現在のニックネームが「かずと_修正」になっている原因調査
+  if (user?.nickname?.includes('_修正')) {
+    console.warn('⚠️ ユーザーニックネームに「_修正」が含まれています！');
+    console.warn('⚠️ 調査が必要: ユーザーニックネーム =', user.nickname);
+  }
+  
+  // 実際の認証済みユーザーIDを使用（フォールバックなし）
+  const targetUserId = isOwnProfile 
+    ? user?.id // 認証済みユーザーのIDのみ使用
+    : userId;
+    
+  console.log('🔍 Debug - targetUserId:', targetUserId);
+  
+  // State
   const [refreshing, setRefreshing] = useState(false);
+  const [userPosts, setUserPosts] = useState<UserPost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [postsError, setPostsError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<DisplayProfile | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
   
-  // モック投稿データを状態として管理
-  const [mockPostsState, setMockPostsState] = useState<UserPost[]>(mockUserPosts);
+  // コメントモーダル関連の状態
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<UserPost | null>(null);
+  const [commentText, setCommentText] = useState('');
   
-  // Mock user profile (Supabase is disabled)
-  const userProfile = isOwnProfile ? null : mockUserProfile;
-  const userProfileError = null;
-  const userProfileLoading = false;
-  const refetchProfile = async () => {};
+  // RTK Query hooks for comments
+  const [createComment] = postsApi.useCreateCommentMutation();
+  const currentUserId = useAppSelector(state => state.auth?.profile?.id || state.auth?.user?.id);
+  const {
+    data: comments = [],
+    isLoading: commentsLoading,
+    refetch: refetchComments
+  } = postsApi.useGetCommentsQuery(selectedPost?.id || '', {
+    skip: !selectedPost?.id || !commentModalVisible
+  });
   
-  // Mock own profile (Supabase is disabled)
-  const ownProfile = isOwnProfile ? mockOwnProfile : null;
-  const ownProfileError = null;
-  const ownProfileLoading = false;
-  const refetchOwnProfile = async () => {};
-  
-  // Mock posts data (Supabase is disabled) - use state version
-  const postsData = { posts: mockPostsState };
-  const postsLoading = false;
-  const refetchPosts = async () => {};
-  
-  // Mock follow mutations (Supabase is disabled)
-  const followUser = async () => {
-    console.log('Mock follow user');
-    return { unwrap: () => Promise.resolve() };
+  // Load user posts
+  const loadUserPosts = async () => {
+    console.log('🚀 loadUserPosts開始');
+    console.log('🔍 targetUserId:', targetUserId);
+    console.log('🔍 user:', user);
+    
+    if (!targetUserId) {
+      console.log('❌ targetUserIdがありません');
+      console.log('🔍 isOwnProfile:', isOwnProfile);
+      console.log('🔍 user?.id:', user?.id);
+      console.log('🔍 userId (params):', userId);
+      setPostsLoading(false);
+      setPostsError('ユーザーが認証されていません');
+      return;
+    }
+    
+    try {
+      setPostsLoading(true);
+      setPostsError(null);
+      
+      console.log('🔍 Loading posts for user:', targetUserId);
+      
+      // Supabaseを強制的に使用
+      const originalSupabaseFlag = featureFlags.getFlag('USE_SUPABASE');
+      featureFlags.setFlag('USE_SUPABASE', true);
+      
+      try {
+        console.log('📞 PostsService.getUserPosts呼び出し開始');
+        console.log('🔍 検索対象ユーザーID:', targetUserId);
+        console.log('🔍 現在ログイン中のユーザー:', user);
+        
+        const response = await postsService.getUserPosts(targetUserId, {
+          page: 1,
+          limit: 20,
+          sortBy: 'createdAt',
+          order: 'desc'
+        });
+        
+        console.log('📊 PostsServiceレスポンス:', response);
+        console.log('📊 投稿数:', response.posts.length);
+        console.log('📊 取得した投稿:', response.posts.map(p => ({ id: p.id, authorId: p.authorId, authorName: p.authorName, content: p.content.substring(0, 50) })));
+        
+        // PostsServiceの形式からUserPost形式に変換
+        const transformedPosts: UserPost[] = response.posts.map(post => ({
+          id: post.id,
+          content: post.content,
+          timestamp: formatTimestamp(post.createdAt),
+          likes: post.likesCount,
+          comments: post.commentsCount,
+          isLiked: post.isLiked,
+          isCommented: post.isCommented || false,
+          tags: [], // タグ機能は後で実装
+          aiResponse: undefined
+        }));
+        
+        setUserPosts(transformedPosts);
+        console.log('✅ User posts loaded:', transformedPosts.length);
+        
+        // プロフィール情報を設定（常にAuthContextのuser情報を使用）
+        if (isOwnProfile && user) {
+          // 自分のプロフィールの場合は、AuthContextから取得したユーザー情報を使用
+          
+          // 統計情報を取得
+          let stats = { postCount: 0, followingCount: 0, followerCount: 0 };
+          try {
+            stats = await userStatsService.getUserStats(user.id);
+          } catch (error) {
+            console.log('統計情報取得エラー:', error);
+          }
+          
+          setProfile({
+            id: user.id,
+            name: user.nickname || 'Unknown',
+            bio: user.maternal_book_number ? `母子手帳番号: ${user.maternal_book_number}` : '',
+            location: '',
+            joinDate: formatJoinDate(user.created_at || new Date().toISOString()),
+            postCount: stats.postCount,
+            followingCount: stats.followingCount,
+            followerCount: stats.followerCount,
+            isFollowing: false,
+            isOwnProfile: true,
+            avatar: user.avatar_url
+          });
+        } else if (targetUserId && !isOwnProfile) {
+          // 他のユーザーのプロフィールの場合
+          
+          // 統計情報を取得
+          let stats = { postCount: 0, followingCount: 0, followerCount: 0 };
+          try {
+            stats = await userStatsService.getUserStats(targetUserId);
+          } catch (error) {
+            console.log('統計情報取得エラー:', error);
+          }
+          
+          // フォロー状態を確認
+          if (user) {
+            try {
+              const relationship = await followService.getFollowRelationship(targetUserId);
+              setIsFollowing(relationship.isFollowing);
+            } catch (error) {
+              console.log('フォロー状態取得エラー:', error);
+            }
+          }
+          
+          // 投稿から基本情報を取得
+          const userInfo = response.posts.length > 0 
+            ? {
+                name: response.posts[0].authorName,
+                avatar: response.posts[0].authorAvatar
+              }
+            : {
+                name: 'Unknown',
+                avatar: undefined
+              };
+          
+          setProfile({
+            id: targetUserId,
+            name: userInfo.name,
+            bio: '',
+            location: '',
+            joinDate: formatJoinDate(new Date().toISOString()),
+            postCount: stats.postCount,
+            followingCount: stats.followingCount,
+            followerCount: stats.followerCount,
+            isFollowing: isFollowing,
+            isOwnProfile,
+            avatar: userInfo.avatar
+          });
+        }
+      } finally {
+        featureFlags.setFlag('USE_SUPABASE', originalSupabaseFlag);
+      }
+    } catch (err) {
+      console.error('❌ Failed to load user posts:', err);
+      console.error('❌ Error details:', JSON.stringify(err, null, 2));
+      console.error('❌ Error type:', typeof err);
+      console.error('❌ Error message:', (err as any)?.message);
+      console.error('❌ Error stack:', (err as any)?.stack);
+      setPostsError(`投稿の読み込みに失敗しました: ${(err as any)?.message || 'Unknown error'}`);
+      setUserPosts([]);
+    } finally {
+      console.log('✅ loadUserPosts完了 - ローディング終了');
+      setPostsLoading(false);
+    }
   };
-  const unfollowUser = async () => {
-    console.log('Mock unfollow user');
-    return { unwrap: () => Promise.resolve() };
+  
+  // Helper functions
+  const formatTimestamp = (isoString: string): string => {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffHours < 1) return '1時間未満前';
+    if (diffHours < 24) return `${diffHours}時間前`;
+    if (diffDays === 1) return '1日前';
+    return `${diffDays}日前`;
   };
   
-  // Mock post mutations (Supabase is disabled)
-  const likePost = async () => {
-    console.log('Mock like post');
-    return { unwrap: () => Promise.resolve() };
+  const formatJoinDate = (isoString: string): string => {
+    const date = new Date(isoString);
+    return `${date.getFullYear()}年${date.getMonth() + 1}月`;
   };
-  const unlikePost = async () => {
-    console.log('Mock unlike post');
-    return { unwrap: () => Promise.resolve() };
-  };
-
-  // Transform profile data
-  const rawProfile = isOwnProfile ? ownProfile : userProfile;
-  const posts: UserPost[] = (postsData as any)?.posts?.map((post: any) => ({
-    id: post.id,
-    content: post.content,
-    timestamp: new Date(post.createdAt).toLocaleString('ja-JP', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }),
-    likes: post.likesCount,
-    comments: post.commentsCount,
-    isLiked: post.isLiked,
-    tags: [], // TODO: Extract tags from content or add tags field
-    aiResponse: undefined // TODO: Add AI response logic if needed
-  })) || [];
   
-  // Transform to display profile (rawProfile is already in DisplayProfile format for mock data)
-  const profile: DisplayProfile | null = rawProfile;
+  // Load data on mount and focus
+  useEffect(() => {
+    console.log('🔄 useEffect実行 - targetUserId変更:', targetUserId);
+    console.log('🔄 useEffect実行 - user.id:', user?.id);
+    if (targetUserId) {
+      loadUserPosts();
+      loadFollowRelationship();
+    } else {
+      console.log('⚠️ targetUserIdがnull/undefinedのため読み込みをスキップ');
+    }
+  }, [targetUserId, user?.id]); // user.idも依存配列に追加
   
-  // Loading and error states
-  const loading = isOwnProfile ? ownProfileLoading : userProfileLoading;
-  const error = (isOwnProfile ? ownProfileError : userProfileError) ? 'プロフィールの読み込みに失敗しました' : null;
-
-  // Refetch on focus for own profile (to reflect updates from editing)
   useFocusEffect(
     React.useCallback(() => {
-      if (isOwnProfile) {
-        refetchOwnProfile();
-        refetchPosts();
+      console.log('🔄 プロフィール画面にフォーカス - データ再読み込み');
+      if (targetUserId) {
+        loadUserPosts();
+        loadFollowRelationship();
       }
-    }, [isOwnProfile, refetchOwnProfile, refetchPosts])
+    }, [targetUserId])
   );
+  
+  // Load follow relationship
+  const loadFollowRelationship = async () => {
+    if (!targetUserId || isOwnProfile) {
+      setIsFollowing(false);
+      return;
+    }
+    
+    try {
+      const relationship = await followService.getFollowRelationship(targetUserId);
+      setIsFollowing(relationship.isFollowing);
+    } catch (error) {
+      console.error('フォロー関係の取得エラー:', error);
+      setIsFollowing(false);
+    }
+  };
+
+  // Data for rendering
+  const posts: UserPost[] = userPosts;
+  const loading = postsLoading;
+  const error = postsError;
 
   const handleBack = () => {
     router.back();
   };
 
-  const handleFollow = async () => {
-    if (!profile || profile.isOwnProfile) return;
+  const handleLike = async (postId: string) => {
+    if (!user?.id) {
+      Alert.alert('エラー', 'ログインが必要です');
+      return;
+    }
 
-    const willFollow = !profile.isFollowing;
+    const post = userPosts.find(p => p.id === postId);
+    if (!post) return;
 
+    const wasLiked = post.isLiked;
+
+    // Update local state for immediate UI feedback
+    setUserPosts(prevPosts => 
+      prevPosts.map(p => 
+        p.id === postId 
+          ? {
+              ...p,
+              isLiked: !wasLiked,
+              likes: wasLiked ? p.likes - 1 : p.likes + 1
+            }
+          : p
+      )
+    );
+
+    // 実際のSupabaseにいいね状態を送信
     try {
-      if (willFollow) {
-        await (await followUser()).unwrap();
+      console.log('📡 いいね処理開始:', { postId, wasLiked, userId: user.id });
+      
+      if (wasLiked) {
+        await postsService.unlikePost(postId);
+        console.log('✅ いいね解除成功');
       } else {
-        await (await unfollowUser()).unwrap();
+        await postsService.likePost(postId);
+        console.log('✅ いいね成功');
       }
-    } catch (error) {
-      console.error('Failed to update follow status:', error);
-      Alert.alert(
-        'エラー',
-        willFollow ? 'フォローに失敗しました' : 'フォロー解除に失敗しました'
+    } catch (err) {
+      console.error('❌ いいね処理に失敗:', err);
+      // エラー時は状態を元に戻す
+      setUserPosts(prevPosts => 
+        prevPosts.map(p => 
+          p.id === postId 
+            ? {
+                ...p,
+                isLiked: wasLiked,
+                likes: wasLiked ? p.likes : p.likes - 1
+              }
+            : p
+        )
       );
+      Alert.alert('エラー', 'いいね処理に失敗しました');
     }
   };
 
-  const handleMessage = () => {
-    router.push({
-      pathname: '/chat',
-      params: { userId: profile?.id || '', userName: profile?.name || '' }
-    });
-  };
-
-  const handleShare = () => {
-    Alert.alert('プロフィールを共有', 'プロフィールのリンクをコピーしました');
-  };
-
-  const handleLike = async (postId: string) => {
-    // Update local state for immediate UI feedback
-    setMockPostsState(prevPosts => 
-      prevPosts.map(post => 
-        post.id === postId 
-          ? {
-              ...post,
-              isLiked: !post.isLiked,
-              likes: post.isLiked ? post.likes - 1 : post.likes + 1
-            }
-          : post
-      )
-    );
-    
-    console.log('Like toggled for post:', postId);
-  };
-
   const handleComment = (postId: string) => {
-    const post = mockPostsState.find(p => p.id === postId);
+    const post = userPosts.find(p => p.id === postId);
     if (post) {
-      Alert.alert(
-        'コメント',
-        `「${post.content.substring(0, 50)}...」へのコメント機能は開発中です。`,
-        [{ text: 'OK' }]
-      );
+      setSelectedPost(post);
+      setCommentModalVisible(true);
+      // Comments will be loaded automatically via useGetCommentsQuery
+    }
+  };
+  
+  const handleCommentSubmit = async () => {
+    if (!selectedPost || commentText.trim().length === 0 || !currentUserId) {
+      if (!currentUserId) {
+        Alert.alert('エラー', 'ログインが必要です');
+      }
+      return;
+    }
+
+    try {
+      if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
+        // RTK Query mutation を使用
+        const result = await createComment({
+          post_id: selectedPost.id,
+          user_id: currentUserId,
+          content: commentText.trim(),
+          is_anonymous: false
+        }).unwrap();
+        
+        console.log('✅ コメントを投稿しました:', result);
+        
+        // コメントリストを再取得
+        await refetchComments();
+        
+        // ローカル状態も更新
+        setUserPosts(prevPosts => 
+          prevPosts.map(post => 
+            post.id === selectedPost.id 
+              ? { ...post, comments: post.comments + 1, isCommented: true }
+              : post
+          )
+        );
+        
+        setCommentText('');
+        // モーダルは開いたままにする
+      } else {
+        // PostsService を直接使用
+        await postsService.createComment(selectedPost.id, {
+          content: commentText.trim()
+        });
+        
+        // ローカル状態を更新
+        setUserPosts(prevPosts => 
+          prevPosts.map(post => 
+            post.id === selectedPost.id 
+              ? { ...post, comments: post.comments + 1, isCommented: true }
+              : post
+          )
+        );
+        
+        setCommentText('');
+      }
+    } catch (err) {
+      console.error('コメント投稿に失敗:', err);
+      Alert.alert('エラー', 'コメントの投稿に失敗しました');
     }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      if (isOwnProfile) {
-        await Promise.all([refetchOwnProfile(), refetchPosts()]);
-      } else {
-        await Promise.all([refetchProfile(), refetchPosts()]);
-      }
+      await loadUserPosts();
     } catch (error) {
       console.error('Failed to refresh profile:', error);
     } finally {
@@ -280,6 +467,72 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+  
+  const handleFollowToggle = async () => {
+    console.log('🚀 [PROFILE] フォローボタンクリック!');
+    console.log('🔍 [PROFILE] targetUserId:', targetUserId);
+    console.log('🔍 [PROFILE] isOwnProfile:', isOwnProfile);
+    console.log('🔍 [PROFILE] 現在のフォロー状態:', isFollowing);
+    
+    if (!targetUserId || isOwnProfile) {
+      console.log('❌ [PROFILE] 早期リターン: targetUserId=', targetUserId, 'isOwnProfile=', isOwnProfile);
+      return;
+    }
+    
+    console.log('📊 [PROFILE] フォロー処理開始');
+    setFollowLoading(true);
+    const willFollow = !isFollowing;
+    console.log('🎯 [PROFILE] 実行予定の操作:', willFollow ? 'フォロー' : 'フォロー解除');
+    
+    // 楽観的更新
+    console.log('🔄 [PROFILE] UI楽観的更新実行');
+    setIsFollowing(willFollow);
+    if (profile) {
+      setProfile({
+        ...profile,
+        followerCount: profile.followerCount + (willFollow ? 1 : -1)
+      });
+    }
+    
+    try {
+      console.log('📡 [PROFILE] FollowService API呼び出し開始');
+      
+      if (willFollow) {
+        console.log('➡️ [PROFILE] followUser API呼び出し:', targetUserId);
+        const result = await followService.followUser(targetUserId);
+        console.log('✅ [PROFILE] followUser API成功:', result);
+      } else {
+        console.log('➡️ [PROFILE] unfollowUser API呼び出し:', targetUserId);
+        const result = await followService.unfollowUser(targetUserId);
+        console.log('✅ [PROFILE] unfollowUser API成功:', result);
+      }
+      
+      console.log('🎉 [PROFILE] フォロー操作完了');
+    } catch (error) {
+      console.error('❌ [PROFILE] フォロー処理エラー:', error);
+      console.error('❌ [PROFILE] エラー詳細:', JSON.stringify(error, null, 2));
+      console.error('❌ [PROFILE] エラータイプ:', typeof error);
+      console.error('❌ [PROFILE] エラーメッセージ:', (error as any)?.message);
+      console.error('❌ [PROFILE] エラースタック:', (error as any)?.stack);
+      
+      // エラー時は元に戻す
+      console.log('🔄 [PROFILE] UIロールバック実行');
+      setIsFollowing(!willFollow);
+      if (profile) {
+        setProfile({
+          ...profile,
+          followerCount: profile.followerCount + (willFollow ? -1 : 1)
+        });
+      }
+      Alert.alert(
+        'エラー', 
+        `${willFollow ? 'フォロー' : 'フォロー解除'}に失敗しました\n\n詳細: ${(error as any)?.message || 'Unknown error'}`
+      );
+    } finally {
+      console.log('🔄 [PROFILE] フォロー処理終了 - ローディング状態解除');
+      setFollowLoading(false);
+    }
   };
 
   // 動的スタイル
@@ -474,15 +727,111 @@ export default function ProfileScreen() {
     likedText: {
       color: theme.colors.primary,
     },
+    commentedText: {
+      color: theme.colors.primary,
+    },
     loadingText: {
       fontSize: 16,
       color: theme.colors.text.secondary,
       textAlign: 'center',
     },
+    commentModalContainer: {
+      backgroundColor: theme.colors.background,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      height: '80%',
+      maxHeight: '80%',
+    },
+    commentModalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    commentModalTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+    },
+    commentModalCloseText: {
+      fontSize: 24,
+      color: theme.colors.text.disabled,
+    },
+    originalPost: {
+      backgroundColor: theme.colors.surface,
+      padding: 16,
+      marginHorizontal: 16,
+      marginTop: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    originalPostAuthor: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.primary,
+      marginBottom: 8,
+    },
+    originalPostContent: {
+      fontSize: 16,
+      color: theme.colors.text.primary,
+      lineHeight: 22,
+    },
+    commentItem: {
+      backgroundColor: theme.colors.surface,
+      padding: 12,
+      marginBottom: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    commentAuthor: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.primary,
+    },
+    commentTimestamp: {
+      fontSize: 12,
+      color: theme.colors.text.secondary,
+    },
+    commentContent: {
+      fontSize: 14,
+      color: theme.colors.text.primary,
+      lineHeight: 20,
+      marginBottom: 8,
+    },
+    commentInputContainer: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      padding: 16,
+      backgroundColor: theme.colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    commentInput: {
+      flex: 1,
+      backgroundColor: theme.colors.card,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      fontSize: 16,
+      color: theme.colors.text.primary,
+      maxHeight: 80,
+      marginRight: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    noCommentsText: {
+      color: theme.colors.text.secondary,
+      fontSize: 14,
+      textAlign: 'center',
+    },
   });
 
-  // ローディング状態の表示
-  if (loading || !profile) {
+  // ローディング状態の表示（投稿読み込み中のみ）
+  if (loading) {
     return (
       <SafeAreaView style={dynamicStyles.container}>
         <View style={dynamicStyles.header}>
@@ -499,6 +848,36 @@ export default function ProfileScreen() {
       </SafeAreaView>
     );
   }
+  
+  // プロフィールが存在しない場合はデフォルトプロフィールを作成
+  const displayProfile = profile || {
+    id: targetUserId,
+    name: isOwnProfile ? (user?.nickname || 'Unknown') : 'Unknown User',
+    bio: isOwnProfile && user?.maternal_book_number ? `母子手帳番号: ${user.maternal_book_number}` : '',
+    location: '',
+    joinDate: formatJoinDate(user?.created_at || new Date().toISOString()),
+    postCount: posts.length,
+    followingCount: 0,
+    followerCount: 0,
+    isFollowing: false,
+    isOwnProfile,
+    avatar: isOwnProfile ? user?.avatar_url : undefined
+  };
+
+  const handleFollow = async () => {
+    await handleFollowToggle();
+  };
+
+  const handleMessage = () => {
+    router.push({
+      pathname: '/chat',
+      params: { userId: displayProfile?.id || '', userName: displayProfile?.name || '' }
+    });
+  };
+
+  const handleShare = () => {
+    Alert.alert('プロフィールを共有', 'プロフィールのリンクをコピーしました');
+  };
 
   return (
     <SafeAreaView style={dynamicStyles.container}>
@@ -527,17 +906,17 @@ export default function ProfileScreen() {
               <View style={dynamicStyles.avatarContainer}>
                 <DefaultAvatar 
                   size={80}
-                  name={profile.name}
-                  imageUrl={profile.avatar}
+                  name={displayProfile.name}
+                  imageUrl={displayProfile.avatar}
                 />
               </View>
               <View style={styles.userInfo}>
-                <Text style={dynamicStyles.userName}>{profile.name}</Text>
+                <Text style={dynamicStyles.userName}>{displayProfile.name}</Text>
               </View>
             </View>
 
             <View style={styles.profileActions}>
-              {profile.isOwnProfile ? (
+              {displayProfile.isOwnProfile ? (
                 <TouchableOpacity
                   style={dynamicStyles.editButton}
                   onPress={() => router.push('/profile-edit')}
@@ -550,10 +929,13 @@ export default function ProfileScreen() {
                     <MessageCircle size={18} color={theme.colors.primary} />
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.followButton, profile.isFollowing && dynamicStyles.followingButton]}
+                    style={[styles.followButton, isFollowing && dynamicStyles.followingButton]}
                     onPress={handleFollow}
+                    disabled={followLoading}
                   >
-                    {profile.isFollowing ? (
+                    {followLoading ? (
+                      <Text style={styles.followButtonText}>処理中...</Text>
+                    ) : isFollowing ? (
                       <>
                         <UserMinus size={18} color={theme.colors.text.disabled} />
                         <Text style={[styles.followButtonText, dynamicStyles.followingText]}>フォロー中</Text>
@@ -571,22 +953,47 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.profileInfo}>
-            <Text style={dynamicStyles.profileName}>{profile.name}</Text>
-            <Text style={dynamicStyles.profileBio}>{profile.bio}</Text>
+            <Text style={dynamicStyles.profileName}>{displayProfile.name}</Text>
+            <Text style={dynamicStyles.profileBio}>{displayProfile.bio}</Text>
 
             <View style={styles.profileMeta}>
               <View style={styles.metaItem}>
                 <MapPin size={16} color={theme.colors.text.disabled} />
-                <Text style={dynamicStyles.metaText}>{profile.location}</Text>
+                <Text style={dynamicStyles.metaText}>{displayProfile.location}</Text>
               </View>
               <View style={styles.metaItem}>
                 <Calendar size={16} color={theme.colors.text.disabled} />
-                <Text style={dynamicStyles.metaText}>{profile.joinDate}から利用</Text>
+                <Text style={dynamicStyles.metaText}>{displayProfile.joinDate}から利用</Text>
               </View>
             </View>
 
+            {/* 統計情報 */}
+            <View style={styles.statsRow}>
+              <TouchableOpacity 
+                style={styles.statItem}
+                onPress={() => displayProfile.isOwnProfile && router.push('/follow-list')}
+              >
+                <Text style={dynamicStyles.statNumber}>{displayProfile.postCount}</Text>
+                <Text style={dynamicStyles.statLabel}>投稿</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.statItem}
+                onPress={() => displayProfile.isOwnProfile && router.push('/follow-list')}
+              >
+                <Text style={dynamicStyles.statNumber}>{displayProfile.followerCount}</Text>
+                <Text style={dynamicStyles.statLabel}>フォロワー</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.statItem}
+                onPress={() => displayProfile.isOwnProfile && router.push('/follow-list')}
+              >
+                <Text style={dynamicStyles.statNumber}>{displayProfile.followingCount}</Text>
+                <Text style={dynamicStyles.statLabel}>フォロー中</Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.statsContainer}>
-              {profile.isOwnProfile && (
+              {displayProfile.isOwnProfile && (
                 <View style={styles.activityButtons}>
                   <TouchableOpacity
                     style={dynamicStyles.activityButton}
@@ -623,7 +1030,7 @@ export default function ProfileScreen() {
               <MessageCircle size={48} color={theme.colors.text.disabled} />
               <Text style={dynamicStyles.emptyTitle}>まだポストがありません</Text>
               <Text style={dynamicStyles.emptyDescription}>
-                {profile.isOwnProfile ? '最初のポストを作成してみませんか？' : 'このユーザーはまだポストしていません'}
+                {displayProfile.isOwnProfile ? '最初のポストを作成してみませんか？' : 'このユーザーはまだポストしていません'}
               </Text>
             </View>
           ) : (
@@ -633,7 +1040,7 @@ export default function ProfileScreen() {
                   <View style={styles.postUser}>
                     <User size={32} color={theme.colors.primary} />
                     <View style={styles.postUserInfo}>
-                      <Text style={dynamicStyles.postUserName}>{profile.name}</Text>
+                      <Text style={dynamicStyles.postUserName}>{displayProfile.name}</Text>
                       <Text style={dynamicStyles.postTimestamp}>{post.timestamp}</Text>
                     </View>
                   </View>
@@ -669,11 +1076,17 @@ export default function ProfileScreen() {
                   </TouchableOpacity>
 
                   <TouchableOpacity 
-                    style={styles.actionButton}
+                    style={[styles.actionButton, post.isCommented && styles.commentedButton]}
                     onPress={() => handleComment(post.id)}
                   >
-                    <MessageCircle size={20} color={theme.colors.text.disabled} />
-                    <Text style={dynamicStyles.actionText}>{post.comments}</Text>
+                    <MessageCircle 
+                      size={20} 
+                      color={post.isCommented ? theme.colors.primary : theme.colors.text.disabled}
+                      fill={post.isCommented ? theme.colors.primary : 'none'} 
+                    />
+                    <Text style={[dynamicStyles.actionText, post.isCommented && dynamicStyles.commentedText]}>
+                      {post.comments}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -681,6 +1094,96 @@ export default function ProfileScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* コメントモーダル */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={commentModalVisible}
+        onRequestClose={() => setCommentModalVisible(false)}
+      >
+        <View style={styles.commentModalOverlay}>
+          <KeyboardAvoidingView
+            style={dynamicStyles.commentModalContainer}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <View style={dynamicStyles.commentModalHeader}>
+              <Text style={dynamicStyles.commentModalTitle}>コメント</Text>
+              <TouchableOpacity
+                onPress={() => setCommentModalVisible(false)}
+                style={styles.commentModalClose}
+              >
+                <Text style={dynamicStyles.commentModalCloseText}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            {selectedPost && (
+              <>
+                <View style={dynamicStyles.originalPost}>
+                  <Text style={dynamicStyles.originalPostAuthor}>{profile?.name || 'Unknown'}</Text>
+                  <Text style={dynamicStyles.originalPostContent}>{selectedPost.content}</Text>
+                </View>
+
+                {commentsLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={theme.colors.primary} />
+                    <Text style={dynamicStyles.loadingText}>コメントを読み込み中...</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={comments}
+                    keyExtractor={(comment) => comment.id}
+                    style={styles.commentsList}
+                    renderItem={({ item: comment }) => {
+                      const user = (comment as any).users;
+                      const authorName = user?.nickname || 'Unknown';
+                      
+                      return (
+                        <View style={dynamicStyles.commentItem}>
+                          <View style={styles.commentHeader}>
+                            <Text style={dynamicStyles.commentAuthor}>{authorName.replace(/_修正$/, '')}</Text>
+                            <Text style={dynamicStyles.commentTimestamp}>{new Date(comment.created_at || new Date()).toLocaleString('ja-JP', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}</Text>
+                          </View>
+                          <Text style={dynamicStyles.commentContent}>{comment.content}</Text>
+                        </View>
+                      );
+                    }}
+                    ListEmptyComponent={() => (
+                      <View style={styles.noCommentsContainer}>
+                        <Text style={dynamicStyles.noCommentsText}>まだコメントがありません</Text>
+                      </View>
+                    )}
+                  />
+                )}
+
+                <View style={dynamicStyles.commentInputContainer}>
+                  <TextInput
+                    style={dynamicStyles.commentInput}
+                    placeholder="コメントを入力..."
+                    placeholderTextColor={theme.colors.text.disabled}
+                    value={commentText}
+                    onChangeText={setCommentText}
+                    multiline
+                    maxLength={200}
+                  />
+                  <TouchableOpacity
+                    style={[styles.commentSubmitButton, commentText.trim().length === 0 && styles.commentSubmitButtonDisabled]}
+                    onPress={handleCommentSubmit}
+                    disabled={commentText.trim().length === 0}
+                  >
+                    <Text style={styles.commentSubmitButtonText}>送信</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -843,14 +1346,22 @@ const styles = StyleSheet.create({
     color: '#888',
     marginLeft: 4,
   },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 16,
+    marginBottom: 16,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#333',
+  },
   statsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   statItem: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 20,
+    flex: 1,
   },
   statNumber: {
     fontSize: 16,
@@ -1001,6 +1512,9 @@ const styles = StyleSheet.create({
   likedButton: {
     backgroundColor: '#ff6b9d20',
   },
+  commentedButton: {
+    backgroundColor: '#ff6b9d20',
+  },
   actionText: {
     fontSize: 14,
     color: '#666',
@@ -1026,5 +1540,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#888',
     textAlign: 'center',
+  },
+  commentModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  commentModalClose: {
+    padding: 8,
+    borderRadius: 8,
+  },
+  commentsList: {
+    flex: 1,
+    padding: 16,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  noCommentsContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  commentSubmitButton: {
+    backgroundColor: '#ff6b9d',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  commentSubmitButtonDisabled: {
+    backgroundColor: '#666',
+  },
+  commentSubmitButtonText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600',
   },
 });

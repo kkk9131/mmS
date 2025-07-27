@@ -1,11 +1,12 @@
 import { Tabs } from 'expo-router';
 import { Chrome as Home, Bell, User } from 'lucide-react-native';
 import { View, Text } from 'react-native';
-import { useNotificationBadge } from '../../hooks/useNotificationBadge';
+// import { useNotificationBadge } from '../../hooks/useNotificationBadge';
 import { useTheme } from '../../contexts/ThemeContext';
 
 export default function TabLayout() {
-  const { unreadCount } = useNotificationBadge();
+  // const { unreadCount } = useNotificationBadge();
+  const unreadCount = 0; // 通知機能を一時的に無効化
   const { theme } = useTheme();
 
   return (

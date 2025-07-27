@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Heart, MessageCircle, MoveHorizontal as MoreHorizontal, Menu, Plus } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import Sidebar from '../../components/Sidebar';
-import { useAppDispatch } from '../../hooks/redux';
-// import { postsApi } from '../../store/api/postsApi'; // Supabase無効時は使用しない
+import { useAppDispatch, useAppSelector } from '../../hooks/redux';
+import { postsApi } from '../../store/api/postsApi';
 import { FeatureFlagsManager } from '../../services/featureFlags';
+import { PostsService } from '../../services/PostsService';
 import { useHandPreference } from '../../contexts/HandPreferenceContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -19,55 +20,17 @@ interface PostWithLocalState {
   likesCount: number;
   commentsCount: number;
   isLiked: boolean;
+  isCommented: boolean;
   aiResponse?: string;
 }
 
-const mockAiResponses: { [postId: string]: string } = {
-  'mock_post_1': '夜泣き本当にお疲れ様です。一人で頑張らないで、少しでも休める時間を作ってくださいね ♡',
-  'mock_post_2': '離乳食の悩み、よくわかります。無理をせず、お子さんのペースに合わせて大丈夫ですよ',
-  'mock_post_3': '人見知りは恥ずかしいことじゃないですよ。無理をしないで、自分らしくいることが一番です',
-};
-
-// Mock posts for when Supabase is disabled
-const mockPosts: PostWithLocalState[] = [
-  {
-    id: 'mock_post_1',
-    authorId: 'user1',
-    authorName: 'ママ太郎',
-    content: '夜泣きで全然寝れない…誰か同じ経験ある人いますか？もう限界かも😭',
-    createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    likesCount: 12,
-    commentsCount: 5,
-    isLiked: false,
-    aiResponse: mockAiResponses['mock_post_1'],
-  },
-  {
-    id: 'mock_post_2',
-    authorId: 'user2',
-    authorName: 'はなまる',
-    content: '離乳食始めたけど全然食べてくれない。みんなどうしてる？',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    likesCount: 8,
-    commentsCount: 3,
-    isLiked: true,
-    aiResponse: mockAiResponses['mock_post_2'],
-  },
-  {
-    id: 'mock_post_3',
-    authorId: 'user3',
-    authorName: '匿名ママ',
-    content: '児童館デビューしたいけど人見知りで…みんな最初は緊張した？',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    likesCount: 15,
-    commentsCount: 7,
-    isLiked: false,
-    aiResponse: mockAiResponses['mock_post_3'],
-  },
-];
+// モックデータは削除し、Supabaseデータのみを使用
 
 export default function HomeScreen() {
   const { getFreeHandSide } = useHandPreference();
   const { theme } = useTheme();
+  const featureFlags = FeatureFlagsManager.getInstance();
+  const postsService = PostsService.getInstance();
   
   // UI State
   const [sidebarVisible, setSidebarVisible] = useState(false);
@@ -75,62 +38,202 @@ export default function HomeScreen() {
   const [selectedPost, setSelectedPost] = useState<PostWithLocalState | null>(null);
   const [commentText, setCommentText] = useState('');
   
-  // Mock states for when Supabase is disabled
-  const [localPosts, setLocalPosts] = useState(mockPosts);
+  // Data State
+  const [posts, setPosts] = useState<PostWithLocalState[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
-  // Real-time subscriptions (disabled for now)
-  // const realtimePosts = useRealtimePosts({
-  //   autoSubscribe: isSupabaseEnabled,
-  //   conflictResolution: 'latest',
-  //   debug: __DEV__,
-  //   onError: (error, context) => {
-  //     console.error(`[RealtimePosts] ${context}:`, error);
-  //   }
-  // });
-  
-  // const realtimeNotifications = useRealtimeNotifications({
-  //   autoSubscribe: isSupabaseEnabled,
-  //   enableSound: true,
-  //   enableVibration: true,
-  //   showInForeground: false, // Don't show notifications on home screen
-  //   debug: __DEV__,
-  //   onError: (error, context) => {
-  //     console.error(`[RealtimeNotifications] ${context}:`, error);
-  //   }
-  // });
+  // RTK Query hooks - use when available
+  const {
+    data: rtkPosts,
+    error: rtkError,
+    isLoading: rtkLoading,
+    refetch: rtkRefetch
+  } = postsApi.useGetPostsQuery(
+    { limit: 20, sortBy: 'created_at', order: 'desc' },
+    { 
+      skip: !featureFlags.isSupabaseEnabled() || !featureFlags.isReduxEnabled(),
+      refetchOnMountOrArgChange: true
+    }
+  );
 
   // 空いた手の側を計算（利き手の逆側）
   const freeHandSide = getFreeHandSide();
+
+  // Load posts on component mount
+  useEffect(() => {
+    loadPosts();
+  }, []);
+
+  // Reload posts when screen comes into focus (after posting)
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔄 ホーム画面にフォーカス - データ再読み込み');
+      
+      // RTK Queryを使用している場合はrefetchを呼び出し
+      if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
+        if (rtkRefetch) {
+          rtkRefetch();
+        }
+      } else {
+        loadPosts();
+      }
+    }, [])
+  );
+
+  const loadPosts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('🔍 Loading posts with configuration:', {
+        isSupabaseEnabled: featureFlags.isSupabaseEnabled(),
+        isReduxEnabled: featureFlags.isReduxEnabled(),
+        dataSource: postsService.getDataSourceInfo()
+      });
+
+      if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
+        // RTK Query が利用可能な場合は、rtkPosts を使用
+        console.log('📡 Using RTK Query for posts');
+        return;
+      } else {
+        // PostsService を直接使用（Supabaseを強制的に有効化）
+        console.log('🔧 Using PostsService directly - forcing Supabase');
+        
+        // 一時的にSupabaseを有効化
+        const originalSupabaseFlag = featureFlags.getFlag('USE_SUPABASE');
+        featureFlags.setFlag('USE_SUPABASE', true);
+        
+        try {
+          const response = await postsService.getPosts({
+            page: 1,
+            limit: 20,
+            sortBy: 'createdAt',
+            order: 'desc'
+          });
+          
+          setPosts(response.posts.map(post => ({
+            ...post,
+            isLiked: post.isLiked || false
+          })));
+        } finally {
+          // フラグを元に戻す
+          featureFlags.setFlag('USE_SUPABASE', originalSupabaseFlag);
+        }
+      }
+    } catch (err) {
+      console.error('投稿の読み込みに失敗:', err);
+      setError('投稿の読み込みに失敗しました');
+      // エラー時は空の配列を設定（モックデータは使用しない）
+      setPosts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Use RTK Query data when available, otherwise use local state
+  const displayPosts: PostWithLocalState[] = (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled() && rtkPosts) 
+    ? rtkPosts.map(post => {
+        console.log('🔍 RTK投稿データ:', { 
+          id: post.id, 
+          user_id: post.user_id, 
+          users_nickname: post.users?.nickname
+        });
+        return { 
+          id: post.id,
+          authorId: post.user_id || '',
+          authorName: (post.users?.nickname || 'Unknown').replace(/_修正$/, ''),
+          content: post.content || '',
+          createdAt: post.created_at || new Date().toISOString(),
+          likesCount: post.likes_count || 0,
+          commentsCount: post.comments_count || 0,
+          isLiked: post.user_liked || false,
+          isCommented: post.user_commented || false,
+          aiResponse: undefined
+        };
+      })
+    : posts.map(post => {
+        console.log('🔍 PostsService投稿データ:', { 
+          id: post.id, 
+          authorId: post.authorId, 
+          authorName: post.authorName 
+        });
+        return post;
+      });
   
-  // Use local posts for now (Supabase is disabled)
-  const posts = localPosts;
-  const comments: any[] = [];
-  const loading = false;
-  const refreshing = isRefreshing;
-  const error = null;
+  const isDataLoading = (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) 
+    ? rtkLoading 
+    : loading;
+    
+  const dataError = (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) 
+    ? rtkError 
+    : error;
 
   const onRefresh = async () => {
     setIsRefreshing(true);
-    // Simulate refresh delay
-    setTimeout(() => {
+    try {
+      console.log('🔄 手動リフレッシュ開始');
+      
+      if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
+        console.log('📡 RTK Query リフレッシュ');
+        if (rtkRefetch) {
+          await rtkRefetch();
+        }
+      } else {
+        console.log('🔧 PostsService リフレッシュ');
+        await loadPosts();
+      }
+      
+      console.log('✅ リフレッシュ完了');
+    } catch (err) {
+      console.error('❌ リフレッシュに失敗:', err);
+    } finally {
       setIsRefreshing(false);
-    }, 1000);
+    }
   };
 
+  // RTK Query mutations
+  const [toggleLike] = postsApi.useToggleLikeMutation();
+  const currentUserId = useAppSelector(state => state.auth?.profile?.id || state.auth?.user?.id);
+
   const handleLike = async (postId: string) => {
-    // Mock local update
-    setLocalPosts(prevPosts => 
-      prevPosts.map(post => 
-        post.id === postId 
-          ? {
-              ...post,
-              isLiked: !post.isLiked,
-              likesCount: post.likesCount + (post.isLiked ? -1 : 1)
-            }
-          : post
-      )
-    );
+    if (!currentUserId) {
+      Alert.alert('エラー', 'ログインが必要です');
+      return;
+    }
+
+    try {
+      if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
+        // RTK Query mutation を使用
+        await toggleLike({ postId, userId: currentUserId }).unwrap();
+        console.log('✅ いいね状態を更新しました:', postId);
+      } else {
+        // PostsService を直接使用
+        const post = displayPosts.find(p => p.id === postId);
+        if (post?.isLiked) {
+          await postsService.unlikePost(postId);
+        } else {
+          await postsService.likePost(postId);
+        }
+        
+        // ローカル状態を更新
+        setPosts(prevPosts => 
+          prevPosts.map(p => 
+            p.id === postId 
+              ? {
+                  ...p,
+                  isLiked: !p.isLiked,
+                  likesCount: p.likesCount + (p.isLiked ? -1 : 1)
+                }
+              : p
+          )
+        );
+      }
+    } catch (err) {
+      console.error('いいね処理に失敗:', err);
+      Alert.alert('エラー', 'いいね処理に失敗しました');
+    }
   };
 
   const handleCommentPress = (post: PostWithLocalState) => {
@@ -139,12 +242,62 @@ export default function HomeScreen() {
     // Comments will be loaded automatically via useGetCommentsQuery
   };
 
-  const handleCommentSubmit = async () => {
-    if (!selectedPost || commentText.trim().length === 0) return;
+  // RTK Query hooks for comments
+  const [createComment] = postsApi.useCreateCommentMutation();
+  const {
+    data: comments = [],
+    isLoading: commentsLoading,
+    refetch: refetchComments
+  } = postsApi.useGetCommentsQuery(selectedPost?.id || '', {
+    skip: !selectedPost?.id || !commentModalVisible
+  });
 
-    // Mock comment submission
-    Alert.alert('開発モード', 'コメント機能は現在モック状態です。');
-    setCommentText('');
+  const handleCommentSubmit = async () => {
+    if (!selectedPost || commentText.trim().length === 0 || !currentUserId) {
+      if (!currentUserId) {
+        Alert.alert('エラー', 'ログインが必要です');
+      }
+      return;
+    }
+
+    try {
+      if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
+        // RTK Query mutation を使用
+        const result = await createComment({
+          post_id: selectedPost.id,
+          user_id: currentUserId,
+          content: commentText.trim(),
+          is_anonymous: false
+        }).unwrap();
+        
+        console.log('✅ コメントを投稿しました:', result);
+        
+        // コメントリストを再取得
+        await refetchComments();
+        
+        setCommentText('');
+        // モーダルは開いたままにする
+      } else {
+        // PostsService を直接使用
+        await postsService.createComment(selectedPost.id, {
+          content: commentText.trim()
+        });
+        
+        // ローカル状態を更新
+        setPosts(prevPosts => 
+          prevPosts.map(post => 
+            post.id === selectedPost.id 
+              ? { ...post, commentsCount: post.commentsCount + 1, isCommented: true }
+              : post
+          )
+        );
+        
+        setCommentText('');
+      }
+    } catch (err) {
+      console.error('コメント投稿に失敗:', err);
+      Alert.alert('エラー', 'コメントの投稿に失敗しました');
+    }
   };
 
   const handleLongPress = (postId: string) => {
@@ -242,6 +395,9 @@ export default function HomeScreen() {
       marginLeft: 6,
     },
     likedText: {
+      color: theme.colors.primary,
+    },
+    commentedText: {
       color: theme.colors.primary,
     },
     commentModalContainer: {
@@ -383,11 +539,17 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.actionButton}
+          style={[styles.actionButton, post.isCommented && styles.commentedButton]}
           onPress={() => handleCommentPress(post)}
         >
-          <MessageCircle size={20} color={theme.colors.text.disabled} />
-          <Text style={dynamicStyles.actionText}>{post.commentsCount} コメント</Text>
+          <MessageCircle 
+            size={20} 
+            color={post.isCommented ? theme.colors.primary : theme.colors.text.disabled} 
+            fill={post.isCommented ? theme.colors.primary : 'none'} 
+          />
+          <Text style={[dynamicStyles.actionText, post.isCommented && dynamicStyles.commentedText]}>
+            {post.commentsCount} コメント
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.moreButton}>
@@ -417,28 +579,38 @@ export default function HomeScreen() {
 
       <View style={styles.headerContent}>
         <Text style={dynamicStyles.headerTitle}>Mamapace</Text>
+        {__DEV__ && (
+          <Text style={[styles.debugInfo, { color: theme.colors.primary }]}>
+            {featureFlags.isSupabaseEnabled() ? '🟢 Supabase' : '🔴 Mock'} | 
+            {featureFlags.isReduxEnabled() ? ' RTK' : ' Direct'} | 
+            {displayPosts.length}件 | 
+            {(featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled() && rtkPosts) ? 'RTK Data' : 'PostsService Data'}
+          </Text>
+        )}
       </View>
 
-      {loading && posts.length === 0 ? (
+      {isDataLoading && displayPosts.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={dynamicStyles.loadingText}>読み込み中...</Text>
         </View>
-      ) : error && posts.length === 0 ? (
+      ) : dataError && displayPosts.length === 0 ? (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>
+            {typeof dataError === 'string' ? dataError : '投稿の読み込みに失敗しました'}
+          </Text>
           <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
             <Text style={styles.retryButtonText}>再試行</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <FlatList
-          data={posts}
+          data={displayPosts}
           renderItem={({ item }) => renderPost(item)}
           keyExtractor={(item) => item.id}
           style={styles.timeline}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
           }
           onEndReachedThreshold={0.1}
         />
@@ -488,30 +660,42 @@ export default function HomeScreen() {
                   <Text style={dynamicStyles.originalPostContent}>{selectedPost.content}</Text>
                 </View>
 
-                <FlatList
-                  data={comments}
-                  keyExtractor={(comment) => comment.id}
-                  style={styles.commentsList}
-                  renderItem={({ item: comment }) => (
-                    <View style={dynamicStyles.commentItem}>
-                      <View style={styles.commentHeader}>
-                        <Text style={dynamicStyles.commentAuthor}>{comment.authorName}</Text>
-                        <Text style={dynamicStyles.commentTimestamp}>{new Date(comment.createdAt).toLocaleString('ja-JP', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}</Text>
+                {commentsLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={theme.colors.primary} />
+                    <Text style={dynamicStyles.loadingText}>コメントを読み込み中...</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={comments}
+                    keyExtractor={(comment) => comment.id}
+                    style={styles.commentsList}
+                    renderItem={({ item: comment }) => {
+                      const user = (comment as any).users;
+                      const authorName = user?.nickname || 'Unknown';
+                      
+                      return (
+                        <View style={dynamicStyles.commentItem}>
+                          <View style={styles.commentHeader}>
+                            <Text style={dynamicStyles.commentAuthor}>{authorName.replace(/_修正$/, '')}</Text>
+                            <Text style={dynamicStyles.commentTimestamp}>{new Date(comment.created_at || new Date()).toLocaleString('ja-JP', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}</Text>
+                          </View>
+                          <Text style={dynamicStyles.commentContent}>{comment.content}</Text>
+                        </View>
+                      );
+                    }}
+                    ListEmptyComponent={() => (
+                      <View style={styles.noCommentsContainer}>
+                        <Text style={dynamicStyles.noCommentsText}>まだコメントがありません</Text>
                       </View>
-                      <Text style={dynamicStyles.commentContent}>{comment.content}</Text>
-                    </View>
-                  )}
-                  ListEmptyComponent={() => (
-                    <View style={styles.noCommentsContainer}>
-                      <Text style={dynamicStyles.noCommentsText}>まだコメントがありません</Text>
-                    </View>
-                  )}
-                />
+                    )}
+                  />
+                )}
 
                 <View style={dynamicStyles.commentInputContainer}>
                   <TextInput
@@ -685,6 +869,9 @@ const styles = StyleSheet.create({
   likedButton: {
     backgroundColor: '#ff6b9d20',
   },
+  commentedButton: {
+    backgroundColor: '#ff6b9d20',
+  },
   actionText: {
     fontSize: 14,
     color: '#666',
@@ -855,6 +1042,12 @@ const styles = StyleSheet.create({
     color: '#888',
     marginTop: 10,
     fontSize: 16,
+  },
+  debugInfo: {
+    fontSize: 10,
+    marginTop: 2,
+    fontFamily: 'monospace',
+    opacity: 0.7,
   },
   errorContainer: {
     flex: 1,
