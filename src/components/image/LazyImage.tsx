@@ -96,10 +96,24 @@ export const LazyImage: React.FC<LazyImageProps> = ({
   const loadImage = async () => {
     if (!mountedRef.current) return;
 
+    console.log('🖼️ LazyImage loadImage開始:', { uri, cacheKey, enableCache });
+
     try {
       setLoadState(prev => ({ ...prev, loading: true, error: false }));
 
       let finalUri = uri;
+
+      // URIの妥当性をチェック
+      if (!uri || uri.trim() === '') {
+        console.error('❌ 無効な画像URI:', uri);
+        throw new Error('Invalid image URI');
+      }
+
+      // blob URLの検出
+      if (uri.startsWith('blob:')) {
+        console.warn('⚠️ blob URLが検出されました - モバイルでは表示できません:', uri);
+        throw new Error('Blob URLs are not supported on mobile devices');
+      }
 
       // キャッシュから取得を試行
       if (enableCache && cacheKey) {
@@ -110,9 +124,10 @@ export const LazyImage: React.FC<LazyImageProps> = ({
         }
       }
 
+      console.log('🔍 最終的な画像URI:', finalUri);
       setImageUri(finalUri);
     } catch (error) {
-      console.error('❌ 画像読み込み準備エラー:', error);
+      console.error('❌ 画像読み込み準備エラー:', { uri, error: error.message || error });
       if (mountedRef.current) {
         setLoadState(prev => ({ 
           ...prev, 
@@ -127,6 +142,8 @@ export const LazyImage: React.FC<LazyImageProps> = ({
   const handleImageLoad = async () => {
     if (!mountedRef.current) return;
 
+    console.log('✅ LazyImage 画像読み込み成功:', { uri, imageUri });
+
     try {
       setLoadState(prev => ({ 
         ...prev, 
@@ -138,6 +155,7 @@ export const LazyImage: React.FC<LazyImageProps> = ({
       // キャッシュに保存
       if (enableCache && cacheKey && imageUri && imageUri !== uri) {
         // すでにキャッシュされている場合はスキップ
+        console.log('📦 画像はすでにキャッシュされています');
       } else if (enableCache && cacheKey && imageUri === uri) {
         // 元のURIの場合はキャッシュに保存
         try {
@@ -170,7 +188,14 @@ export const LazyImage: React.FC<LazyImageProps> = ({
   const handleImageError = (error: any) => {
     if (!mountedRef.current) return;
 
-    console.error('❌ 画像読み込みエラー:', error);
+    console.error('❌ LazyImage 画像読み込みエラー:', { 
+      uri, 
+      imageUri, 
+      error,
+      errorNativeEvent: error?.nativeEvent,
+      errorMessage: error?.message || error?.nativeEvent?.error || 'Unknown error'
+    });
+    
     setLoadState(prev => ({ 
       ...prev, 
       loading: false, 

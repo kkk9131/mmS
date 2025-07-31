@@ -1,16 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch, ScrollView, Keyboard, TouchableWithoutFeedback, ActivityIndicator, Platform, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch, ScrollView, Keyboard, TouchableWithoutFeedback, ActivityIndicator, Platform } from 'react-native';
 import { Send, Heart, Bot } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { PostsService } from '../../services/PostsService';
 import { useTheme } from '../../contexts/ThemeContext';
+import * as FileSystem from 'expo-file-system';
 import { useCreatePostMutation, postsApi } from '../../store/api/postsApi';
 import { FeatureFlagsManager } from '../../services/featureFlags';
-import { useAppSelector } from '../../hooks/redux';
+// import { useAppSelector } from '../../hooks/redux';
 import { useAuth } from '../../contexts/AuthContext';
-import { ImageUploadButton } from '../../components/image/ImageUploadButton';
-import { ProcessedImage } from '../../types/image';
+import { MultipleImageUploadComponent } from '../../components/image/MultipleImageUploadComponent';
+import { ImageAssetWithCaption } from '../../types/image';
+// import { ProcessedImage } from '../../types/image';
+
+// シンプルな画像型定義
+interface SimpleImage {
+  id: string;
+  uri: string;
+  width: number;
+  height: number;
+  fileSize?: number;
+  mimeType?: string;
+}
 // @ts-ignore - For web DOM events support
 declare global {
   namespace JSX {
@@ -20,19 +32,19 @@ declare global {
   }
 }
 
-// ViewのWeb用型拡張
-interface WebViewProps {
-  onClick?: () => void;
-  onMouseDown?: () => void;
-  onMouseUp?: () => void;
-}
+// ViewのWeb用型拡張（未使用のためコメントアウト）
+// interface WebViewProps {
+//   onClick?: () => void;
+//   onMouseDown?: () => void;
+//   onMouseUp?: () => void;
+// }
 
 export default function PostScreen() {
   const { theme } = useTheme();
   const [postText, setPostText] = useState('');
   const [aiEmpathyEnabled, setAiEmpathyEnabled] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
-  const [selectedImages, setSelectedImages] = useState<ProcessedImage[]>([]);
+  const [selectedImages, setSelectedImages] = useState<ImageAssetWithCaption[]>([]);
   const textInputRef = useRef<TextInput>(null);
 
   const maxCharacters = 600;
@@ -40,8 +52,8 @@ export default function PostScreen() {
   const isOverLimit = characterCount > maxCharacters;
   const postsService = PostsService.getInstance();
   
-  // RTK Query hooks for post creation
-  const [createPost] = useCreatePostMutation();
+  // RTK Query hooks for post creation（現在未使用）
+  // const [createPost] = useCreatePostMutation();
   const featureFlags = FeatureFlagsManager.getInstance();
   
   // Get current user from AuthContext
@@ -75,9 +87,9 @@ export default function PostScreen() {
     }
   }, []);
 
-  // 画像選択ハンドラー
-  const handleImageSelected = (images: ProcessedImage[]) => {
-    setSelectedImages(prev => [...prev, ...images].slice(0, 4)); // 最大4枚まで
+  // 画像選択ハンドラー（複数画像対応）
+  const handleImagesSelected = (images: ImageAssetWithCaption[]) => {
+    setSelectedImages(images);
   };
 
   // 画像削除ハンドラー
@@ -163,25 +175,152 @@ export default function PostScreen() {
           throw new Error('ユーザーが認証されていません');
         }
         
-        // 画像アップロード処理
+        // 画像アップロード処理（キャプション情報も含める）
         let uploadedImageUrls: string[] = [];
         if (selectedImages.length > 0) {
-          console.log('📤 画像アップロード開始:', selectedImages.length);
-          const { ImageUploadManager } = await import('../../services/image/ImageUploadManager');
-          const uploadManager = new ImageUploadManager();
+          console.log('📤 複数画像アップロード開始:', selectedImages.length);
           
-          for (const image of selectedImages) {
+          // カスタム認証のユーザー情報を使用
+          if (!currentUser || !isAuthenticated) {
+            throw new Error('ユーザーが認証されていません。ログインし直してください。');
+          }
+          
+          console.log('✅ AuthContext認証確認済み:', {
+            userId: currentUser.id,
+            nickname: currentUser.nickname,
+            isAuthenticated
+          });
+          
+          // 認証状態に関係なくアップロードを実行（RLSポリシーを緩和）
+          const { SupabaseClientManager } = await import('../../services/supabase/client');
+          const manager = SupabaseClientManager.getInstance();
+          const supabase = manager.getClient();
+          
+          if (!supabase) {
+            throw new Error('Supabaseクライアントが初期化されていません');
+          }
+          
+          // 画像を順序通りにソートしてアップロード
+          const sortedImages = [...selectedImages].sort((a, b) => a.order - b.order);
+          
+          for (const image of sortedImages) {
             try {
-              console.log('📤 画像アップロード中:', image.id);
-              const uploadResult = await uploadManager.uploadImage(image, 'posts');
+              console.log('📤 画像アップロード中:', image.id, '順序:', image.order, 'キャプション:', image.caption);
               
-              if (uploadResult.success && uploadResult.url) {
-                uploadedImageUrls.push(uploadResult.url);
-                console.log('✅ 画像アップロード成功:', uploadResult.url);
+              // ファイル名を生成（ユーザーIDと順序を含む）
+              const fileName = `${currentUser.id}_${Date.now()}_${image.order}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+              
+              // React Native環境での画像アップロード対応
+              console.log('📤 画像アップロード処理開始:', { uri: image.uri, platform: Platform.OS });
+              
+              if (Platform.OS === 'web') {
+                // Web環境では通常のfetch + blob方式
+                const response = await fetch(image.uri);
+                const blob = await response.blob();
+                console.log('🌐 Web blob作成:', { size: blob.size, type: blob.type });
+                
+                // blobサイズが0の場合はエラー
+                if (blob.size === 0) {
+                  throw new Error(`画像データが空です (URI: ${image.uri})`);
+                }
+                
+                // Supabase Storageにアップロード
+                const { data, error } = await supabase.storage
+                  .from('posts')
+                  .upload(fileName, blob, {
+                    contentType: image.mimeType || 'image/jpeg',
+                    upsert: false
+                  });
+                
+                if (error) {
+                  console.error('❌ Webアップロードエラー:', error);
+                  throw error;
+                }
+                
+                console.log('✅ Webアップロード成功:', data);
               } else {
-                console.error('❌ 画像アップロード失敗:', uploadResult.error);
-                throw new Error(`画像のアップロードに失敗しました: ${uploadResult.error}`);
+                // React Native環境でのSupabase SDKアップロード（セッション設定後）
+                console.log('📱 React Native環境でSupabase SDKアップロード');
+                
+                // カスタム認証セッションをSupabaseに設定
+                try {
+                  const { store } = await import('../../store');
+                  const state = store.getState();
+                  const customSession = state.auth?.session;
+                  
+                  console.log('🔍 カスタムセッション状態:', {
+                    hasSession: !!customSession,
+                    hasAccessToken: !!(customSession?.access_token),
+                    tokenLength: customSession?.access_token?.length || 0
+                  });
+                  
+                  if (customSession?.access_token) {
+                    // Supabaseにカスタムセッションを設定
+                    const { error: sessionError } = await supabase.auth.setSession({
+                      access_token: customSession.access_token,
+                      refresh_token: customSession.refresh_token || customSession.access_token,
+                    });
+                    
+                    if (sessionError) {
+                      console.warn('⚠️ Supabaseセッション設定エラー:', sessionError);
+                      // セッション設定に失敗してもアップロードを続行
+                      console.log('📤 セッション設定に失敗しましたが、アップロードを続行します');
+                    } else {
+                      console.log('✅ Supabaseセッション設定成功');
+                    }
+                  } else {
+                    console.warn('⚠️ カスタムセッションが見つかりません。匿名アップロードを試行します');
+                  }
+                } catch (sessionSetupError) {
+                  console.warn('⚠️ セッション設定で例外:', sessionSetupError);
+                  // セッション設定に失敗してもアップロードを続行
+                }
+                
+                // React Native専用のFormDataオブジェクトを作成
+                const fileObject = {
+                  uri: image.uri,
+                  type: image.mimeType || 'image/jpeg',
+                  name: fileName,
+                };
+                
+                console.log('📋 ファイルオブジェクト作成:', fileObject);
+                
+                // Supabase SDK直接使用（React Native対応）
+                const { data, error } = await supabase.storage
+                  .from('posts')
+                  .upload(fileName, fileObject as any, {
+                    contentType: image.mimeType || 'image/jpeg',
+                    upsert: false
+                  });
+                
+                if (error) {
+                  console.error('❌ Supabase SDKアップロードエラー:', {
+                    error: error,
+                    message: error.message,
+                    statusCode: (error as any).statusCode,
+                  });
+                  
+                  // 認証エラーのハンドリング
+                  if (error.message?.includes('row-level security') || error.message?.includes('policy')) {
+                    throw new Error('ストレージアクセス権限がありません。管理者にお問い合わせください。');
+                  } else if (error.message?.includes('Invalid') && error.message?.includes('JWT')) {
+                    throw new Error('認証トークンが無効です。再ログインしてください。');
+                  } else {
+                    throw new Error(`画像アップロードエラー: ${error.message}`);
+                  }
+                }
+                
+                console.log('✅ React Native SDKアップロード成功:', data);
               }
+              
+              // 公開URLを取得
+              const { data: urlData } = supabase.storage
+                .from('posts')
+                .getPublicUrl(fileName);
+              
+              uploadedImageUrls.push(urlData.publicUrl);
+              console.log('✅ 画像URL取得成功:', urlData.publicUrl);
+              
             } catch (uploadError) {
               console.error('❌ 画像アップロードエラー:', uploadError);
               throw new Error(`画像のアップロードに失敗しました: ${uploadError}`);
@@ -465,12 +604,12 @@ export default function PostScreen() {
           </Text>
         </View>
 
-        {/* 画像アップロード機能 */}
-        <ImageUploadButton
-          onImageSelected={handleImageSelected}
+        {/* 複数画像アップロード機能 */}
+        <MultipleImageUploadComponent
+          onImagesSelected={handleImagesSelected}
           onImageRemoved={handleImageRemoved}
           selectedImages={selectedImages}
-          maxImages={4}
+          maxImages={5}
           disabled={isPosting}
           showPreview={true}
         />

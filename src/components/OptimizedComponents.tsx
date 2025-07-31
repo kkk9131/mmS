@@ -2,6 +2,9 @@
 // 1. FlatListの最適化
 import { FlatList, memo } from 'react-native';
 
+// 2. 画像の遅延読み込み
+import { Image } from 'expo-image';
+
 // メモ化されたリストアイテムコンポーネント
 const PostItem = memo(({ item }) => {
   return (
@@ -34,9 +37,6 @@ export const OptimizedPostList = ({ posts }) => {
     />
   );
 };
-
-// 2. 画像の遅延読み込み
-import { Image } from 'expo-image';
 
 export const OptimizedImage = ({ source, ...props }) => {
   return (

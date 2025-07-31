@@ -30,12 +30,12 @@ interface TestFlightConfig {
 
 interface DeploymentChecklist {
   category: string;
-  items: Array<{
+  items: {
     task: string;
     completed: boolean;
     required: boolean;
     description: string;
-  }>;
+  }[];
 }
 
 async function prepareTestFlightDeployment(): Promise<void> {

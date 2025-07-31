@@ -7,7 +7,7 @@ import { ProcessedImage, UploadResult } from '../../types/image';
 import { SupabaseClientManager } from '../supabase/client';
 
 export class SupabaseImageService {
-  private bucketName: string = 'images';
+  private bucketName: string = 'posts';
 
   /**
    * 画像アップロード
@@ -27,8 +27,9 @@ export class SupabaseImageService {
       if (!manager.isInitialized()) {
         console.log('🔧 Supabaseクライアント初期化開始');
         try {
-          const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-          const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+          // React Native/Expoでは環境変数を直接読み込む
+          const supabaseUrl = 'https://zfmqxdkqpeyvsuqyzuvy.supabase.co';
+          const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmbXF4ZGtxcGV5dnN1cXl6dXZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMxMzMzNDIsImV4cCI6MjA2ODcwOTM0Mn0.BUE7K0TzIMVzQTk6fsDecYNY6s-ftH1UCsm6eOm4BCA';
           
           if (!supabaseUrl || !supabaseKey) {
             throw new Error('Supabase環境変数が設定されていません');
@@ -60,7 +61,7 @@ export class SupabaseImageService {
       const fileName = this.generateFileName(image);
       const filePath = bucket === 'avatars' 
         ? `${userId}/${fileName}`  // avatarsの場合はユーザーIDフォルダに保存
-        : `uploads/${fileName}`;   // その他の場合はuploadsフォルダ
+        : fileName;   // その他の場合は直接保存
       
       // 進捗通知
       onProgress?.(10);
@@ -70,6 +71,9 @@ export class SupabaseImageService {
       const blob = await response.blob();
       
       onProgress?.(30);
+      
+      // バケット作成はSupabaseダッシュボードで事前に行う必要があります
+      // setup-storage-buckets.sqlを実行してください
       
       // Supabase Storageにアップロード
       console.log('📤 アップロード詳細:', {
@@ -93,11 +97,24 @@ export class SupabaseImageService {
         console.error('❌ Supabaseアップロードエラー:', error);
         console.error('エラー詳細:', {
           message: error.message,
-          error: error
+          error: error,
+          bucket,
+          filePath
         });
+        
+        // エラーメッセージをユーザーフレンドリーに変換
+        let userMessage = error.message;
+        if (error.message.includes('not found')) {
+          userMessage = `バケット '${bucket}' が存在しません。setup-storage-buckets.sqlを実行してください。`;
+        } else if (error.message.includes('row-level security')) {
+          userMessage = 'アップロード権限がありません。ログインし直してください。';
+        } else if (error.message.includes('Invalid JWT')) {
+          userMessage = '認証エラーが発生しました。ログインし直してください。';
+        }
+        
         return {
           success: false,
-          error: error.message
+          error: userMessage
         };
       }
       
@@ -122,8 +139,8 @@ export class SupabaseImageService {
         fullUrl: urlData.publicUrl
       });
       
-      // データベースに画像情報を保存
-      await this.saveImageMetadata(image, result);
+      // データベースに画像情報を保存（現在は無効化）
+      // await this.saveImageMetadata(image, result);
       
       return result;
     } catch (error) {

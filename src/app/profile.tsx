@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, FlatList, ActivityIndicator, Image } from 'react-native';
 import { ArrowLeft, User, MessageCircle, UserPlus, UserMinus, Heart, Calendar, MapPin, Share, MoveHorizontal as MoreHorizontal, LogOut } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -13,6 +13,7 @@ import { DefaultAvatar } from '../components/DefaultAvatar';
 import { FollowService } from '../services/FollowService';
 import { UserStatsService } from '../services/UserStatsService';
 import { postsApi } from '../store/api/postsApi';
+import { LazyImage } from '../components/image/LazyImage';
 
 // 画面表示用のプロフィールインターface（既存のUIとの互換性維持）
 interface DisplayProfile {
@@ -37,6 +38,7 @@ interface UserPost {
   comments: number;
   isLiked: boolean;
   isCommented: boolean;
+  images?: string[]; // 複数画像フィールド
   tags: string[];
   aiResponse?: string;
 }
@@ -154,6 +156,7 @@ export default function ProfileScreen() {
           comments: post.commentsCount,
           isLiked: post.isLiked,
           isCommented: post.isCommented || false,
+          images: post.images, // 複数画像フィールド
           tags: [], // タグ機能は後で実装
           aiResponse: undefined
         }));
@@ -1051,6 +1054,49 @@ export default function ProfileScreen() {
 
                 <Text style={dynamicStyles.postContent}>{post.content}</Text>
 
+                {/* 画像表示 */}
+                {post.images && post.images.length > 0 && (
+                  <View style={styles.imageContainer}>
+                    {post.images.length === 1 ? (
+                      // 画像1枚の場合
+                      <TouchableOpacity style={styles.singleImage}>
+                        <LazyImage
+                          uri={post.images[0]}
+                          style={styles.imageStyle}
+                          resizeMode="cover"
+                          borderRadius={8}
+                          priority="normal"
+                          accessibilityLabel="投稿の画像"
+                        />
+                      </TouchableOpacity>
+                    ) : (
+                      // 複数枚の場合
+                      <View style={styles.imageGrid}>
+                        {post.images.slice(0, 4).map((imageUri, index) => (
+                          <TouchableOpacity key={index} style={styles.gridImage}>
+                            <LazyImage
+                              uri={imageUri}
+                              style={styles.imageStyle}
+                              resizeMode="cover"
+                              borderRadius={8}
+                              priority="normal"
+                              accessibilityLabel={`投稿の画像 ${index + 1}`}
+                            />
+                            {/* 4枚以上の場合のオーバーレイ */}
+                            {index === 3 && post.images && post.images.length > 4 && (
+                              <View style={styles.imageOverlay}>
+                                <Text style={styles.overlayText}>
+                                  +{post.images.length - 4}
+                                </Text>
+                              </View>
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                )}
+
                 <View style={styles.tagsContainer}>
                   {post.tags.map((tag, index) => (
                     <Text key={index} style={styles.tag}>#{tag}</Text>
@@ -1471,6 +1517,47 @@ const styles = StyleSheet.create({
     color: '#4a9eff',
     marginRight: 8,
     marginBottom: 4,
+  },
+  // 画像表示用のスタイル
+  imageContainer: {
+    marginVertical: 12,
+  },
+  singleImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  gridImage: {
+    width: '48%',
+    height: 120,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  imageStyle: {
+    width: '100%',
+    height: '100%',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  overlayText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   aiResponseContainer: {
     backgroundColor: '#2a2a2a',

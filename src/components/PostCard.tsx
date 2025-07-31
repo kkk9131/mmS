@@ -1,23 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Heart, MessageCircle, MoveHorizontal as MoreHorizontal } from 'lucide-react-native';
 import { useTheme } from '../contexts/ThemeContext';
-import { LazyImage } from './image/LazyImage';
-import { ImageViewer } from './image/ImageViewer';
+import { MultipleImageDisplay } from './image/MultipleImageDisplay';
 
-interface Post {
-    id: string;
-    content: string;
-    author: string;
-    timestamp: string;
-    likes: number;
-    comments: number;
-    tags: string[];
-    isLiked: boolean;
-    aiResponse?: string;
-    image_url?: string;
-    images?: string[];
-}
+import { Post } from '../types/posts';
 
 interface PostCardProps {
     post: Post;
@@ -28,8 +15,6 @@ interface PostCardProps {
 
 const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) => {
     const { theme } = useTheme();
-    const [showImageViewer, setShowImageViewer] = useState(false);
-    const [selectedImageIndex, setSelectedImageIndex] = useState(0);
     
     const handleLongPress = () => {
         Alert.alert(
@@ -43,29 +28,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
         );
     };
 
-    // 画像クリックハンドラー
-    const handleImagePress = (index: number = 0) => {
-        setSelectedImageIndex(index);
-        setShowImageViewer(true);
-    };
 
     // 画像リストを取得
     const getImageList = (): string[] => {
         if (post.images && post.images.length > 0) {
             return post.images;
-        }
-        if (post.image_url) {
-            // JSONとして保存された複数画像のケースを処理
-            try {
-                if (post.image_url.startsWith('[')) {
-                    return JSON.parse(post.image_url);
-                } else {
-                    return [post.image_url];
-                }
-            } catch (error) {
-                console.warn('画像URL解析エラー:', error);
-                return [post.image_url];
-            }
         }
         return [];
     };
@@ -125,37 +92,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
         imageContainer: {
             marginVertical: 12,
         },
-        singleImage: {
-            width: '100%',
-            height: 200,
-            borderRadius: 8,
-        },
-        imageGrid: {
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            gap: 4,
-        },
-        gridImage: {
-            width: '48%',
-            height: 120,
-            borderRadius: 8,
-        },
-        imageOverlay: {
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            borderRadius: 8,
-        },
-        overlayText: {
-            color: '#FFFFFF',
-            fontSize: 18,
-            fontWeight: 'bold',
-        },
         actionsContainer: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -183,91 +119,40 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
             delayLongPress={800}
             accessible={true}
             accessibilityRole="none"
-            accessibilityLabel={`${post.author}の投稿`}
+            accessibilityLabel={`${post.authorName}の投稿`}
             accessibilityHint="長押しで追加の操作メニューを表示"
         >
             <View style={styles.header} accessible={true} accessibilityRole="none">
-                <Text style={dynamicStyles.authorName} accessibilityRole="text">{post.author}</Text>
-                <Text style={dynamicStyles.timestamp} accessibilityRole="text" accessibilityLabel={`投稿日時: ${post.timestamp}`}>{post.timestamp}</Text>
+                <Text style={dynamicStyles.authorName} accessibilityRole="text">{post.authorName}</Text>
+                <Text style={dynamicStyles.timestamp} accessibilityRole="text" accessibilityLabel={`投稿日時: ${post.createdAt}`}>{new Date(post.createdAt).toLocaleString()}</Text>
             </View>
 
             <Text style={dynamicStyles.content} accessible={true} accessibilityRole="text" accessibilityLabel={`投稿内容: ${post.content}`}>{post.content}</Text>
 
-            {/* 画像表示 */}
+            {/* 複数画像表示 */}
             {imageList.length > 0 && (
-                <View style={dynamicStyles.imageContainer}>
-                    {imageList.length === 1 ? (
-                        // 画像1枚の場合
-                        <TouchableOpacity 
-                            onPress={() => handleImagePress(0)}
-                            accessible={true}
-                            accessibilityRole="imagebutton"
-                            accessibilityLabel="投稿画像、タップして拡大表示"
-                        >
-                            <LazyImage
-                                uri={imageList[0]}
-                                style={dynamicStyles.singleImage}
-                                resizeMode="cover"
-                                borderRadius={8}
-                                accessibilityLabel="投稿の画像"
-                                priority="normal"
-                                onPress={() => handleImagePress(0)}
-                            />
-                        </TouchableOpacity>
-                    ) : (
-                        // 複数枚の場合
-                        <View style={dynamicStyles.imageGrid}>
-                            {imageList.slice(0, 4).map((imageUri, index) => (
-                                <View key={index} style={{ position: 'relative' }}>
-                                    <TouchableOpacity 
-                                        onPress={() => handleImagePress(index)}
-                                        accessible={true}
-                                        accessibilityRole="imagebutton"
-                                        accessibilityLabel={`投稿画像 ${index + 1}/${imageList.length}、タップして拡大表示`}
-                                    >
-                                        <LazyImage
-                                            uri={imageUri}
-                                            style={dynamicStyles.gridImage}
-                                            resizeMode="cover"
-                                            borderRadius={8}
-                                            accessibilityLabel={`投稿の画像 ${index + 1}`}
-                                            priority="normal"
-                                            onPress={() => handleImagePress(index)}
-                                        />
-                                    </TouchableOpacity>
-                                    {/* 4枚以上の場合のオーバーレイ */}
-                                    {index === 3 && imageList.length > 4 && (
-                                        <TouchableOpacity 
-                                            style={dynamicStyles.imageOverlay}
-                                            onPress={() => handleImagePress(index)}
-                                            accessible={true}
-                                            accessibilityRole="button"
-                                            accessibilityLabel={`他${imageList.length - 4}枚の画像を表示`}
-                                        >
-                                            <Text style={dynamicStyles.overlayText} accessibilityElementsHidden={true}>
-                                                +{imageList.length - 4}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-                            ))}
-                        </View>
-                    )}
-                </View>
+                <MultipleImageDisplay
+                    images={imageList}
+                    containerStyle={dynamicStyles.imageContainer}
+                    maxDisplayImages={4}
+                    showImageCount={true}
+                />
             )}
 
-            <View style={styles.tagsContainer} accessible={true} accessibilityRole="list" accessibilityLabel={`タグ: ${post.tags.join(', ')}`}>
+            {/* タグ機能は現在の型定義にないためコメントアウト */}
+            {/* <View style={styles.tagsContainer} accessible={true} accessibilityRole="list" accessibilityLabel={`タグ: ${post.tags.join(', ')}`}>
                 {post.tags.map((tag, index) => (
                     <Text key={index} style={dynamicStyles.tag} accessibilityRole="none">#{tag}</Text>
                 ))}
-            </View>
+            </View> */}
 
-            {post.aiResponse && (
+            {/* AIレスポンス機能は現在の型定義にないためコメントアウト */}
+            {/* {post.aiResponse && (
                 <View style={dynamicStyles.aiResponseContainer} accessible={true} accessibilityRole="none" accessibilityLabel="AIによる共感メッセージ">
                     <Text style={dynamicStyles.aiResponseLabel} accessibilityRole="text">ママの味方</Text>
                     <Text style={dynamicStyles.aiResponseText} accessibilityRole="text">{post.aiResponse}</Text>
                 </View>
-            )}
+            )} */}
 
             <View style={dynamicStyles.actionsContainer}>
                 <TouchableOpacity
@@ -275,12 +160,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
                     onPress={() => onLike(post.id)}
                     accessible={true}
                     accessibilityRole="button"
-                    accessibilityLabel={post.isLiked ? `${post.likes}件の共感、共感を取り消す` : `${post.likes}件の共感、共感する`}
+                    accessibilityLabel={post.isLiked ? `${post.likesCount}件の共感、共感を取り消す` : `${post.likesCount}件の共感、共感する`}
                     accessibilityState={{ selected: post.isLiked }}
                 >
                     <Heart size={20} color={post.isLiked ? theme.colors.primary : theme.colors.text.secondary} fill={post.isLiked ? theme.colors.primary : 'none'} />
                     <Text style={[dynamicStyles.actionText, post.isLiked && dynamicStyles.likedText]}>
-                        {post.likes} 共感
+                        {post.likesCount} 共感
                     </Text>
                 </TouchableOpacity>
 
@@ -289,11 +174,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
                     onPress={() => onComment(post.id)}
                     accessible={true}
                     accessibilityRole="button"
-                    accessibilityLabel={`${post.comments}件のコメント、コメントを追加する`}
+                    accessibilityLabel={`${post.commentsCount}件のコメント、コメントを追加する`}
                     accessibilityHint="タップしてコメントを表示または追加"
                 >
                     <MessageCircle size={20} color={theme.colors.text.secondary} />
-                    <Text style={dynamicStyles.actionText}>{post.comments} コメント</Text>
+                    <Text style={dynamicStyles.actionText}>{post.commentsCount} コメント</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
@@ -308,18 +193,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
                 </TouchableOpacity>
             </View>
 
-            {/* 画像ビューワー */}
-            {imageList.length > 0 && (
-                <ImageViewer
-                    visible={showImageViewer}
-                    imageUri={imageList[selectedImageIndex]}
-                    onClose={() => setShowImageViewer(false)}
-                    title={`投稿画像 ${selectedImageIndex + 1}/${imageList.length}`}
-                    altText={`${post.author}の投稿画像`}
-                    enableDownload={true}
-                    enableShare={true}
-                />
-            )}
         </TouchableOpacity>
     );
 };

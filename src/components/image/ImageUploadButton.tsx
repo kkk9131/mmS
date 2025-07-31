@@ -9,24 +9,31 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Alert
+  Alert,
+  Platform,
+  ScrollView,
+  Image
 } from 'react-native';
-import { Camera, Image as ImageIcon, X } from 'lucide-react-native';
+import { Camera, Image as ImageIcon, X, Plus } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 // import { useHandPreference } from '../../contexts/HandPreferenceContext';
-import { ImageSelectionModal } from './ImageSelectionModal';
-import { ImageEditor } from './ImageEditor';
-import { LazyImage } from './LazyImage';
-import { ImageUploadManager } from '../../services/image/ImageUploadManager';
-import { AccessibilityService } from '../../services/image/AccessibilityService';
-import { InternationalizationService } from '../../services/image/InternationalizationService';
-import { ImageAsset, ProcessedImage } from '../../types/image';
+import * as ImagePicker from 'expo-image-picker';
+
+// シンプルな型定義
+interface SimpleImage {
+  id: string;
+  uri: string;
+  width: number;
+  height: number;
+  fileSize?: number;
+  mimeType?: string;
+}
 
 interface ImageUploadButtonProps {
-  onImageSelected?: (images: ProcessedImage[]) => void;
+  onImageSelected?: (images: SimpleImage[]) => void;
   onImageRemoved?: (imageId: string) => void;
   maxImages?: number;
-  selectedImages?: ProcessedImage[];
+  selectedImages?: SimpleImage[];
   disabled?: boolean;
   showPreview?: boolean;
 }
@@ -41,109 +48,137 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
 }) => {
   const { theme } = useTheme();
   // const { handPreference } = useHandPreference();
-  const handPreference = 'right'; // デフォルト値
-  const [showSelectionModal, setShowSelectionModal] = useState(false);
-  const [showImageEditor, setShowImageEditor] = useState(false);
-  const [editingImage, setEditingImage] = useState<ImageAsset | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // const accessibilityService = AccessibilityService.getInstance();
-  // const i18nService = InternationalizationService.getInstance();
-  const uploadManager = new ImageUploadManager();
-
   const canAddMore = selectedImages.length < maxImages;
-  // const t = i18nService.getText();
-  const t = {
-    selectImage: '画像を選択',
-    imageAlt: '画像'
-  };
 
   // 画像選択処理
-  const handleImageSelection = async (images: ImageAsset[]) => {
+  const handleImageSelection = async () => {
     try {
       setIsUploading(true);
+      console.log('🖼️ 画像選択処理開始');
 
-      const processedImages: ProcessedImage[] = [];
-
-      for (const image of images) {
-        // 最初の画像のみエディターを表示（必要に応じて）
-        if (images.length === 1) {
-          setEditingImage(image);
-          setShowImageEditor(true);
-          setIsUploading(false);
-          return;
-        }
-
-        // 複数画像の場合は自動処理
-        const result = await uploadManager.processImage(image, {
-          stripMetadata: true,
-          generateThumbnail: true,
-          compressionQuality: 0.8
-        });
-
-        const processedImage: ProcessedImage = {
-          ...result,
-          compressed: true,
-          compressionRatio: 0.8,
-          altText: `画像 ${processedImages.length + 1}`,
-          processedAt: new Date()
-        };
-        
-        processedImages.push(processedImage);
+      // 権限チェック
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('権限エラー', 'フォトライブラリへのアクセス権限が必要です');
+        return;
       }
 
-      if (processedImages.length > 0) {
-        onImageSelected?.(processedImages);
+      // 画像を選択
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: maxImages > selectedImages.length,
+        quality: 0.8,
+        allowsEditing: false
+      });
+
+      if (!result.canceled && result.assets) {
+        const newImages: SimpleImage[] = result.assets.map((asset, index) => ({
+          id: `img_${Date.now()}_${index}`,
+          uri: asset.uri,
+          width: asset.width,
+          height: asset.height,
+          fileSize: asset.fileSize || 0,
+          mimeType: asset.mimeType || 'image/jpeg'
+        }));
+
+        console.log('✅ 画像選択完了:', newImages.length);
+        onImageSelected?.(newImages);
       }
 
     } catch (error) {
       console.error('❌ 画像選択エラー:', error);
-      Alert.alert(
-        'エラー',
-        '画像の選択に失敗しました。もう一度お試しください。',
-        [{ text: 'OK' }]
-      );
+      const errorMessage = '画像の選択に失敗しました。もう一度お試しください。';
+      
+      if (Platform.OS === 'web') {
+        alert(errorMessage);
+      } else {
+        Alert.alert('エラー', errorMessage, [{ text: 'OK' }]);
+      }
     } finally {
       setIsUploading(false);
     }
   };
 
-  // 画像編集完了処理
-  const handleImageEditComplete = (editedImage: ProcessedImage) => {
-    setShowImageEditor(false);
-    setEditingImage(null);
-    onImageSelected?.([editedImage]);
-    setIsUploading(false);
-  };
+  // カメラ撮影処理（現在未使用のためコメントアウト）
+  /*
+  const handleCameraCapture = async () => {
+    try {
+      setIsUploading(true);
+      console.log('📸 カメラ撮影開始');
 
-  // 画像編集キャンセル処理
-  const handleImageEditCancel = () => {
-    setShowImageEditor(false);
-    setEditingImage(null);
-    setIsUploading(false);
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('権限エラー', 'カメラへのアクセス権限が必要です');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+        allowsEditing: false
+      });
+
+      if (!result.canceled && result.assets) {
+        const newImage: SimpleImage = {
+          id: `img_${Date.now()}`,
+          uri: result.assets[0].uri,
+          width: result.assets[0].width,
+          height: result.assets[0].height,
+          fileSize: result.assets[0].fileSize || 0,
+          mimeType: result.assets[0].mimeType || 'image/jpeg'
+        };
+
+        console.log('✅ カメラ撮影完了');
+        onImageSelected?.([newImage]);
+      }
+
+    } catch (error) {
+      console.error('❌ カメラ撮影エラー:', error);
+      const errorMessage = 'カメラでの撮影に失敗しました。もう一度お試しください。';
+      
+      if (Platform.OS === 'web') {
+        alert(errorMessage);
+      } else {
+        Alert.alert('エラー', errorMessage, [{ text: 'OK' }]);
+      }
+    } finally {
+      setIsUploading(false);
+    }
   };
+  */
 
   // 画像削除処理
   const handleImageRemove = (imageId: string) => {
-    Alert.alert(
-      '画像を削除',
-      '選択した画像を削除しますか？',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: '削除',
-          style: 'destructive',
-          onPress: () => onImageRemoved?.(imageId)
-        }
-      ]
-    );
+    console.log('🗑️ 画像削除要求:', imageId);
+    
+    if (Platform.OS === 'web') {
+      const shouldDelete = window.confirm('選択した画像を削除しますか？');
+      if (shouldDelete) {
+        onImageRemoved?.(imageId);
+      }
+    } else {
+      Alert.alert(
+        '画像を削除',
+        '選択した画像を削除しますか？',
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          {
+            text: '削除',
+            style: 'destructive',
+            onPress: () => onImageRemoved?.(imageId)
+          }
+        ]
+      );
+    }
   };
 
   // アクセシビリティプロパティを生成
   const buttonAccessibilityProps = {
     accessible: true,
     accessibilityRole: 'button' as const,
-    accessibilityLabel: canAddMore ? t.selectImage : '画像上限に達しました',
+    accessibilityLabel: canAddMore ? '画像を選択' : '画像上限に達しました',
     accessibilityHint: canAddMore ? '画像を選択して投稿に追加' : undefined
   };
 
@@ -160,7 +195,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
           },
           // handPreference === 'left' && styles.uploadButtonLeft
         ]}
-        onPress={() => setShowSelectionModal(true)}
+        onPress={handleImageSelection}
         disabled={disabled || !canAddMore || isUploading}
         {...buttonAccessibilityProps}
       >
@@ -177,7 +212,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
               <ImageIcon size={16} color={theme.colors.text.secondary} style={styles.overlayIcon} />
             </View>
             <Text style={[styles.buttonText, { color: theme.colors.text.primary }]}>
-              {canAddMore ? t.selectImage : '上限達成'}
+              {canAddMore ? '画像を選択' : '上限達成'}
             </Text>
             <Text style={[styles.countText, { color: theme.colors.text.secondary }]}>
               {selectedImages.length}/{maxImages}
@@ -189,21 +224,27 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
       {/* 選択済み画像のプレビュー */}
       {showPreview && selectedImages.length > 0 && (
         <View style={styles.previewContainer}>
-          <Text style={[styles.previewTitle, { color: theme.colors.text.primary }]}>
-            選択済み画像 ({selectedImages.length})
-          </Text>
-          <View style={styles.imageGrid}>
+          <View style={styles.previewHeader}>
+            <Text style={[styles.previewTitle, { color: theme.colors.text.primary }]}>
+              選択した画像
+            </Text>
+            <Text style={[styles.previewCount, { color: theme.colors.text.secondary }]}>
+              {selectedImages.length}/{maxImages}
+            </Text>
+          </View>
+          
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.imageScrollView}
+            contentContainerStyle={styles.imageScrollContent}
+          >
             {selectedImages.map((image, index) => (
-              <View key={`${image.id}_${index}`} style={styles.imagePreview}>
-                <LazyImage
-                  uri={image.uri}
-                  width={80}
-                  height={80}
-                  style={styles.previewImage}
+              <View key={`${image.id}_${index}`} style={styles.imagePreviewCard}>
+                <Image
+                  source={{ uri: image.uri }}
+                  style={[styles.previewImage, { width: 100, height: 100, borderRadius: 12 }]}
                   resizeMode="cover"
-                  borderRadius={8}
-                  accessibilityLabel={image.altText || `画像 ${index + 1}`}
-                  priority="normal"
                 />
                 <TouchableOpacity
                   style={[styles.removeButton, { backgroundColor: theme.colors.error }]}
@@ -211,33 +252,37 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
                   accessible={true}
                   accessibilityRole="button"
                   accessibilityLabel="画像を削除"
-                  accessibilityHint={`${image.altText || '画像'}を削除します`}
                 >
-                  <X size={12} color="#FFFFFF" />
+                  <X size={14} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
             ))}
-          </View>
+            
+            {/* 追加ボタン（最大枚数未満の場合） */}
+            {canAddMore && (
+              <TouchableOpacity
+                style={[styles.addMoreButton, { 
+                  borderColor: theme.colors.primary,
+                  backgroundColor: theme.colors.card 
+                }]}
+                onPress={handleImageSelection}
+                disabled={disabled || isUploading}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="画像を追加"
+                accessibilityHint="さらに画像を選択します"
+              >
+                <Plus size={24} color={theme.colors.primary} />
+                <Text style={[styles.addMoreText, { color: theme.colors.primary }]}>
+                  追加
+                </Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
         </View>
       )}
 
-      {/* 画像選択モーダル */}
-      <ImageSelectionModal
-        visible={showSelectionModal}
-        onClose={() => setShowSelectionModal(false)}
-        onImagesSelected={handleImageSelection}
-        maxImages={maxImages - selectedImages.length}
-        darkMode={theme.colors.background === '#121212'}
-      />
-
-      {/* 画像編集モーダル */}
-      <ImageEditor
-        visible={showImageEditor}
-        image={editingImage}
-        onSave={handleImageEditComplete}
-        onCancel={handleImageEditCancel}
-        darkMode={theme.colors.background === '#121212'}
-      />
+      {/* シンプル化により、モーダルは不要 */}
     </View>
   );
 };
@@ -287,38 +332,63 @@ const styles = StyleSheet.create({
     fontWeight: '500'
   },
   previewContainer: {
-    marginTop: 12
+    marginTop: 16
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12
   },
   previewTitle: {
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  previewCount: {
     fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8
+    fontWeight: '500'
   },
-  imageGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8
+  imageScrollView: {
+    flexGrow: 0
   },
-  imagePreview: {
-    position: 'relative'
+  imageScrollContent: {
+    paddingRight: 16
+  },
+  imagePreviewCard: {
+    position: 'relative',
+    marginRight: 12
   },
   previewImage: {
-    borderRadius: 8
+    borderRadius: 12
   },
   removeButton: {
     position: 'absolute',
     top: -6,
     right: -6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 2,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84
+  },
+  addMoreButton: {
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4
+  },
+  addMoreText: {
+    fontSize: 12,
+    fontWeight: '600'
   }
 });
 

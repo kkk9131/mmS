@@ -7,6 +7,7 @@ import { HandPreferenceProvider } from '@/contexts/HandPreferenceContext';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { ReduxProvider } from '@/providers/ReduxProvider';
 import { View, ActivityIndicator } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { GlobalErrorNotification } from '@/components/GlobalErrorNotification';
 
@@ -58,17 +59,19 @@ export default function RootLayout() {
   useFrameworkReady();
 
   return (
-    <ReduxProvider>
-      <ErrorBoundary>
-        <ThemeProvider>
-          <HandPreferenceProvider>
-            <AuthProvider>
-              <RootLayoutNav />
-              <GlobalErrorNotification />
-            </AuthProvider>
-          </HandPreferenceProvider>
-        </ThemeProvider>
-      </ErrorBoundary>
-    </ReduxProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ReduxProvider>
+        <ErrorBoundary>
+          <ThemeProvider>
+            <HandPreferenceProvider>
+              <AuthProvider>
+                <RootLayoutNav />
+                <GlobalErrorNotification />
+              </AuthProvider>
+            </HandPreferenceProvider>
+          </ThemeProvider>
+        </ErrorBoundary>
+      </ReduxProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -179,6 +179,7 @@ export type Database = {
           created_at: string | null
           id: string
           image_url: string | null
+          images: string[] | null
           is_anonymous: boolean | null
           likes_count: number | null
           updated_at: string | null
@@ -190,6 +191,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           image_url?: string | null
+          images?: string[] | null
           is_anonymous?: boolean | null
           likes_count?: number | null
           updated_at?: string | null
@@ -201,6 +203,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           image_url?: string | null
+          images?: string[] | null
           is_anonymous?: boolean | null
           likes_count?: number | null
           updated_at?: string | null
