@@ -27,12 +27,12 @@ interface AnalysisResult {
   feedback_by_type: Record<string, number>;
   feedback_by_category: Record<string, number>;
   feedback_by_severity: Record<string, number>;
-  top_issues: Array<{
+  top_issues: {
     description: string;
     frequency: number;
     severity: string;
     impact_score: number;
-  }>;
+  }[];
   sentiment_analysis: {
     positive: number;
     neutral: number;

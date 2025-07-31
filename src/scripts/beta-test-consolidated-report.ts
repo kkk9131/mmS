@@ -67,12 +67,12 @@ interface BetaTestConsolidatedReport {
     support_efficiency: number;
   };
   risk_assessment: {
-    identified_risks: Array<{
+    identified_risks: {
       risk: string;
       likelihood: 'low' | 'medium' | 'high';
       impact: 'low' | 'medium' | 'high';
       mitigation_plan: string;
-    }>;
+    }[];
     technical_debt: string[];
     scalability_concerns: string[];
   };

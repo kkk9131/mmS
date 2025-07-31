@@ -24,6 +24,7 @@ interface PostWithExtras extends Omit<Post, 'likes_count' | 'comments_count'> {
   user_liked?: boolean;
   user_commented?: boolean;
   liked_at?: string; // When the user liked this post (for liked posts screen)
+  images?: string[] | null; // 複数画像フィールド
 }
 
 // Query parameters interface
@@ -82,7 +83,7 @@ export const postsApi = supabaseApi.injectEndpoints({
           const supabase = supabaseClient.getClient();
           const { data, error } = await supabase
             .rpc('get_posts_with_like_status', {
-              requesting_user_id: currentUserId,
+              req_user_id: currentUserId,
               limit_count: limit,
               offset_count: offset
             });
@@ -96,11 +97,41 @@ export const postsApi = supabaseApi.injectEndpoints({
           console.log('取得データサンプル:', data?.[0]);
 
           // Transform data to match expected interface
-          const transformedData: PostWithExtras[] = (data || []).map((post: any) => ({
+          const transformedData: PostWithExtras[] = (data || []).map((post: any) => {
+            console.log('🔄 RTK投稿変換処理:', {
+              post_id: post.id,
+              images_raw: post.images,
+              image_url_raw: post.image_url,
+              images_is_array: Array.isArray(post.images),
+              images_length: post.images?.length
+            });
+            
+            // 画像配列の処理（新しいimagesフィールドを優先、旧image_urlフィールドをフォールバック）
+            let imageUrls: string[] | null = null;
+            if (post.images && Array.isArray(post.images) && post.images.length > 0) {
+              // 新しいimagesフィールドが存在する場合
+              imageUrls = post.images.filter((url: string) => url && url.trim() !== '');
+              console.log('✅ imagesフィールドから取得:', imageUrls);
+            } else if (post.image_url && typeof post.image_url === 'string' && post.image_url.trim() !== '') {
+              // 旧image_urlフィールドをフォールバック
+              imageUrls = [post.image_url];
+              console.log('✅ image_urlフィールドから取得:', imageUrls);
+            } else {
+              console.log('⚠️ 画像データなし', {
+                images: post.images,
+                image_url: post.image_url
+              });
+              imageUrls = null;
+            }
+            
+            console.log('🎯 最終的なimageUrls:', imageUrls);
+            
+            const transformedPost = {
             id: post.id,
             user_id: post.user_id,
             content: post.content,
             image_url: post.image_url,
+            images: imageUrls, // 新しい複数画像フィールド
             is_anonymous: post.is_anonymous,
             created_at: post.created_at,
             updated_at: post.updated_at,
@@ -114,7 +145,16 @@ export const postsApi = supabaseApi.injectEndpoints({
               avatar_url: post.user_avatar_url,
               is_anonymous: post.is_anonymous
             }
-          }));
+          };
+          
+          console.log('📊 RTK変換後のデータ:', {
+            post_id: transformedPost.id,
+            images: transformedPost.images,
+            images_count: transformedPost.images?.length
+          });
+          
+          return transformedPost;
+        });
 
           return { data: transformedData };
         } catch (error) {

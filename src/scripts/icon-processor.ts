@@ -174,13 +174,13 @@ async function resizeIcon(
 
 // 生成アイコンの検証
 async function validateGeneratedIcons(assetsDir: string) {
-  const results: Array<{
+  const results: {
     name: string;
     exists: boolean;
     size: string;
     purpose: string;
     valid: boolean;
-  }> = [];
+  }[] = [];
   
   for (const config of ICON_CONFIGS) {
     const iconPath = path.join(assetsDir, config.name);

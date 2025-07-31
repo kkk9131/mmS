@@ -21,8 +21,33 @@
         "NSPhotoLibraryUsageDescription": "プロフィール画像や投稿画像の選択に使用します",
         "NSMicrophoneUsageDescription": "音声メッセージ機能に使用します（将来機能）",
         "NSLocationWhenInUseUsageDescription": "地域コミュニティ機能に使用します（将来機能）",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSExceptionDomains": {
+            "supabase.co": {
+              "NSExceptionAllowsInsecureHTTPLoads": false,
+              "NSExceptionMinimumTLSVersion": "TLSv1.2",
+              "NSIncludesSubdomains": true
+            }
+          }
+        }
       }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.mamapace.app",
+      "versionCode": 4,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.INTERNET"
+      ],
+      "usesCleartextTraffic": false
     },
     "web": {
       "bundler": "metro",

@@ -464,6 +464,16 @@ export class PostsService {
           // Note: Like status retrieval is handled by RTK Query with RPC function
           // For direct PostsService calls, we skip like status to avoid auth complexity
 
+          // 画像配列の処理（新しいimagesフィールドを優先、旧image_urlフィールドをフォールバック）
+          let imageUrls: string[] | undefined = undefined;
+          if (post.images && Array.isArray(post.images) && post.images.length > 0) {
+            // 新しいimagesフィールドが存在する場合
+            imageUrls = post.images.filter(url => url && url.trim() !== '');
+          } else if (post.image_url && post.image_url.trim() !== '') {
+            // 旧image_urlフィールドをフォールバック
+            imageUrls = [post.image_url];
+          }
+
           return {
             id: post.id,
             content: post.content,
@@ -476,7 +486,7 @@ export class PostsService {
             commentsCount: post.comments_count || 0,
             isLiked,
             isCommented: false, // TODO: PostsServiceでは直接的にコメント済み状態を取得できないため、RTK Queryの使用を推奨
-            images: post.image_url ? [post.image_url] : undefined,
+            images: imageUrls && imageUrls.length > 0 ? imageUrls : undefined,
           };
         })
       );
@@ -580,10 +590,19 @@ export class PostsService {
           console.warn('⚠️ カスタム認証セッションまたはアクセストークンが見つかりません');
         }
         
+        // 画像配列を明示的に処理
+        const imageArray = data.images && data.images.length > 0 ? data.images : null;
+        console.log('🔍 画像配列処理:', { 
+          originalImages: data.images, 
+          processedImages: imageArray,
+          isArray: Array.isArray(imageArray)
+        });
+
         const postData: PostInsert = {
           content: data.content,
           user_id: currentUserId,
-          image_url: data.images?.[0] || null,
+          image_url: data.images?.[0] || null, // 下位互換性のため最初の画像を設定
+          images: imageArray as string[] | null, // 型を明示的に指定
           is_anonymous: false,
           likes_count: 0,
           comments_count: 0,
@@ -622,6 +641,7 @@ export class PostsService {
             p_content: postData.content,
             p_user_id: postData.user_id,
             p_image_url: postData.image_url,
+            p_images: postData.images, // 複数画像配列を追加
             p_is_anonymous: postData.is_anonymous
           });
           
@@ -632,6 +652,7 @@ export class PostsService {
             console.log('✅ RPC関数で投稿作成成功:', rpcResult.data);
             console.log('✅ 作成された投稿のuser_id:', rpcResult.data?.user_id);
             console.log('✅ 作成された投稿のID:', rpcResult.data?.id);
+            console.log('✅ 作成された投稿のimages:', rpcResult.data?.images);
             post = rpcResult.data;
             error = null;
           }
@@ -645,10 +666,13 @@ export class PostsService {
           console.log('🔄 RPC関数失敗、直接INSERTを試行');
           
           try {
+            console.log('🔍 直接INSERT実行前のpostData:', JSON.stringify(postData, null, 2));
+            console.log('🔍 postData.imagesの型:', typeof postData.images, Array.isArray(postData.images));
+            
             const insertResult = await client
               .from('posts')
               .insert(postData)
-              .select()
+              .select('id, content, user_id, image_url, images, created_at')
               .single();
             
             if (insertResult.error) {
@@ -656,6 +680,8 @@ export class PostsService {
               error = insertResult.error;
             } else {
               console.log('✅ 直接INSERTで投稿作成成功');
+              console.log('🔍 INSERT結果:', JSON.stringify(insertResult.data, null, 2));
+              console.log('🔍 保存後のimages:', insertResult.data?.images);
               post = insertResult.data;
               error = null;
             }
@@ -714,6 +740,16 @@ export class PostsService {
         };
       }
 
+      // 画像配列の処理（新しいimagesフィールドを優先、旧image_urlフィールドをフォールバック）
+      let imageUrls: string[] | undefined = undefined;
+      if (post.images && Array.isArray(post.images) && post.images.length > 0) {
+        // 新しいimagesフィールドが存在する場合
+        imageUrls = post.images.filter((url: string) => url && url.trim() !== '');
+      } else if (post.image_url && post.image_url.trim() !== '') {
+        // 旧image_urlフィールドをフォールバック
+        imageUrls = [post.image_url];
+      }
+
       return {
         id: post.id,
         content: post.content,
@@ -725,7 +761,7 @@ export class PostsService {
         likesCount: 0,
         commentsCount: 0,
         isLiked: false,
-        images: post.image_url ? [post.image_url] : undefined,
+        images: imageUrls && imageUrls.length > 0 ? imageUrls : undefined,
       };
       } catch (error) {
         console.error('Failed to create post in Supabase:', error);
@@ -1059,6 +1095,16 @@ export class PostsService {
             likes_count: post.likes_count
           });
           
+          // 画像配列の処理（新しいimagesフィールドを優先、旧image_urlフィールドをフォールバック）
+          let imageUrls: string[] | undefined = undefined;
+          if (post.images && Array.isArray(post.images) && post.images.length > 0) {
+            // 新しいimagesフィールドが存在する場合
+            imageUrls = post.images.filter((url: string) => url && url.trim() !== '');
+          } else if (post.image_url && post.image_url.trim() !== '') {
+            // 旧image_urlフィールドをフォールバック
+            imageUrls = [post.image_url];
+          }
+
           return {
             id: post.id,
             content: post.content,
@@ -1071,7 +1117,7 @@ export class PostsService {
             commentsCount: post.comments_count || 0,
             isLiked: post.is_liked_by_user || false,  // RPC関数では is_liked_by_user というフィールド名
             isCommented: post.is_commented_by_user || false,
-            images: post.image_url ? [post.image_url] : undefined,
+            images: imageUrls && imageUrls.length > 0 ? imageUrls : undefined,
           };
         });
 

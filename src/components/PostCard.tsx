@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Heart, MessageCircle, MoveHorizontal as MoreHorizontal } from 'lucide-react-native';
 import { useTheme } from '../contexts/ThemeContext';
-import { LazyImage } from './image/LazyImage';
-import { ImageViewer } from './image/ImageViewer';
+import { MultipleImageDisplay } from './image/MultipleImageDisplay';
 
 import { Post } from '../types/posts';
 
@@ -16,8 +15,6 @@ interface PostCardProps {
 
 const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) => {
     const { theme } = useTheme();
-    const [showImageViewer, setShowImageViewer] = useState(false);
-    const [selectedImageIndex, setSelectedImageIndex] = useState(0);
     
     const handleLongPress = () => {
         Alert.alert(
@@ -31,11 +28,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
         );
     };
 
-    // 画像クリックハンドラー
-    const handleImagePress = (index: number = 0) => {
-        setSelectedImageIndex(index);
-        setShowImageViewer(true);
-    };
 
     // 画像リストを取得
     const getImageList = (): string[] => {
@@ -100,37 +92,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
         imageContainer: {
             marginVertical: 12,
         },
-        singleImage: {
-            width: '100%',
-            height: 200,
-            borderRadius: 8,
-        },
-        imageGrid: {
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            gap: 4,
-        },
-        gridImage: {
-            width: '48%',
-            height: 120,
-            borderRadius: 8,
-        },
-        imageOverlay: {
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            borderRadius: 8,
-        },
-        overlayText: {
-            color: '#FFFFFF',
-            fontSize: 18,
-            fontWeight: 'bold',
-        },
         actionsContainer: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -168,67 +129,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
 
             <Text style={dynamicStyles.content} accessible={true} accessibilityRole="text" accessibilityLabel={`投稿内容: ${post.content}`}>{post.content}</Text>
 
-            {/* 画像表示 */}
+            {/* 複数画像表示 */}
             {imageList.length > 0 && (
-                <View style={dynamicStyles.imageContainer}>
-                    {imageList.length === 1 ? (
-                        // 画像1枚の場合
-                        <TouchableOpacity 
-                            onPress={() => handleImagePress(0)}
-                            accessible={true}
-                            accessibilityRole="imagebutton"
-                            accessibilityLabel="投稿画像、タップして拡大表示"
-                        >
-                            <LazyImage
-                                uri={imageList[0]}
-                                style={dynamicStyles.singleImage}
-                                resizeMode="cover"
-                                borderRadius={8}
-                                accessibilityLabel="投稿の画像"
-                                priority="normal"
-                                onPress={() => handleImagePress(0)}
-                            />
-                        </TouchableOpacity>
-                    ) : (
-                        // 複数枚の場合
-                        <View style={dynamicStyles.imageGrid}>
-                            {imageList.slice(0, 4).map((imageUri, index) => (
-                                <View key={index} style={{ position: 'relative' }}>
-                                    <TouchableOpacity 
-                                        onPress={() => handleImagePress(index)}
-                                        accessible={true}
-                                        accessibilityRole="imagebutton"
-                                        accessibilityLabel={`投稿画像 ${index + 1}/${imageList.length}、タップして拡大表示`}
-                                    >
-                                        <LazyImage
-                                            uri={imageUri}
-                                            style={dynamicStyles.gridImage}
-                                            resizeMode="cover"
-                                            borderRadius={8}
-                                            accessibilityLabel={`投稿の画像 ${index + 1}`}
-                                            priority="normal"
-                                            onPress={() => handleImagePress(index)}
-                                        />
-                                    </TouchableOpacity>
-                                    {/* 4枚以上の場合のオーバーレイ */}
-                                    {index === 3 && imageList.length > 4 && (
-                                        <TouchableOpacity 
-                                            style={dynamicStyles.imageOverlay}
-                                            onPress={() => handleImagePress(index)}
-                                            accessible={true}
-                                            accessibilityRole="button"
-                                            accessibilityLabel={`他${imageList.length - 4}枚の画像を表示`}
-                                        >
-                                            <Text style={dynamicStyles.overlayText} accessibilityElementsHidden={true}>
-                                                +{imageList.length - 4}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-                            ))}
-                        </View>
-                    )}
-                </View>
+                <MultipleImageDisplay
+                    images={imageList}
+                    containerStyle={dynamicStyles.imageContainer}
+                    maxDisplayImages={4}
+                    showImageCount={true}
+                />
             )}
 
             {/* タグ機能は現在の型定義にないためコメントアウト */}
@@ -285,18 +193,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
                 </TouchableOpacity>
             </View>
 
-            {/* 画像ビューワー */}
-            {imageList.length > 0 && (
-                <ImageViewer
-                    visible={showImageViewer}
-                    imageUri={imageList[selectedImageIndex]}
-                    onClose={() => setShowImageViewer(false)}
-                    title={`投稿画像 ${selectedImageIndex + 1}/${imageList.length}`}
-                    altText={`${post.authorName}の投稿画像`}
-                    enableDownload={true}
-                    enableShare={true}
-                />
-            )}
         </TouchableOpacity>
     );
 };

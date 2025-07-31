@@ -171,3 +171,63 @@ export interface RetryConfig {
   backoffMultiplier: number;
   retryableErrors: ImageErrorType[];
 }
+
+// 複数画像投稿機能用の型定義
+export interface ImageAssetWithCaption extends ImageAsset {
+  caption?: string;
+  order: number;
+  uploadStatus?: 'pending' | 'uploading' | 'completed' | 'failed';
+  uploadProgress?: number;
+}
+
+export interface PostImage {
+  id: string;
+  url: string;
+  caption?: string;
+  order: number;
+  width: number;
+  height: number;
+}
+
+export interface MultipleImageUploadState {
+  selectedImages: ImageAssetWithCaption[];
+  uploadProgress: Record<string, UploadProgress>;
+  isUploading: boolean;
+  errors: ImageError[];
+}
+
+export interface MultipleImageUploadProps {
+  onImagesSelected: (images: ImageAssetWithCaption[]) => void;
+  onImageRemoved: (imageId: string) => void;
+  selectedImages: ImageAssetWithCaption[];
+  maxImages?: number;
+  disabled?: boolean;
+  showPreview?: boolean;
+}
+
+export interface ImagePreviewCarouselProps {
+  images: ImageAssetWithCaption[];
+  onImageRemove: (imageId: string) => void;
+  onImageReorder: (fromIndex: number, toIndex: number) => void;
+  onCaptionChange: (imageId: string, caption: string) => void;
+  editable?: boolean;
+}
+
+export interface ImagePreviewThumbnailProps {
+  image: ImageAssetWithCaption;
+  caption?: string;
+  onRemove: () => void;
+  onCaptionChange: (caption: string) => void;
+  onPress: () => void;
+  editable?: boolean;
+  size?: 'small' | 'medium' | 'large';
+}
+
+export interface ImageCaptionInputProps {
+  visible: boolean;
+  image: ImageAssetWithCaption;
+  initialCaption?: string;
+  onSave: (caption: string) => void;
+  onCancel: () => void;
+  maxLength?: number;
+}

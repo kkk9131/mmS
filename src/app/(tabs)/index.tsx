@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from 'react-native';
 import { Heart, MessageCircle, MoveHorizontal as MoreHorizontal, Menu, Plus } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import Sidebar from '../../components/Sidebar';
+import PostCard from '../../components/PostCard';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { postsApi } from '../../store/api/postsApi';
 import { FeatureFlagsManager } from '../../services/featureFlags';
@@ -21,6 +22,8 @@ interface PostWithLocalState {
   commentsCount: number;
   isLiked: boolean;
   isCommented: boolean;
+  images?: string[]; // 複数画像フィールド
+  image_url?: string; // 旧画像フィールド（フォールバック用）
   aiResponse?: string;
 }
 
@@ -43,6 +46,10 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Image loading states
+  const [imageLoading, setImageLoading] = useState<{[key: string]: boolean}>({});
+  const [imageError, setImageError] = useState<{[key: string]: boolean}>({});
   
   // RTK Query hooks - use when available
   const {
@@ -135,12 +142,7 @@ export default function HomeScreen() {
   // Use RTK Query data when available, otherwise use local state
   const displayPosts: PostWithLocalState[] = (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled() && rtkPosts) 
     ? rtkPosts.map(post => {
-        console.log('🔍 RTK投稿データ:', { 
-          id: post.id, 
-          user_id: post.user_id, 
-          users_nickname: post.users?.nickname
-        });
-        return { 
+        const mappedPost = { 
           id: post.id,
           authorId: post.user_id || '',
           authorName: (post.users?.nickname || 'Unknown').replace(/_修正$/, ''),
@@ -150,16 +152,38 @@ export default function HomeScreen() {
           commentsCount: post.comments_count || 0,
           isLiked: post.user_liked || false,
           isCommented: post.user_commented || false,
+          images: post.images || undefined, // 複数画像フィールド
+          image_url: post.image_url || undefined, // 旧画像フィールド（フォールバック用）
           aiResponse: undefined
         };
+        
+        console.log('🔍 RTK投稿データ変換:', { 
+          元データ: {
+            id: post.id,
+            images: post.images,
+            image_url: post.image_url
+          },
+          変換後: {
+            id: mappedPost.id,
+            images: mappedPost.images,
+            image_url: mappedPost.image_url
+          }
+        });
+        
+        return mappedPost;
       })
     : posts.map(post => {
         console.log('🔍 PostsService投稿データ:', { 
           id: post.id, 
           authorId: post.authorId, 
-          authorName: post.authorName 
+          authorName: post.authorName,
+          images: post.images,
+          image_url: post.image_url
         });
-        return post;
+        return {
+          ...post,
+          image_url: post.image_url || undefined
+        };
       });
   
   const isDataLoading = (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) 
@@ -314,6 +338,32 @@ export default function HomeScreen() {
 
   const handleCreatePost = () => {
     router.push('/post');
+  };
+
+  // Image handling functions
+  const handleImageLoadStart = (uri: string) => {
+    setImageLoading(prev => ({...prev, [uri]: true}));
+    setImageError(prev => ({...prev, [uri]: false}));
+    console.log('🔄 画像読み込み開始:', uri);
+  };
+
+  const handleImageLoad = (uri: string) => {
+    setImageLoading(prev => ({...prev, [uri]: false}));
+    setImageError(prev => ({...prev, [uri]: false}));
+    console.log('✅ 画像読み込み成功:', uri);
+  };
+
+  const handleImageError = (uri: string, error: any) => {
+    setImageLoading(prev => ({...prev, [uri]: false}));
+    setImageError(prev => ({...prev, [uri]: true}));
+    console.error('❌ 画像読み込みエラー:', {
+      uri: uri,
+      error: error,
+      nativeEvent: error.nativeEvent,
+      message: error.message,
+      url_valid: uri && uri.length > 0,
+      starts_with_https: uri && uri.startsWith('https://')
+    });
   };
 
   // 勘的スタイル
@@ -500,64 +550,47 @@ export default function HomeScreen() {
     },
   });
 
-  const renderPost = (post: PostWithLocalState) => (
-    <TouchableOpacity
-      style={dynamicStyles.postContainer}
-      onLongPress={() => handleLongPress(post.id)}
-      delayLongPress={800}
-    >
-      <View style={styles.postHeader}>
-        <TouchableOpacity onPress={() => router.push({ pathname: '/profile', params: { userId: post.authorId } })}>
-          <Text style={dynamicStyles.authorName}>{post.authorName}</Text>
-        </TouchableOpacity>
-        <Text style={dynamicStyles.timestamp}>{new Date(post.createdAt).toLocaleString('ja-JP', {
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        })}</Text>
-      </View>
+  const renderPost = (post: PostWithLocalState) => {
+    // 画像データのデバッグログ
+    console.log('🎨 ホーム画面投稿レンダリング:', {
+      id: post.id,
+      imagesArray: post.images,
+      imagesLength: post.images?.length,
+      imageUrl: post.image_url,
+      authorName: post.authorName
+    });
 
-      <Text style={dynamicStyles.postContent}>{post.content}</Text>
+    // PostWithLocalStateからPost型に変換
+    const postData: Post = {
+      id: post.id,
+      content: post.content,
+      authorId: post.authorId,
+      authorName: post.authorName,
+      authorAvatar: undefined,
+      createdAt: post.createdAt,
+      updatedAt: post.createdAt,
+      likesCount: post.likesCount,
+      commentsCount: post.commentsCount,
+      isLiked: post.isLiked,
+      isCommented: post.isCommented,
+      images: post.images && post.images.length > 0 ? post.images : (post.image_url ? [post.image_url] : undefined)
+    };
 
-      {post.aiResponse && (
-        <View style={dynamicStyles.aiResponseContainer}>
-          <Text style={dynamicStyles.aiResponseLabel}>ママの味方</Text>
-          <Text style={dynamicStyles.aiResponseText}>{post.aiResponse}</Text>
-        </View>
-      )}
+    console.log('📋 PostCardに渡すデータ:', {
+      id: postData.id,
+      images: postData.images,
+      imagesCount: postData.images?.length
+    });
 
-      <View style={dynamicStyles.actionsContainer}>
-        <TouchableOpacity
-          style={[styles.actionButton, post.isLiked && styles.likedButton]}
-          onPress={() => handleLike(post.id)}
-        >
-          <Heart size={20} color={post.isLiked ? theme.colors.primary : theme.colors.text.disabled} fill={post.isLiked ? theme.colors.primary : 'none'} />
-          <Text style={[dynamicStyles.actionText, post.isLiked && dynamicStyles.likedText]}>
-            {post.likesCount} 共感
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionButton, post.isCommented && styles.commentedButton]}
-          onPress={() => handleCommentPress(post)}
-        >
-          <MessageCircle 
-            size={20} 
-            color={post.isCommented ? theme.colors.primary : theme.colors.text.disabled} 
-            fill={post.isCommented ? theme.colors.primary : 'none'} 
-          />
-          <Text style={[dynamicStyles.actionText, post.isCommented && dynamicStyles.commentedText]}>
-            {post.commentsCount} コメント
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.moreButton}>
-          <MoreHorizontal size={20} color={theme.colors.text.disabled} />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+    return (
+      <PostCard
+        post={postData}
+        onLike={handleLike}
+        onComment={handleCommentPress}
+        onMore={handleLongPress}
+      />
+    );
+  };
 
   return (
     <SafeAreaView style={dynamicStyles.container}>
@@ -1084,5 +1117,66 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 14,
     textAlign: 'center',
+  },
+  imageContainer: {
+    marginVertical: 12,
+  },
+  singleImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  gridImage: {
+    width: '48%',
+    height: 120,
+    borderRadius: 8,
+  },
+  gridImageContainer: {
+    width: '48%',
+    marginBottom: 4,
+    position: 'relative',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  overlayText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  errorOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
   },
 });

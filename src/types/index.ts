@@ -60,3 +60,4 @@ export * from './posts';
 export * from './users';
 export * from './notifications';
 export * from './follow';
+export * from './image';
