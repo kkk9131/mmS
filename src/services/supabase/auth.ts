@@ -223,27 +223,100 @@ export class SupabaseAuthService {
    */
   public async getUserProfile(userId?: string): Promise<DatabaseUser | null> {
     const client = supabaseClient.getClient();
-    const targetUserId = userId || (await this.getCurrentUser())?.id;
+    const currentUser = await this.getCurrentUser();
+    const targetUserId = userId || currentUser?.id;
+
+    console.log('🔍 getUserProfile Debug:', {
+      requestedUserId: userId,
+      currentUserId: currentUser?.id,
+      targetUserId,
+      hasCurrentUser: !!currentUser
+    });
 
     if (!targetUserId) {
+      console.warn('⚠️ No target user ID available for profile fetch');
       return null;
     }
 
     try {
+      // まず存在確認のためmaybeSingleを使用
       const { data, error } = await client
         .from('users')
         .select('*')
         .eq('id', targetUserId)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        console.error('Failed to get user profile:', error);
+        console.error('❌ Failed to get user profile:', {
+          error,
+          code: error.code,
+          message: error.message,
+          userId: targetUserId
+        });
+        
+        // PGRST116エラー（レコードが存在しない）の場合、ユーザーを作成
+        if (error.code === 'PGRST116' && currentUser) {
+          console.log('📝 Creating missing user profile for:', currentUser.id);
+          return await this.createUserProfile(currentUser);
+        }
+        
         return null;
       }
 
+      if (!data) {
+        console.warn('⚠️ User profile not found in database:', targetUserId);
+        
+        // 現在のユーザーで、プロファイルが存在しない場合は作成
+        if (currentUser && targetUserId === currentUser.id) {
+          console.log('📝 Creating user profile for authenticated user:', currentUser.id);
+          return await this.createUserProfile(currentUser);
+        }
+        
+        return null;
+      }
+
+      console.log('✅ User profile found:', data.id);
       return data;
     } catch (error) {
-      console.error('Error getting user profile:', error);
+      console.error('❌ Error getting user profile:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create user profile in database
+   */
+  private async createUserProfile(user: User): Promise<DatabaseUser | null> {
+    const client = supabaseClient.getClient();
+    
+    console.log('📝 Creating user profile for:', user.id);
+    
+    try {
+      const userProfile = {
+        id: user.id,
+        email: user.email,
+        display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || 'ユーザー',
+        avatar_url: user.user_metadata?.avatar_url || null,
+        bio: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { data, error } = await client
+        .from('users')
+        .insert(userProfile)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Failed to create user profile:', error);
+        return null;
+      }
+
+      console.log('✅ User profile created successfully:', data.id);
+      return data;
+    } catch (error) {
+      console.error('❌ Error creating user profile:', error);
       return null;
     }
   }

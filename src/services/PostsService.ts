@@ -86,10 +86,6 @@ export class PostsService {
   }
 
   public async getUserPosts(userId: string, params: PostsQueryParams = {}): Promise<PostsResponse> {
-    console.log('🚀 PostsService.getUserPosts開始');
-    console.log('🔍 userId:', userId);
-    console.log('🔍 params:', params);
-    console.log('🔍 Supabase有効:', this.featureFlags.isSupabaseEnabled());
     
     // Note: If RTK Query is enabled, components should use hooks directly
     // This method serves as fallback or for direct service usage
@@ -98,7 +94,6 @@ export class PostsService {
     }
 
     if (this.featureFlags.isSupabaseEnabled()) {
-      console.log('📡 Supabaseでユーザー投稿を取得');
       return this.getSupabaseUserPosts(userId, params);
     } else if (this.featureFlags.isApiEnabled()) {
       const queryParams = new URLSearchParams();
@@ -481,106 +476,179 @@ export class PostsService {
       const limit = params.limit || 10;
       const sortBy = params.sortBy || 'created_at';
       const order = params.order || 'desc';
-
+      
+      // 現在のユーザーIDを取得
+      let currentUserId: string | null = null;
       try {
-      const from = (page - 1) * limit;
-      const to = from + limit - 1;
-
-      let query = client
-        .from('posts')
-        .select(`
-          *,
-          users!inner (
-            id,
-            nickname,
-            avatar_url
-          )
-        `, { count: 'exact' })
-        .order(sortBy, { ascending: order === 'asc' })
-        .range(from, to);
-
-      const { data: posts, error, count } = await query;
-
-      if (error) {
-        console.error('Supabase posts fetch error:', error);
-        throw new Error(`Failed to fetch posts: ${error.message}`);
+        const { store } = await import('../store');
+        const state = store.getState();
+        currentUserId = state.auth?.profile?.id || state.auth?.user?.id || null;
+      } catch (error) {
+        console.error('❌ Redux stateからユーザーIDを取得できませんでした:', error);
       }
 
-      const transformedPosts = await Promise.all(
-        (posts || []).map(async (post) => {
-          const user = Array.isArray(post.users) ? post.users[0] : post.users;
+      try {
+        
+        // まずRPC関数を試行
+        const { data: rpcData, error: rpcError } = await client
+          .rpc('get_posts_with_like_status', {
+            req_user_id: currentUserId,
+            limit_count: limit,
+            offset_count: (page - 1) * limit
+          });
+        
+        if (rpcError) {
+          console.warn('⚠️ RPC関数エラー:', rpcError);
           
-          // Get user's like status for this post
-          let isLiked = false;
-          let currentUserId: string | null = null;
+          // RPC関数が失敗した場合、フォールバック
+          if (rpcError.code === '42883') {
+            return await this.fallbackDirectQuery(client, { page, limit, sortBy, order }, currentUserId);
+          }
           
-          try {
-            const { store } = await import('../store');
-            const state = store.getState();
-            currentUserId = state.auth?.profile?.id || state.auth?.user?.id || null;
-            
-            if (currentUserId) {
-              isLiked = await this.checkUserLikedPost(post.id, currentUserId);
+          throw rpcError;
+        }
+        
+        
+        if (!rpcData || rpcData.length === 0) {
+          return await this.fallbackDirectQuery(client, { page, limit, sortBy, order }, currentUserId);
+        }
+        
+        // RPC関数のデータを変換
+        const transformedPosts = await Promise.all(
+          rpcData.map(async (post: any) => {
+            // 画像配列の処理
+            let imageUrls: string[] | undefined = undefined;
+            if (post.images && Array.isArray(post.images) && post.images.length > 0) {
+              imageUrls = post.images.filter((url: string) => url && url.trim() !== '');
+            } else if (post.image_url && post.image_url.trim() !== '') {
+              imageUrls = [post.image_url];
             }
-          } catch (error) {
-            console.warn('Failed to get like status:', error);
-          }
 
-          // 画像配列の処理（新しいimagesフィールドを優先、旧image_urlフィールドをフォールバック）
-          let imageUrls: string[] | undefined = undefined;
-          if (post.images && Array.isArray(post.images) && post.images.length > 0) {
-            // 新しいimagesフィールドが存在する場合
-            imageUrls = post.images.filter(url => url && url.trim() !== '');
-          } else if (post.image_url && post.image_url.trim() !== '') {
-            // 旧image_urlフィールドをフォールバック
-            imageUrls = [post.image_url];
-          }
+            return {
+              id: post.id,
+              content: post.content,
+              authorId: post.user_id,
+              authorName: (post.user_nickname || 'Unknown').replace(/_修正$/, ''),
+              authorAvatar: post.user_avatar_url || 'https://via.placeholder.com/40',
+              createdAt: post.created_at || new Date().toISOString(),
+              updatedAt: post.updated_at || new Date().toISOString(),
+              likesCount: post.likes_count || 0,
+              commentsCount: post.comments_count || 0,
+              isLiked: post.is_liked_by_user || false,
+              isCommented: post.is_commented_by_user || false,
+              images: imageUrls && imageUrls.length > 0 ? imageUrls : undefined,
+            };
+          })
+        );
 
-          return {
-            id: post.id,
-            content: post.content,
-            authorId: post.user_id,
-            authorName: (user?.nickname || 'Unknown').replace(/_修正$/, ''),
-            authorAvatar: user?.avatar_url || 'https://via.placeholder.com/40',
-            createdAt: post.created_at || new Date().toISOString(),
-            updatedAt: post.updated_at || new Date().toISOString(),
-            likesCount: post.likes_count || 0,
-            commentsCount: post.comments_count || 0,
-            isLiked,
-            isCommented: await this.checkUserCommentedPost(post.id, currentUserId), // コメント済み状態を直接取得
-            images: imageUrls && imageUrls.length > 0 ? imageUrls : undefined,
-          };
-        })
-      );
-
-      const totalItems = count || transformedPosts.length;
-      const totalPages = Math.ceil(totalItems / limit);
-
-      return {
-        posts: transformedPosts,
-        pagination: {
-          currentPage: page,
-          totalPages,
-          totalItems,
-          hasNext: page < totalPages,
-          hasPrevious: page > 1,
-        },
-      };
+        return {
+          posts: transformedPosts,
+          pagination: {
+            currentPage: page,
+            totalPages: Math.ceil(transformedPosts.length / limit),
+            totalItems: transformedPosts.length,
+            hasNext: transformedPosts.length >= limit,
+            hasPrevious: page > 1,
+          },
+        };
+        // この部分は上記のRPC関数処理に移動
       } catch (error) {
         console.error('Failed to fetch posts from Supabase:', error);
-        throw error;
+        return await this.fallbackDirectQuery(client, { page, limit, sortBy, order }, currentUserId);
       }
     });
   }
+  
+  // フォールバック用の直接クエリメソッド
+  private async fallbackDirectQuery(
+    client: any, 
+    params: { page: number; limit: number; sortBy: string; order: string },
+    currentUserId: string | null
+  ): Promise<PostsResponse> {
+    
+    const { page, limit, sortBy, order } = params;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    const { data: posts, error, count } = await client
+      .from('posts')
+      .select(`
+        *,
+        users!inner (
+          id,
+          nickname,
+          avatar_url
+        )
+      `, { count: 'exact' })
+      .order(sortBy, { ascending: order === 'asc' })
+      .range(from, to);
+
+    if (error) {
+      console.error('❌ 直接クエリもエラー:', error);
+      throw new Error(`Failed to fetch posts: ${error.message}`);
+    }
+
+
+    const transformedPosts = await Promise.all(
+      (posts || []).map(async (post) => {
+        const user = Array.isArray(post.users) ? post.users[0] : post.users;
+        
+        // いいね状態の確認（簡易版）
+        let isLiked = false;
+        if (currentUserId) {
+          try {
+            isLiked = await this.checkUserLikedPost(post.id, currentUserId);
+          } catch (error) {
+            console.warn('Failed to get like status:', error);
+          }
+        }
+
+        // 画像配列の処理
+        let imageUrls: string[] | undefined = undefined;
+        if (post.images && Array.isArray(post.images) && post.images.length > 0) {
+          imageUrls = post.images.filter((url: string) => url && url.trim() !== '');
+        } else if (post.image_url && post.image_url.trim() !== '') {
+          imageUrls = [post.image_url];
+        }
+
+        return {
+          id: post.id,
+          content: post.content,
+          authorId: post.user_id,
+          authorName: (user?.nickname || 'Unknown').replace(/_修正$/, ''),
+          authorAvatar: user?.avatar_url || 'https://via.placeholder.com/40',
+          createdAt: post.created_at || new Date().toISOString(),
+          updatedAt: post.updated_at || new Date().toISOString(),
+          likesCount: post.likes_count || 0,
+          commentsCount: post.comments_count || 0,
+          isLiked,
+          isCommented: await this.checkUserCommentedPost(post.id, currentUserId),
+          images: imageUrls && imageUrls.length > 0 ? imageUrls : undefined,
+        };
+      })
+    );
+
+    const totalItems = count || transformedPosts.length;
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      posts: transformedPosts,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems,
+        hasNext: page < totalPages,
+        hasPrevious: page > 1,
+      },
+    };
+  }
 
   private async createSupabasePost(data: CreatePostRequest): Promise<Post> {
-    console.log('🚀 createSupabasePost開始');
     await this.ensureSupabaseConnection();
     
     // Supabaseの現在のセッション状態を確認
     const client = supabaseClient.getClient();
     const { data: sessionData, error: sessionError } = await client.auth.getSession();
-    console.log('🔍 Supabase session:', sessionData);
     if (sessionError) {
       console.error('❌ Supabase session error:', sessionError);
     }
@@ -591,17 +659,12 @@ export class PostsService {
     // Use explicit userId if provided, otherwise get from Redux store
     if (data.userId) {
       currentUserId = data.userId;
-      console.log('🔍 Using explicit user ID from request:', currentUserId);
     } else {
       // Use Redux store to get current user (for custom auth)
       try {
         const { store } = await import('../store');
         const state = store.getState();
         currentUserId = state.auth?.profile?.id || state.auth?.user?.id || null;
-        console.log('🔍 Current user ID from Redux:', currentUserId);
-        console.log('🔍 Full auth state:', state.auth);
-        console.log('🔍 Auth profile:', state.auth?.profile);
-        console.log('🔍 Auth user:', state.auth?.user);
       } catch (error) {
         console.error('❌ Failed to get user ID from Redux:', error);
       }
@@ -1117,7 +1180,7 @@ export class PostsService {
         console.log('📊 RPC関数でユーザー投稿を取得中...');
         const { data: rpcPosts, error } = await client
           .rpc('get_posts_with_like_status', {
-            requesting_user_id: currentUserId, // 現在ログインしているユーザーID
+            req_user_id: currentUserId, // 現在ログインしているユーザーID
             limit_count: limit,
             offset_count: from
           });

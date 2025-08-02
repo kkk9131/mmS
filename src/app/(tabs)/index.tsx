@@ -17,8 +17,10 @@ interface PostWithLocalState {
   id: string;
   authorId: string;
   authorName: string;
+  authorAvatar?: string;
   content: string;
   createdAt: string;
+  updatedAt: string;
   likesCount: number;
   commentsCount: number;
   isLiked: boolean;
@@ -26,6 +28,21 @@ interface PostWithLocalState {
   images?: string[]; // 複数画像フィールド
   image_url?: string; // 旧画像フィールド（フォールバック用）
   aiResponse?: string;
+}
+
+interface Post {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  likesCount: number;
+  commentsCount: number;
+  isLiked: boolean;
+  isCommented: boolean;
+  images?: string[]; // 複数画像フィールド
 }
 
 // モックデータは削除し、Supabaseデータのみを使用
@@ -36,11 +53,12 @@ export default function HomeScreen() {
   const featureFlags = FeatureFlagsManager.getInstance();
   const postsService = PostsService.getInstance();
 
-  // Store Debug (開発環境のみ)
+  // Store Debug and Posts Debug (開発環境のみ)
   useEffect(() => {
     if (featureFlags.isDebugModeEnabled()) {
       console.log('🏠 HomeScreen: Store デバッグ実行中...');
       debugStoreConfiguration();
+      
     }
   }, []);
   
@@ -154,12 +172,14 @@ export default function HomeScreen() {
           id: post.id,
           authorId: post.user_id || '',
           authorName: (post.users?.nickname || 'Unknown').replace(/_修正$/, ''),
+          authorAvatar: post.users?.avatar_url || undefined,
           content: post.content || '',
           createdAt: post.created_at || new Date().toISOString(),
+          updatedAt: post.updated_at || post.created_at || new Date().toISOString(),
           likesCount: post.likes_count || 0,
           commentsCount: post.comments_count || 0,
           isLiked: post.user_liked || false,
-          isCommented: post.user_commented || false,
+          isCommented: post.user_commented ?? false,
           images: post.images || undefined, // 複数画像フィールド
           image_url: post.image_url || undefined, // 旧画像フィールド（フォールバック用）
           aiResponse: undefined
@@ -577,8 +597,8 @@ export default function HomeScreen() {
     return (
       <PostCard
         post={postData}
-        onLike={handleLike}
-        onComment={handleCommentPress}
+        onLike={() => handleLike(postData.id)}
+        onComment={() => handleCommentPress(post)}
         onMore={handleLongPress}
       />
     );
@@ -605,12 +625,23 @@ export default function HomeScreen() {
       <View style={styles.headerContent}>
         <Text style={dynamicStyles.headerTitle}>Mamapace</Text>
         {__DEV__ && (
-          <Text style={[styles.debugInfo, { color: theme.colors.primary }]}>
-            {featureFlags.isSupabaseEnabled() ? '🟢 Supabase' : '🔴 Mock'} | 
-            {featureFlags.isReduxEnabled() ? ' RTK' : ' Direct'} | 
-            {displayPosts.length}件 | 
-            {(featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled() && rtkPosts) ? 'RTK Data' : 'PostsService Data'}
-          </Text>
+          <View>
+            <Text style={[styles.debugInfo, { color: theme.colors.primary }]}>
+              {featureFlags.isSupabaseEnabled() ? '🟢 Supabase' : '🔴 Mock'} | 
+              {featureFlags.isReduxEnabled() ? ' RTK' : ' Direct'} | 
+              {displayPosts.length}件 | 
+              {(featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled() && rtkPosts) ? 'RTK Data' : 'PostsService Data'}
+            </Text>
+            <TouchableOpacity 
+              onPress={async () => {
+                console.log('🔧 手動リロード実行中...');
+                loadPosts();
+              }}
+              style={styles.debugButton}
+            >
+              <Text style={styles.debugButtonText}>🔄 Reload</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -1073,6 +1104,18 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontFamily: 'monospace',
     opacity: 0.7,
+  },
+  debugButton: {
+    backgroundColor: '#ff6b9d',
+    padding: 8,
+    borderRadius: 4,
+    marginTop: 4,
+    alignSelf: 'center',
+  },
+  debugButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   errorContainer: {
     flex: 1,

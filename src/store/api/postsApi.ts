@@ -72,16 +72,100 @@ export const postsApi = supabaseApi.injectEndpoints({
           const state = getState() as any;
           const currentUserId = state.auth?.user?.id || null;
           
-          console.log('🔍 投稿取得開始:', { 
+          console.log('🔍 RTK Query 投稿取得開始:', { 
             limit, 
             offset, 
             userId, 
             currentUserId,
-            authState: state.auth?.isAuthenticated 
+            authState: state.auth?.isAuthenticated,
+            supabaseInitialized: supabaseClient.isInitialized()
+          });
+
+          // RPC関数呼び出し前にSupabaseクライアントの状態を確認
+          if (!supabaseClient.isInitialized()) {
+            console.error('❌ Supabaseクライアントが初期化されていません');
+            throw new Error('Supabase client not initialized');
+          }
+
+          // RPC関数の存在確認
+          console.log('🔍 RPC関数呼び出し準備:', {
+            functionName: 'get_posts_with_like_status',
+            params: {
+              req_user_id: currentUserId,
+              limit_count: limit,
+              offset_count: offset
+            }
           });
 
           // Call custom database function
           const supabase = supabaseClient.getClient();
+          
+          // まずはRPC関数の存在確認を試行
+          console.log('🧪 RPC関数の存在確認テスト中...');
+          let rpcFunctionExists = false;
+          try {
+            const testResult = await supabase.rpc('get_posts_with_like_status', {
+              req_user_id: null,
+              limit_count: 1,
+              offset_count: 0
+            });
+            
+            rpcFunctionExists = !testResult.error || testResult.error.code !== '42883'; // 42883 = function not found
+            console.log('✅ RPC関数存在確認結果:', {
+              exists: rpcFunctionExists,
+              testError: testResult.error?.message || 'なし',
+              errorCode: testResult.error?.code || 'なし'
+            });
+          } catch (e) {
+            console.error('❌ RPC関数存在確認テストエラー:', e);
+          }
+
+          if (!rpcFunctionExists) {
+            console.warn('⚠️ RPC関数が存在しない可能性があります。代替クエリを使用します。');
+            // フォールバック: 直接的なクエリ
+            const { data: fallbackData, error: fallbackError } = await supabase
+              .from('posts')
+              .select(`
+                *,
+                users:user_id (
+                  id,
+                  nickname,
+                  avatar_url,
+                  is_anonymous
+                )
+              `)
+              .order('created_at', { ascending: false })
+              .limit(limit);
+              
+            if (fallbackError) {
+              console.error('❌ フォールバッククエリエラー:', fallbackError);
+              throw fallbackError;
+            }
+            
+            console.log('✅ フォールバッククエリ成功:', fallbackData?.length || 0, '件');
+            
+            // データを変換してRPC関数と同じ形式にする
+            const transformedFallbackData = (fallbackData || []).map((post: any) => ({
+              id: post.id,
+              user_id: post.user_id,
+              content: post.content,
+              image_url: post.image_url,
+              images: post.images,
+              is_anonymous: post.is_anonymous,
+              created_at: post.created_at,
+              updated_at: post.updated_at,
+              likes_count: 0, // フォールバックでは0
+              comments_count: 0, // フォールバックでは0
+              is_liked_by_user: false, // フォールバックでは false
+              is_commented_by_user: false, // フォールバックでは false
+              user_nickname: post.users?.nickname || 'Unknown User',
+              user_avatar_url: post.users?.avatar_url
+            }));
+            
+            return { data: transformedFallbackData };
+          }
+
+          // RPC関数が存在する場合は通常の呼び出し
           const { data, error } = await supabase
             .rpc('get_posts_with_like_status', {
               req_user_id: currentUserId,
@@ -90,12 +174,76 @@ export const postsApi = supabaseApi.injectEndpoints({
             });
 
           if (error) {
-            console.error('❌ 投稿取得エラー:', error);
+            console.error('❌ RPC関数呼び出しエラー:', {
+              message: error.message,
+              code: error.code,
+              details: error.details,
+              hint: error.hint
+            });
+            
+            // RPC関数が見つからない場合のフォールバック
+            if (error.code === '42883') {
+              console.warn('⚠️ RPC関数が見つかりません。フォールバッククエリを実行します。');
+              
+              const { data: fallbackData, error: fallbackError } = await supabase
+                .from('posts')
+                .select(`
+                  *,
+                  users:user_id (
+                    id,
+                    nickname,
+                    avatar_url,
+                    is_anonymous
+                  )
+                `)
+                .order('created_at', { ascending: false })
+                .limit(limit);
+                
+              if (fallbackError) {
+                console.error('❌ フォールバッククエリも失敗:', fallbackError);
+                throw fallbackError;
+              }
+              
+              console.log('✅ フォールバッククエリ成功:', fallbackData?.length || 0, '件');
+              
+              // データを変換
+              const transformedData = (fallbackData || []).map((post: any) => ({
+                id: post.id,
+                user_id: post.user_id,
+                content: post.content,
+                image_url: post.image_url,
+                images: post.images,
+                is_anonymous: post.is_anonymous,
+                created_at: post.created_at,
+                updated_at: post.updated_at,
+                likes_count: 0,
+                comments_count: 0,
+                is_liked_by_user: false,
+                is_commented_by_user: false,
+                user_nickname: post.users?.nickname || 'Unknown User',
+                user_avatar_url: post.users?.avatar_url
+              }));
+              
+              return { data: transformedData };
+            }
+            
             throw error;
           }
 
-          console.log('✅ 投稿取得成功:', data?.length || 0, '件');
-          console.log('取得データサンプル:', data?.[0]);
+          console.log('✅ RPC投稿取得成功:', data?.length || 0, '件');
+          if (data && data.length > 0) {
+            console.log('📋 取得データサンプル:', {
+              id: data[0]?.id,
+              content: data[0]?.content?.substring(0, 50) + '...',
+              user_nickname: data[0]?.user_nickname,
+              likes_count: data[0]?.likes_count,
+              comments_count: data[0]?.comments_count,
+              has_images: !!(data[0]?.images || data[0]?.image_url),
+              is_liked_by_user: data[0]?.is_liked_by_user
+            });
+          } else {
+            console.warn('⚠️ データが空です');
+          }
 
           // Transform data to match expected interface
           const transformedData: PostWithExtras[] = (data || []).map((post: any) => {

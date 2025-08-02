@@ -39,7 +39,7 @@ export const usersApi = supabaseApi.injectEndpoints({
         query: '*',
         options: {
           eq: { id: userId },
-          single: true,
+          maybeSingle: true,
         },
       }),
       providesTags: (result, error, id) => [{ type: 'User' as const, id }],
