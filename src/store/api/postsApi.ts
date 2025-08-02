@@ -10,6 +10,7 @@ import {
   getRetryConfig,
   selectiveInvalidateTags
 } from './cacheUtils';
+import { FeatureFlagsManager } from '../../services/featureFlags';
 
 // Enhanced Post interface with computed fields
 interface PostWithExtras extends Omit<Post, 'likes_count' | 'comments_count'> {

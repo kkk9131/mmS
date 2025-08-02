@@ -56,7 +56,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
   const handleImageSelection = async () => {
     try {
       setIsUploading(true);
-      console.log('🖼️ 画像選択処理開始');
+      if (__DEV__) console.log('🖼️ 画像選択処理開始');
 
       // 権限チェック
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -83,7 +83,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
           mimeType: asset.mimeType || 'image/jpeg'
         }));
 
-        console.log('✅ 画像選択完了:', newImages.length);
+        if (__DEV__) console.log('✅ 画像選択完了:', newImages.length);
         onImageSelected?.(newImages);
       }
 
@@ -151,7 +151,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
 
   // 画像削除処理
   const handleImageRemove = (imageId: string) => {
-    console.log('🗑️ 画像削除要求:', imageId);
+    if (__DEV__) console.log('🗑️ 画像削除要求:', imageId);
     
     if (Platform.OS === 'web') {
       const shouldDelete = window.confirm('選択した画像を削除しますか？');

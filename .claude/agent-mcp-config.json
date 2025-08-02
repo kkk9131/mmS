@@ -1,0 +1,69 @@
+{
+  "agent_mcp_mappings": {
+    "test-automation-expert": {
+      "description": "テスト自動化専門エージェント - Playwright MCP統合",
+      "mcp_servers": ["playwright"],
+      "enhanced_capabilities": [
+        "E2Eテスト自動実行",
+        "ブラウザテスト自動化", 
+        "UIテストスクリーンショット",
+        "パフォーマンステスト"
+      ],
+      "preferred_tools": [
+        "Playwright browser automation",
+        "Visual regression testing",
+        "Load testing",
+        "Cross-platform testing"
+      ]
+    },
+    "bug-hunter": {
+      "description": "バグ修正専門エージェント - Context7 MCP統合",
+      "mcp_servers": ["Context7"],
+      "enhanced_capabilities": [
+        "コンテキスト保持バグ解析",
+        "履歴追跡デバッグ",
+        "パターン認識による根本原因特定",
+        "継続的監視"
+      ],
+      "preferred_tools": [
+        "Context tracking",
+        "Bug pattern analysis", 
+        "Historical debugging",
+        "Performance profiling"
+      ]
+    },
+    "api-integrator": {
+      "description": "API統合専門エージェント - Supabase MCP統合",
+      "mcp_servers": ["supabase"],
+      "enhanced_capabilities": [
+        "リアルタイムSupabase操作",
+        "データベーススキーマ管理",
+        "RLS ポリシー設定",
+        "マイグレーション実行"
+      ],
+      "preferred_tools": [
+        "Supabase database operations",
+        "Real-time subscriptions",
+        "Row Level Security management",
+        "Migration automation"
+      ]
+    }
+  },
+  "mcp_server_capabilities": {
+    "playwright": {
+      "type": "browser_automation",
+      "features": ["e2e_testing", "screenshot", "performance_testing", "cross_browser"],
+      "target_agents": ["test-automation-expert"]
+    },
+    "Context7": {
+      "type": "context_management", 
+      "features": ["context_tracking", "pattern_analysis", "historical_data", "debugging"],
+      "target_agents": ["bug-hunter"]
+    },
+    "supabase": {
+      "type": "database_integration",
+      "features": ["realtime_operations", "schema_management", "rls_policies", "migrations"],
+      "target_agents": ["api-integrator"]
+    }
+  }
+}

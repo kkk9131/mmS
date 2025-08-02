@@ -21,8 +21,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onMore }) 
             '投稿の操作',
             '実行したい操作を選択してください',
             [
-                { text: 'ユーザーをブロック', onPress: () => console.log('Block user'), style: 'destructive' },
-                { text: '投稿を報告', onPress: () => console.log('Report post'), style: 'destructive' },
+                { text: 'ユーザーをブロック', onPress: () => {/* ブロック機能は今後実装予定 */}, style: 'destructive' },
+                { text: '投稿を報告', onPress: () => {/* 報告機能は今後実装予定 */}, style: 'destructive' },
                 { text: 'キャンセル', style: 'cancel' }
             ]
         );

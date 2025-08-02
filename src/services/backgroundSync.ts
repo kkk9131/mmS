@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-// import NetInfo from '@react-native-community/netinfo';
+import NetInfo from '@react-native-community/netinfo';
 import { store } from '../store';
 import { postsApi } from '../store/api/postsApi';
 import { notificationsApi } from '../store/api/notificationsApi';
@@ -56,13 +56,17 @@ class BackgroundSyncService {
 
   // Setup network state listener
   private setupNetworkListener(): void {
-    // TODO: Implement when NetInfo is available
-    // this.networkUnsubscribe = NetInfo.addEventListener((state: any) => {
-    //   if (state.isConnected && this.config.syncOnNetworkReconnect) {
-    //     console.log('Network reconnected, triggering background sync');
-    //     this.syncNow();
-    //   }
-    // });
+    this.networkUnsubscribe = NetInfo.addEventListener((state) => {
+      console.log('Network state changed:', state.isConnected);
+      
+      if (state.isConnected && this.config.syncOnNetworkReconnect) {
+        console.log('Network reconnected, triggering background sync');
+        // 再接続時は少し遅延してから同期を実行
+        setTimeout(() => {
+          this.syncNow();
+        }, 2000);
+      }
+    });
   }
 
   // Start periodic sync
@@ -105,12 +109,12 @@ class BackgroundSyncService {
     this.isRunning = true;
 
     try {
-      // Check network connectivity (TODO: implement when NetInfo is available)
-      // const netInfo = await NetInfo.fetch();
-      // if (!netInfo.isConnected) {
-      //   console.log('No network connection, skipping sync');
-      //   return;
-      // }
+      // Check network connectivity
+      const netInfo = await NetInfo.fetch();
+      if (!netInfo.isConnected) {
+        console.log('No network connection, skipping sync');
+        return;
+      }
 
       // Get tasks to sync (sorted by priority)
       const tasks = Array.from(this.syncQueue.values())
@@ -226,21 +230,23 @@ class BackgroundSyncService {
     }
   }
 
-  // Sync offline like action (TODO: implement when like endpoints are available)
+  // Sync offline like action
   private async syncLikePost(params: { postId: string; liked: boolean }): Promise<void> {
-    console.log('Like sync not yet implemented:', params);
-    // TODO: Implement when like/unlike endpoints are available
-    // const endpoint = params.liked 
-    //   ? postsApi.endpoints.likePost 
-    //   : postsApi.endpoints.unlikePost;
-    // 
-    // const result = await store.dispatch(
-    //   endpoint.initiate(params.postId)
-    // );
-    // 
-    // if (result.error) {
-    //   throw result.error;
-    // }
+    try {
+      const { PostsService } = await import('./PostsService');
+      const postsService = PostsService.getInstance();
+      
+      if (params.liked) {
+        await postsService.likePost(params.postId);
+        console.log(`Successfully synced like for post: ${params.postId}`);
+      } else {
+        await postsService.unlikePost(params.postId);
+        console.log(`Successfully synced unlike for post: ${params.postId}`);
+      }
+    } catch (error) {
+      console.error('Failed to sync like/unlike:', error);
+      throw error;
+    }
   }
 
   // Clean up completed tasks

@@ -5,6 +5,7 @@ import { connect, ConnectedProps } from 'react-redux';
 import { AppDispatch } from '../store';
 import { setError, clearError } from '../store/slices/uiSlice';
 import { SupabaseErrorHandler, SupabaseError } from '../utils/SupabaseErrorHandler';
+import { errorReportingService } from '../services/ErrorReportingService';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -56,7 +57,15 @@ class ErrorBoundary extends Component<Props, ErrorBoundaryState> {
     
     // Log to error reporting service in production
     if (!__DEV__) {
-      // TODO: Send to error reporting service (e.g., Sentry)
+      try {
+        errorReportingService.reportError(error, errorInfo, {
+          errorBoundary: true,
+          componentName: 'ErrorBoundary',
+          userAction: 'component_render'
+        });
+      } catch (reportingError) {
+        console.error('Failed to report error:', reportingError);
+      }
     }
   }
 

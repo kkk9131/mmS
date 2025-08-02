@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { Theme, ThemeMode, createTheme, darkTheme, lightTheme } from '../styles/colors';
+import { FeatureFlagsManager } from '../services/featureFlags';
 
 interface ThemeContextType {
   theme: Theme;
@@ -19,13 +20,18 @@ const THEME_MODE_KEY = 'theme_mode';
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [themeMode, setThemeModeState] = useState<ThemeMode>('dark');
   const [loading, setLoading] = useState(true);
+  const featureFlags = FeatureFlagsManager.getInstance();
 
   // テーマ設定を読み込み
   useEffect(() => {
-    console.log('🎨 ThemeContext初期化開始 - Platform:', Platform.OS);
+    if (featureFlags.isDebugModeEnabled()) {
+      console.log('🎨 ThemeContext初期化開始 - Platform:', Platform.OS);
+    }
     const loadThemeMode = async () => {
       try {
-        console.log('📖 テーマ設定を読み込み中...');
+        if (featureFlags.isDebugModeEnabled()) {
+          console.log('📖 テーマ設定を読み込み中...');
+        }
         
         // Web版の場合、localStorageを優先
         if (Platform.OS === 'web') {

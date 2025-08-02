@@ -76,7 +76,7 @@ export default function HomeScreen() {
   // Reload posts when screen comes into focus (after posting)
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔄 ホーム画面にフォーカス - データ再読み込み');
+      if (__DEV__) console.log('🔄 ホーム画面にフォーカス - データ再読み込み');
       
       // RTK Queryを使用している場合はrefetchを呼び出し
       if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
@@ -94,19 +94,18 @@ export default function HomeScreen() {
       setLoading(true);
       setError(null);
 
-      console.log('🔍 Loading posts with configuration:', {
-        isSupabaseEnabled: featureFlags.isSupabaseEnabled(),
-        isReduxEnabled: featureFlags.isReduxEnabled(),
-        dataSource: postsService.getDataSourceInfo()
+      if (__DEV__) console.log('🔍 投稿データ読み込み開始', {
+        isSupabase: featureFlags.isSupabaseEnabled(),
+        isRedux: featureFlags.isReduxEnabled()
       });
 
       if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
         // RTK Query が利用可能な場合は、rtkPosts を使用
-        console.log('📡 Using RTK Query for posts');
+        if (__DEV__) console.log('📡 RTK Queryで投稿データ取得');
         return;
       } else {
         // PostsService を直接使用（Supabaseを強制的に有効化）
-        console.log('🔧 Using PostsService directly - forcing Supabase');
+        if (__DEV__) console.log('🔧 PostsService直接使用 - Supabase強制有効化');
         
         // 一時的にSupabaseを有効化
         const originalSupabaseFlag = featureFlags.getFlag('USE_SUPABASE');
@@ -157,28 +156,18 @@ export default function HomeScreen() {
           aiResponse: undefined
         };
         
-        console.log('🔍 RTK投稿データ変換:', { 
-          元データ: {
-            id: post.id,
-            images: post.images,
-            image_url: post.image_url
-          },
-          変換後: {
-            id: mappedPost.id,
-            images: mappedPost.images,
-            image_url: mappedPost.image_url
-          }
+        if (__DEV__) console.log('🔍 RTK投稿データ変換:', { 
+          id: post.id,
+          hasImages: !!(post.images?.length || post.image_url)
         });
         
         return mappedPost;
       })
     : posts.map(post => {
-        console.log('🔍 PostsService投稿データ:', { 
+        if (__DEV__) console.log('🔍 PostsService投稿データ:', { 
           id: post.id, 
-          authorId: post.authorId, 
           authorName: post.authorName,
-          images: post.images,
-          image_url: post.image_url
+          hasImages: !!(post.images?.length || post.image_url)
         });
         return {
           ...post,
@@ -197,19 +186,19 @@ export default function HomeScreen() {
   const onRefresh = async () => {
     setIsRefreshing(true);
     try {
-      console.log('🔄 手動リフレッシュ開始');
+      if (__DEV__) console.log('🔄 手動リフレッシュ開始');
       
       if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
-        console.log('📡 RTK Query リフレッシュ');
+        if (__DEV__) console.log('📡 RTK Queryリフレッシュ');
         if (rtkRefetch) {
           await rtkRefetch();
         }
       } else {
-        console.log('🔧 PostsService リフレッシュ');
+        if (__DEV__) console.log('🔧 PostsServiceリフレッシュ');
         await loadPosts();
       }
       
-      console.log('✅ リフレッシュ完了');
+      if (__DEV__) console.log('✅ リフレッシュ完了');
     } catch (err) {
       console.error('❌ リフレッシュに失敗:', err);
     } finally {
@@ -231,7 +220,7 @@ export default function HomeScreen() {
       if (featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled()) {
         // RTK Query mutation を使用
         await toggleLike({ postId, userId: currentUserId }).unwrap();
-        console.log('✅ いいね状態を更新しました:', postId);
+        if (__DEV__) console.log('✅ いいね状態更新:', postId);
       } else {
         // PostsService を直接使用
         const post = displayPosts.find(p => p.id === postId);
@@ -294,7 +283,7 @@ export default function HomeScreen() {
           is_anonymous: false
         }).unwrap();
         
-        console.log('✅ コメントを投稿しました:', result);
+        if (__DEV__) console.log('✅ コメント投稿完了:', result.id || '投稿成功');
         
         // コメントリストを再取得
         await refetchComments();
@@ -329,8 +318,8 @@ export default function HomeScreen() {
       '投稿の操作',
       '実行したい操作を選択してください',
       [
-        { text: 'ユーザーをブロック', onPress: () => console.log('Block user'), style: 'destructive' },
-        { text: '投稿を報告', onPress: () => console.log('Report post'), style: 'destructive' },
+        { text: 'ユーザーをブロック', onPress: () => {/* ブロック機能は今後実装予定 */}, style: 'destructive' },
+        { text: '投稿を報告', onPress: () => {/* 報告機能は今後実装予定 */}, style: 'destructive' },
         { text: 'キャンセル', style: 'cancel' }
       ]
     );
@@ -344,25 +333,22 @@ export default function HomeScreen() {
   const handleImageLoadStart = (uri: string) => {
     setImageLoading(prev => ({...prev, [uri]: true}));
     setImageError(prev => ({...prev, [uri]: false}));
-    console.log('🔄 画像読み込み開始:', uri);
+    if (__DEV__) console.log('🔄 画像読み込み開始:', uri.substring(0, 50) + '...');
   };
 
   const handleImageLoad = (uri: string) => {
     setImageLoading(prev => ({...prev, [uri]: false}));
     setImageError(prev => ({...prev, [uri]: false}));
-    console.log('✅ 画像読み込み成功:', uri);
+    if (__DEV__) console.log('✅ 画像読み込み成功:', uri.substring(0, 50) + '...');
   };
 
   const handleImageError = (uri: string, error: any) => {
     setImageLoading(prev => ({...prev, [uri]: false}));
     setImageError(prev => ({...prev, [uri]: true}));
     console.error('❌ 画像読み込みエラー:', {
-      uri: uri,
-      error: error,
-      nativeEvent: error.nativeEvent,
-      message: error.message,
-      url_valid: uri && uri.length > 0,
-      starts_with_https: uri && uri.startsWith('https://')
+      uri: uri?.substring(0, 50) + '...',
+      message: error?.message,
+      isValidUrl: uri && uri.length > 0
     });
   };
 
@@ -552,12 +538,10 @@ export default function HomeScreen() {
 
   const renderPost = (post: PostWithLocalState) => {
     // 画像データのデバッグログ
-    console.log('🎨 ホーム画面投稿レンダリング:', {
+    if (__DEV__) console.log('🎨 投稿レンダリング:', {
       id: post.id,
-      imagesArray: post.images,
-      imagesLength: post.images?.length,
-      imageUrl: post.image_url,
-      authorName: post.authorName
+      authorName: post.authorName,
+      hasImages: !!(post.images?.length || post.image_url)
     });
 
     // PostWithLocalStateからPost型に変換
@@ -576,10 +560,9 @@ export default function HomeScreen() {
       images: post.images && post.images.length > 0 ? post.images : (post.image_url ? [post.image_url] : undefined)
     };
 
-    console.log('📋 PostCardに渡すデータ:', {
+    if (__DEV__) console.log('📋 PostCardデータ:', {
       id: postData.id,
-      images: postData.images,
-      imagesCount: postData.images?.length
+      imagesCount: postData.images?.length || 0
     });
 
     return (

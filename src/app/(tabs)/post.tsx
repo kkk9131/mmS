@@ -59,10 +59,12 @@ export default function PostScreen() {
   // Get current user from AuthContext
   const { user: currentUser, isAuthenticated } = useAuth();
 
-  // デバッグログを完全に削除
-  // useEffect(() => {
-  //   console.log('🔘 投稿ボタン状態:', { disabled: isOverLimit || isPosting });
-  // }, [isOverLimit, isPosting]);
+  // 投稿ボタン状態のデバッグ（開発環境のみ）
+  useEffect(() => {
+    if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+      console.log('🔘 投稿ボタン状態:', { disabled: isOverLimit || isPosting });
+    }
+  }, [isOverLimit, isPosting]);
 
   const dismissKeyboard = () => {
     Keyboard.dismiss();
@@ -98,98 +100,90 @@ export default function PostScreen() {
   };
 
   const handlePost = async () => {
-    console.log('🚀🚀🚀 === handlePost関数開始 === 🚀🚀🚀');
-    console.log('📨 投稿テキスト:', JSON.stringify(postText));
-    console.log('📊 文字数:', postText.trim().length);
-    console.log('📋 現在の状態:', { isOverLimit, isPosting, currentUser: !!currentUser });
+    if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+      console.log('🚀 投稿処理開始');
+      console.log('📊 文字数:', postText.trim().length);
+      console.log('📋 状態:', { isOverLimit, isPosting, hasUser: !!currentUser });
+    }
     
-    // 即座にアラートでも確認
-    if (Platform.OS === 'web') {
+    // Web環境チェック（開発環境のみ）
+    if (__DEV__ && Platform.OS === 'web' && featureFlags.isDebugModeEnabled()) {
       console.log('🌐 Web環境での実行を確認');
     }
     
     if (postText.trim().length === 0) {
-      console.log('❌ 投稿内容が空です');
       Alert.alert('エラー', '投稿内容を入力してください');
       return;
     }
     
-    console.log('✅ 投稿内容チェック通過');
     
     if (isOverLimit) {
-      console.log('❌ 文字数上限超過');
       Alert.alert('エラー', `文字数が上限を超えています (${characterCount}/${maxCharacters})`);
       return;
     }
     
-    console.log('✅ 文字数チェック通過');
+    if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+      console.log('✅ 投稿料定前チェック完了');
+      console.log('🔍 投稿設定:', {
+        hasSupabase: featureFlags.isSupabaseEnabled(),
+        hasRedux: featureFlags.isReduxEnabled(),
+        isAuthenticated: !!currentUser
+      });
+    }
 
-    // FeatureFlagsとPostsServiceの状態確認
-    console.log('=================== post.tsx デバッグ情報 ===================');
-    console.log('🔍 featureFlags.isSupabaseEnabled():', featureFlags.isSupabaseEnabled());
-    console.log('🔍 featureFlags.isReduxEnabled():', featureFlags.isReduxEnabled());
-    console.log('🔍 currentUser:', currentUser);
-    console.log('🔍 PostsService instance exists:', !!postsService);
-    console.log('============================================================');
-
-    console.log('✅ Alert表示直前');
     const empathyMessage = aiEmpathyEnabled ? '\n\n※ ママの味方からの共感メッセージが届きます' : '';
     
-    console.log('🔔 Alert.alertを表示します');
+    if (featureFlags.isDebugModeEnabled()) {
+      console.log('🔔 Alert.alertを表示します');
+    }
     
     // Web版でのAlert.alert問題を回避するため、直接投稿処理を実行
     if (Platform.OS === 'web') {
-      console.log('🌐 Web版: 直接投稿処理を実行');
       // Web版では確認ダイアログをスキップして直接投稿
       const shouldProceed = window.confirm(`投稿しますか？${empathyMessage}`);
       
       if (!shouldProceed) {
-        console.log('❌ ユーザーがキャンセルしました');
         return;
       }
-      
-      console.log('✅ ユーザーが投稿を確認しました');
     }
     
     // 投稿処理の実行
     const executePost = async () => {
-      console.log('🔥🔥🔥 === executePost関数開始 === 🔥🔥🔥');
-      console.log('🎯 setIsPosting(true)を実行します');
+      if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+        console.log('🔥 投稿実行開始');
+      }
       setIsPosting(true);
-      console.log('✅ setIsPosting(true)完了');
       try {
-        console.log('📨 投稿作成開始');
-        console.log('=================== 投稿作成処理 ===================');
-        console.log('🔍 currentUser exists:', !!currentUser);
-        console.log('🔍 currentUser details:', currentUser);
-        console.log('🔍 isSupabaseEnabled:', featureFlags.isSupabaseEnabled());
-        console.log('🔍 isReduxEnabled:', featureFlags.isReduxEnabled());
-        console.log('🔍 使用する投稿作成方法:', featureFlags.isSupabaseEnabled() && featureFlags.isReduxEnabled() ? 'RTK Query' : 'PostsService');
-        console.log('🔍 selectedImages:', selectedImages.length);
-        console.log('==================================================');
+        if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+          console.log('📨 投稿作成開始:', {
+            hasUser: !!currentUser,
+            images: selectedImages.length,
+            method: featureFlags.isSupabaseEnabled() ? 'Supabase' : 'Mock'
+          });
+        }
         
         if (!currentUser || !isAuthenticated) {
-          console.error('❌ ユーザー未認証エラー');
-          console.error('currentUser:', currentUser);
-          console.error('isAuthenticated:', isAuthenticated);
           throw new Error('ユーザーが認証されていません');
         }
         
         // 画像アップロード処理（キャプション情報も含める）
         let uploadedImageUrls: string[] = [];
         if (selectedImages.length > 0) {
-          console.log('📤 複数画像アップロード開始:', selectedImages.length);
+          if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+            console.log('📤 画像アップロード開始:', selectedImages.length);
+          }
           
           // カスタム認証のユーザー情報を使用
           if (!currentUser || !isAuthenticated) {
             throw new Error('ユーザーが認証されていません。ログインし直してください。');
           }
           
-          console.log('✅ AuthContext認証確認済み:', {
-            userId: currentUser.id,
-            nickname: currentUser.nickname,
-            isAuthenticated
-          });
+          if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+            console.log('✅ 認証確認済み:', {
+              userId: currentUser.id,
+              nickname: currentUser.nickname
+            });
+          }
           
           // 認証状態に関係なくアップロードを実行（RLSポリシーを緩和）
           const { SupabaseClientManager } = await import('../../services/supabase/client');
@@ -205,19 +199,25 @@ export default function PostScreen() {
           
           for (const image of sortedImages) {
             try {
-              console.log('📤 画像アップロード中:', image.id, '順序:', image.order, 'キャプション:', image.caption);
+              if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                console.log('📤 画像アップロード中:', image.id, '順序:', image.order);
+              }
               
               // ファイル名を生成（ユーザーIDと順序を含む）
               const fileName = `${currentUser.id}_${Date.now()}_${image.order}_${Math.random().toString(36).substr(2, 9)}.jpg`;
               
               // React Native環境での画像アップロード対応
-              console.log('📤 画像アップロード処理開始:', { uri: image.uri, platform: Platform.OS });
+              if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                console.log('📤 アップロード処理開始:', Platform.OS);
+              }
               
               if (Platform.OS === 'web') {
                 // Web環境では通常のfetch + blob方式
                 const response = await fetch(image.uri);
                 const blob = await response.blob();
-                console.log('🌐 Web blob作成:', { size: blob.size, type: blob.type });
+                if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                  console.log('🌐 Web blob作成:', { size: blob.size, type: blob.type });
+                }
                 
                 // blobサイズが0の場合はエラー
                 if (blob.size === 0) {
@@ -237,10 +237,14 @@ export default function PostScreen() {
                   throw error;
                 }
                 
-                console.log('✅ Webアップロード成功:', data);
+                if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                  console.log('✅ Webアップロード成功:', data?.path);
+                }
               } else {
                 // React Native環境でのSupabase SDKアップロード（セッション設定後）
-                console.log('📱 React Native環境でSupabase SDKアップロード');
+                if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                  console.log('📱 React Native環境でSupabase SDKアップロード');
+                }
                 
                 // カスタム認証セッションをSupabaseに設定
                 try {
@@ -248,11 +252,12 @@ export default function PostScreen() {
                   const state = store.getState();
                   const customSession = state.auth?.session;
                   
-                  console.log('🔍 カスタムセッション状態:', {
-                    hasSession: !!customSession,
-                    hasAccessToken: !!(customSession?.access_token),
-                    tokenLength: customSession?.access_token?.length || 0
-                  });
+                  if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                    console.log('🔍 カスタムセッション状態:', {
+                      hasSession: !!customSession,
+                      hasToken: !!(customSession?.access_token)
+                    });
+                  }
                   
                   if (customSession?.access_token) {
                     // Supabaseにカスタムセッションを設定
@@ -262,18 +267,23 @@ export default function PostScreen() {
                     });
                     
                     if (sessionError) {
-                      console.warn('⚠️ Supabaseセッション設定エラー:', sessionError);
-                      // セッション設定に失敗してもアップロードを続行
-                      console.log('📤 セッション設定に失敗しましたが、アップロードを続行します');
+                      if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                        console.warn('⚠️ Supabaseセッション設定エラー:', sessionError.message);
+                      }
                     } else {
-                      console.log('✅ Supabaseセッション設定成功');
+                      if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                        console.log('✅ Supabaseセッション設定成功');
+                      }
                     }
                   } else {
-                    console.warn('⚠️ カスタムセッションが見つかりません。匿名アップロードを試行します');
+                    if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                      console.warn('⚠️ カスタムセッションが見つかりません');
+                    }
                   }
                 } catch (sessionSetupError) {
-                  console.warn('⚠️ セッション設定で例外:', sessionSetupError);
-                  // セッション設定に失敗してもアップロードを続行
+                  if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                    console.warn('⚠️ セッション設定で例外:', sessionSetupError?.message);
+                  }
                 }
                 
                 // React Native専用のFormDataオブジェクトを作成
@@ -283,7 +293,12 @@ export default function PostScreen() {
                   name: fileName,
                 };
                 
-                console.log('📋 ファイルオブジェクト作成:', fileObject);
+                if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                  console.log('📋 ファイルオブジェクト作成:', {
+                    name: fileObject.name,
+                    type: fileObject.type
+                  });
+                }
                 
                 // Supabase SDK直接使用（React Native対応）
                 const { data, error } = await supabase.storage
@@ -294,11 +309,12 @@ export default function PostScreen() {
                   });
                 
                 if (error) {
-                  console.error('❌ Supabase SDKアップロードエラー:', {
-                    error: error,
-                    message: error.message,
-                    statusCode: (error as any).statusCode,
-                  });
+                  if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                    console.error('❌ Supabase SDKアップロードエラー:', {
+                      message: error.message,
+                      statusCode: (error as any).statusCode
+                    });
+                  }
                   
                   // 認証エラーのハンドリング
                   if (error.message?.includes('row-level security') || error.message?.includes('policy')) {
@@ -310,7 +326,9 @@ export default function PostScreen() {
                   }
                 }
                 
-                console.log('✅ React Native SDKアップロード成功:', data);
+                if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                  console.log('✅ React Native SDKアップロード成功:', data?.path);
+                }
               }
               
               // 公開URLを取得
@@ -319,20 +337,24 @@ export default function PostScreen() {
                 .getPublicUrl(fileName);
               
               uploadedImageUrls.push(urlData.publicUrl);
-              console.log('✅ 画像URL取得成功:', urlData.publicUrl);
+              if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                console.log('✅ 画像URL取得成功');
+              }
               
             } catch (uploadError) {
               console.error('❌ 画像アップロードエラー:', uploadError);
               throw new Error(`画像のアップロードに失敗しました: ${uploadError}`);
             }
           }
-          console.log('✅ 全画像アップロード完了:', uploadedImageUrls);
+          if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+            console.log('✅ 全画像アップロード完了:', uploadedImageUrls.length, '件');
+          }
         }
         
         // Supabaseを強制的に使用して投稿作成を試行
-        console.log('🟡 PostsServiceで投稿作成を試行（Supabase強制）');
-        console.log('🔍 postText.trim():', JSON.stringify(postText.trim()));
-        console.log('🔍 PostsService method:', postsService.createPost);
+        if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+          console.log('🟡 PostsServiceで投稿作成を試行');
+        }
         
         // 一時的にSupabaseを有効化
         const originalSupabaseFlag = featureFlags.getFlag('USE_SUPABASE');
@@ -345,7 +367,9 @@ export default function PostScreen() {
             userId: currentUser.id, // ユーザーIDを明示的に渡す
             images: uploadedImageUrls.length > 0 ? uploadedImageUrls : undefined
           });
-          console.log('✅ PostsService投稿作成成功:', result);
+          if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+            console.log('✅ PostsService投稿作成成功:', result?.id || '成功');
+          }
         } catch (postsServiceError) {
           console.error('❌ PostsService投稿作成エラー:', postsServiceError);
           throw postsServiceError;
@@ -354,7 +378,9 @@ export default function PostScreen() {
           featureFlags.setFlag('USE_SUPABASE', originalSupabaseFlag);
         }
         
-        console.log('✅ 投稿作成成功');
+        if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+          console.log('✅ 投稿作成成功');
+        }
         
         // 投稿完了後の処理
         setPostText('');
@@ -367,9 +393,13 @@ export default function PostScreen() {
           store.dispatch(postsApi.util.invalidateTags(['Post']));
           // ユーザー固有の投稿キャッシュも無効化
           store.dispatch(postsApi.util.invalidateTags([{ type: 'Post', id: `USER_${currentUser.id}` }]));
-          console.log('✅ RTK Queryキャッシュを無効化しました（ユーザー固有も含む）');
+          if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+            console.log('✅ RTK Queryキャッシュ無効化完了');
+          }
         } catch (cacheError) {
-          console.warn('⚠️ キャッシュ無効化に失敗:', cacheError);
+          if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+            console.warn('⚠️ キャッシュ無効化に失敗:', cacheError?.message);
+          }
         }
         
         // 少し遅延を入れてからホーム画面に戻る（キャッシュ更新を確実にするため）
@@ -395,12 +425,11 @@ export default function PostScreen() {
       } catch (error) {
         console.error('❌ 投稿エラー:', error);
         
-        // エラーの詳細をログ出力
-        if (error && typeof error === 'object') {
+        // エラーの詳細をログ出力（開発環境のみ）
+        if (__DEV__ && error && typeof error === 'object' && featureFlags.isDebugModeEnabled()) {
           console.error('エラー詳細:', {
             message: (error as any).message,
-            stack: (error as any).stack,
-            error: error
+            name: (error as any).name
           });
         }
         
@@ -643,32 +672,22 @@ export default function PostScreen() {
             // Web用のDOMイベント - 型アサーションで回避
             {...(Platform.OS === 'web' && {
               onClick: () => {
-                console.log('🚨🚨🚨 === Web View onClickイベント === 🚨🚨🚨');
-                console.warn('CLICK EVENT TRIGGERED!!!'); // warn も使用
-                console.error('BUTTON CLICKED!!!'); // error も使用
-                
-                console.log('状態:', { isOverLimit, isPosting, postText: postText.trim().length });
-                console.log('条件チェック:', {
-                  '!isOverLimit': !isOverLimit,
-                  '!isPosting': !isPosting,
-                  '両方true': !isOverLimit && !isPosting
-                });
+                if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                  console.log('🚨 Webボタンクリック:', { isOverLimit, isPosting });
+                }
                 
                 if (!isOverLimit && !isPosting) {
-                  console.log('✅ 条件OK - handlePostを呼び出します');
-                  console.warn('ABOUT TO CALL handlePost()!!!');
                   try {
                     handlePost();
-                    console.log('✅ handlePost呼び出し完了');
                   } catch (error) {
-                    console.error('❌ handlePost呼び出しエラー:', error);
+                    console.error('❌ handlePostエラー:', error);
                   }
                 } else {
-                  console.log(`❌ ボタンが無効化されています - isOverLimit: ${isOverLimit}, isPosting: ${isPosting}`);
+                  if (__DEV__ && featureFlags.isDebugModeEnabled()) {
+                    console.log('❌ ボタン無効化中');
+                  }
                 }
-              },
-              onMouseDown: () => console.log('👆 View: Mouse Down'),
-              onMouseUp: () => console.log('👆 View: Mouse Up')
+              }
             })}
           >
             {isPosting ? (

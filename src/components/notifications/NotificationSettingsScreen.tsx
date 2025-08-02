@@ -19,6 +19,7 @@ import {
 } from '../../store/api/notificationsApi';
 import { useAppSelector } from '../../store/hooks';
 import { NotificationSettings } from '../../services/notifications/NotificationSettingsManager';
+import { TimePickerModal } from './TimePickerModal';
 
 interface SettingRowProps {
   title: string;
@@ -63,29 +64,42 @@ interface TimePickerProps {
 }
 
 const TimePicker: React.FC<TimePickerProps> = ({ label, value, onValueChange, icon }) => {
+  const [showPicker, setShowPicker] = useState(false);
+
   const handlePress = () => {
-    // TODO: 時刻選択モーダルの実装
-    Alert.alert(
-      '時刻設定',
-      `${label}の時刻を設定してください\n現在: ${value}`,
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        { text: '設定', onPress: () => console.log('時刻設定') },
-      ]
-    );
+    setShowPicker(true);
+  };
+
+  const handleTimeConfirm = (time: string) => {
+    onValueChange(time);
+    setShowPicker(false);
+  };
+
+  const handleTimeCancel = () => {
+    setShowPicker(false);
   };
 
   return (
-    <TouchableOpacity style={styles.timePickerRow} onPress={handlePress}>
-      <View style={styles.settingInfo}>
-        <View style={styles.settingHeader}>
-          <Ionicons name={icon} size={20} color="#4F46E5" style={styles.settingIcon} />
-          <Text style={styles.settingTitle}>{label}</Text>
+    <>
+      <TouchableOpacity style={styles.timePickerRow} onPress={handlePress}>
+        <View style={styles.settingInfo}>
+          <View style={styles.settingHeader}>
+            <Ionicons name={icon} size={20} color="#4F46E5" style={styles.settingIcon} />
+            <Text style={styles.settingTitle}>{label}</Text>
+          </View>
+          <Text style={styles.timeValue}>{value}</Text>
         </View>
-        <Text style={styles.timeValue}>{value}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-    </TouchableOpacity>
+        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+      </TouchableOpacity>
+      
+      <TimePickerModal
+        visible={showPicker}
+        value={value}
+        title={`${label}の設定`}
+        onConfirm={handleTimeConfirm}
+        onCancel={handleTimeCancel}
+      />
+    </>
   );
 };
 
