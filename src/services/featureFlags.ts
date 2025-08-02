@@ -107,28 +107,45 @@ export class FeatureFlagsManager {
     try {
       const isDevelopment = __DEV__ ?? false;
       
-      // Load from environment variables if available
-      const useSupabase = process.env.EXPO_PUBLIC_USE_SUPABASE === 'true';
+      // Load from environment variables with validation
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+      const useSupabaseEnv = process.env.EXPO_PUBLIC_USE_SUPABASE === 'true';
       const useRedux = process.env.EXPO_PUBLIC_USE_REDUX !== 'false'; // default true
-      const debugMode = process.env.EXPO_PUBLIC_DEBUG_MODE === 'true';
+      const debugMode = process.env.EXPO_PUBLIC_DEBUG_MODE === 'true' || isDevelopment;
+      
+      // Supabaseを有効にするには環境変数が必要
+      const canUseSupabase = useSupabaseEnv && supabaseUrl && supabaseAnonKey;
       
       const flags = {
-        USE_API: !isDevelopment || useSupabase,
-        USE_SUPABASE: useSupabase,
+        USE_API: canUseSupabase,
+        USE_SUPABASE: canUseSupabase,
         USE_REDUX: useRedux,
         DEBUG_MODE: debugMode,
         MOCK_DELAY: isDevelopment ? 100 : 0,
       };
       
+      if (debugMode) {
+        console.log('🔧 FeatureFlags loaded:', {
+          ...flags,
+          envChecks: {
+            supabaseUrl: !!supabaseUrl,
+            supabaseAnonKey: !!supabaseAnonKey,
+            useSupabaseEnv,
+            canUseSupabase
+          }
+        });
+      }
+      
       return flags;
     } catch (error) {
       console.error('loadFlags失敗:', error);
-      // フォールバック
+      // 安全なフォールバック
       return {
         USE_API: false,
         USE_SUPABASE: false,
         USE_REDUX: true,
-        DEBUG_MODE: false,
+        DEBUG_MODE: true, // デバッグ有効でエラー調査
         MOCK_DELAY: 100,
       };
     }

@@ -33,8 +33,11 @@ class PerformanceCache {
 // 使用例
 const cache = new PerformanceCache();
 
+import { supabaseClient } from '../services/supabase/client';
+
 export const getCachedPosts = async () => {
   return cache.get('posts:recent', async () => {
+    const supabase = supabaseClient.getClient();
     const { data } = await supabase
       .from('posts')
       .select('id, content, created_at')

@@ -6,6 +6,8 @@ import { supabaseClient } from '../services/supabase/client';
 import { createSupabaseConfig } from '../services/supabase/config';
 import { initializeAuth } from '../store/slices/authSlice';
 import { ServiceBridge } from '../services/adapters/ServiceBridge';
+import { performStartupEnvironmentCheck, logDetailedEnvironmentInfo } from '../utils/envValidator';
+import { logSupabaseDiagnostic, performQuickFix } from '../utils/debugSupabase';
 
 interface ReduxProviderProps {
   children: React.ReactNode;
@@ -14,24 +16,60 @@ interface ReduxProviderProps {
 const ReduxInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   useEffect(() => {
     const initializeApp = async () => {
+      // 環境変数の検証とデバッグ情報出力
+      const envValid = performStartupEnvironmentCheck();
+      
       const featureFlags = FeatureFlagsManager.getInstance();
+      
+      // デバッグモード時は詳細な環境情報を出力
+      if (featureFlags.isDebugModeEnabled()) {
+        logDetailedEnvironmentInfo();
+        // Supabase診断も実行
+        setTimeout(() => logSupabaseDiagnostic(), 1000);
+      }
+      
+      // 環境設定に問題がある場合はクイック修復を試行
+      if (!envValid) {
+        performQuickFix();
+      }
+      
+      if (!envValid) {
+        console.warn('⚠️ Environment validation failed, some features may not work correctly');
+      }
       
       try {
         // Initialize ServiceBridge with store
         ServiceBridge.initialize(store);
+        console.log('✅ ServiceBridge initialized');
 
-        // Initialize Supabase if enabled
+        // Initialize Supabase if enabled and properly configured
         if (featureFlags.isSupabaseEnabled()) {
-          const config = createSupabaseConfig();
-          supabaseClient.initialize(config);
-          
-          // Test connection
-          await supabaseClient.testConnection();
+          try {
+            const config = createSupabaseConfig();
+            supabaseClient.initialize(config);
+            console.log('✅ Supabase client initialized');
+            
+            // Test connection
+            const connectionStatus = await supabaseClient.testConnection();
+            if (connectionStatus.isConnected) {
+              console.log('✅ Supabase connection test successful');
+            } else {
+              console.warn('⚠️ Supabase connection test failed:', connectionStatus.error);
+            }
+          } catch (supabaseError) {
+            console.error('❌ Supabase initialization failed:', supabaseError);
+            // Supabase初期化失敗時はフラグを無効化
+            featureFlags.disableSupabaseMode();
+            console.log('⚠️ Supabase disabled due to initialization failure');
+          }
+        } else {
+          console.log('🔧 Supabase is disabled by feature flags');
         }
 
         // Initialize auth state if Redux is enabled
         if (featureFlags.isReduxEnabled()) {
           store.dispatch(initializeAuth());
+          console.log('✅ Auth state initialized');
           
           // Validate RTK Query setup in debug mode
           if (featureFlags.isDebugModeEnabled()) {
@@ -54,7 +92,10 @@ const ReduxInitializer: React.FC<{ children: React.ReactNode }> = ({ children })
         }
 
       } catch (error) {
-        console.error('ReduxProvider初期化失敗:', error);
+        console.error('❌ ReduxProvider初期化失敗:', error);
+        // 緊急フォールバックモード
+        featureFlags.enableMockMode();
+        console.log('🔧 Enabled fallback mock mode due to initialization failure');
       }
     };
 

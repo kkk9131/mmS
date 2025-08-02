@@ -257,15 +257,36 @@ export class UserService {
     return this.withRetry(async () => {
       const client = supabaseClient.getClient();
 
+
       try {
         const { data: user, error } = await client
           .from('users')
           .select('*')
           .eq('id', currentUser.id)
-          .single();
+          .maybeSingle();
 
         if (error) {
+          console.error('Failed to fetch profile:', error);
           throw new Error(`Failed to fetch profile: ${error.message}`);
+        }
+
+        if (!user) {
+          console.warn('User profile not found, using default values');
+          // デフォルト値を使用
+          const defaultProfile: UserProfile = {
+            id: currentUser.id,
+            nickname: currentUser.email?.split('@')[0] || 'ユーザー',
+            bio: '',
+            avatar: '',
+            followersCount: 0,
+            followingCount: 0,
+            postsCount: 0,
+            email: currentUser.email || '',
+            motherBookNumber: undefined,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          return defaultProfile;
         }
 
         // Get counts
@@ -420,10 +441,16 @@ export class UserService {
           .from('users')
           .select('*')
           .eq('id', userId)
-          .single();
+          .maybeSingle();
 
         if (error) {
+          console.error('Failed to fetch user:', error);
           throw new Error(`Failed to fetch user: ${error.message}`);
+        }
+
+        if (!user) {
+          console.warn('User not found:', userId);
+          throw new Error('User not found');
         }
 
         // Get counts and follow status

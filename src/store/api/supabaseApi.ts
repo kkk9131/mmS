@@ -30,6 +30,16 @@ const supabaseBaseQuery: BaseQueryFn<
   }
 
   try {
+    // Supabaseクライアントの初期化状態をチェック
+    if (!supabaseClient.isInitialized()) {
+      return {
+        error: {
+          message: 'Supabase client not initialized. Check environment configuration.',
+          code: 'CLIENT_NOT_INITIALIZED'
+        }
+      };
+    }
+
     const client = supabaseClient.getClient();
     let queryBuilder: any;
 
@@ -81,10 +91,6 @@ const supabaseBaseQuery: BaseQueryFn<
 
     if (options.range) {
       queryBuilder = queryBuilder.range(options.range.from, options.range.to);
-    }
-
-    if (options.single) {
-      queryBuilder = queryBuilder.single();
     }
 
     if (options.maybeSingle && typeof queryBuilder.maybeSingle === 'function') {

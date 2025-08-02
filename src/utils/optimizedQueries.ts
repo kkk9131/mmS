@@ -1,6 +1,9 @@
 
+import { supabaseClient } from '../services/supabase/client';
+
 // 1. 必要なフィールドのみ選択（SELECT * を避ける）
 const optimizedPostsQuery = async () => {
+  const supabase = supabaseClient.getClient();
   return await supabase
     .from('posts')
     .select(`
@@ -20,6 +23,7 @@ const optimizedPostsQuery = async () => {
 
 // 2. カウントクエリの最適化（別途実行を避ける）
 const getPostsWithCounts = async () => {
+  const supabase = supabaseClient.getClient();
   // 投稿データとカウントを一度に取得
   const { data: posts, error } = await supabase
     .from('posts')
@@ -39,6 +43,7 @@ const getPostsWithCounts = async () => {
 
 // 3. ページネーション最適化（カーソルベース）
 const getCursorPaginatedPosts = async (cursor?: string) => {
+  const supabase = supabaseClient.getClient();
   let query = supabase
     .from('posts')
     .select('id, content, created_at')
@@ -54,6 +59,7 @@ const getCursorPaginatedPosts = async (cursor?: string) => {
 
 // 4. リアルタイムサブスクリプション最適化
 const optimizedRealtimeSubscription = () => {
+  const supabase = supabaseClient.getClient();
   // 特定のテーブルとイベントのみ購読
   const subscription = supabase
     .channel('posts-channel')
@@ -64,9 +70,9 @@ const optimizedRealtimeSubscription = () => {
         schema: 'public',
         table: 'posts',
       },
-      (payload) => {
+      (payload: any) => {
         // 新規投稿のみ処理
-        handleNewPost(payload.new);
+        console.log('New post received:', payload.new);
       }
     )
     .subscribe();
@@ -76,6 +82,7 @@ const optimizedRealtimeSubscription = () => {
 
 // 5. バッチ処理最適化
 const batchFetchUserData = async (userIds: string[]) => {
+  const supabase = supabaseClient.getClient();
   // 複数ユーザーを一度に取得
   const { data, error } = await supabase
     .from('users')

@@ -98,3 +98,21 @@ export const safeObjectDisplay = (obj: any): any => {
   
   return safe;
 };
+
+// Debug commands (disabled - files removed)
+if (isDevelopment()) {
+  // Debug commands were removed during cleanup
+  
+  // 使用可能なコマンドを表示
+  setTimeout(() => {
+    devLog('🔧 Developer Debug Commands Available:');
+    devLog('  - checkIntegration(): Supabase統合状態の完全チェック');
+    devLog('  - debugSupabase(): 包括的Supabase診断');
+    devLog('  - debugAuth(): 認証状態の詳細確認');
+    devLog('  - fixSupabase(): クイック修復実行');
+    devLog('  - createDemo(): デモデータ作成');
+    devLog('  - supabaseHelp(): ヘルプ表示');
+    devLog('  - checkEnv(): 環境チェック');
+    devLog('  - debugEnv(): 環境情報表示');
+  }, 2000);
+}

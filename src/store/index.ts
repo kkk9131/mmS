@@ -22,18 +22,31 @@ export const createStore = () => {
     console.warn('Redux is disabled by feature flags');
   }
 
+  // RTK-Query middleware setup debug info
+  console.log('🔧 Store configuration debug:', {
+    isReduxEnabled,
+    isSupabaseEnabled,
+    isDebugMode,
+    willAddMiddleware: isReduxEnabled,
+    willAddReducers: isReduxEnabled,
+    supabaseReducerPath: supabaseApi.reducerPath,
+    imageReducerPath: imageApi.reducerPath,
+  });
+
+  if (!isReduxEnabled) {
+    console.warn('⚠️ Redux無効時のエラー回避のため、middlewareを強制追加');
+  }
+
   const store = configureStore({
     reducer: {
       auth: authSlice.reducer,
       ui: uiSlice.reducer,
       settings: settingsSlice.reducer,
       image: imageSlice.reducer,
-      ...(isReduxEnabled && isSupabaseEnabled ? {
-        // supabaseApi includes all injected endpoints (posts, users, notifications, follows)
-        [supabaseApi.reducerPath]: supabaseApi.reducer,
-        // imageApi is a separate API with its own reducerPath
-        [imageApi.reducerPath]: imageApi.reducer,
-      } : {}),
+      // Always include RTK Query reducers to prevent "Middleware for RTK-Query API has not been added" errors
+      // Even if features are disabled, the reducers should be present since APIs are imported
+      [supabaseApi.reducerPath]: supabaseApi.reducer,
+      [imageApi.reducerPath]: imageApi.reducer,
     },
     middleware: (getDefaultMiddleware) => {
       const baseMiddleware = getDefaultMiddleware({
@@ -73,41 +86,40 @@ export const createStore = () => {
 
       const middlewareArray = [errorMiddleware];
 
-      if (isReduxEnabled && isSupabaseEnabled) {
-        // Add RTK Query middleware for both APIs
-        middlewareArray.push(
-          supabaseApi.middleware,
-          imageApi.middleware
-        );
-      }
+      // Always add RTK Query middleware to prevent "Middleware for RTK-Query API has not been added" errors
+      // Even if features are disabled, the middleware should be present since APIs are imported
+      middlewareArray.push(
+        supabaseApi.middleware,
+        imageApi.middleware
+      );
 
       return baseMiddleware.concat(...middlewareArray);
     },
     devTools: isDebugMode,
   });
 
-  // Setup listeners for RTK Query with proper configuration
-  if (isReduxEnabled && isSupabaseEnabled) {
-    setupListeners(store.dispatch);
+  // Always setup RTK Query listeners to prevent middleware errors
+  setupListeners(store.dispatch);
+  
+  if (isDebugMode) {
+    console.log('🔧 RTK Query setup completed:', {
+      supabaseApiReducerPath: supabaseApi.reducerPath,
+      imageApiReducerPath: imageApi.reducerPath,
+      middlewareEnabled: true,
+      listenersEnabled: true,
+      reduxEnabled: isReduxEnabled,
+      supabaseFeatureEnabled: isSupabaseEnabled
+    });
     
-    if (isDebugMode) {
-      console.log('🔧 RTK Query setup completed:', {
-        supabaseApiReducerPath: supabaseApi.reducerPath,
-        imageApiReducerPath: imageApi.reducerPath,
-        middlewareEnabled: true,
-        listenersEnabled: true
-      });
+    // Validate store configuration in debug mode
+    setTimeout(() => {
+      const validation = validateStore();
+      console.log('📋 Store validation result:', validation);
       
-      // Validate store configuration in debug mode
-      setTimeout(() => {
-        const validation = validateStore();
-        console.log('📋 Store validation result:', validation);
-        
-        if (!validation.isValid) {
-          console.error('⚠️ RTK Query store validation failed! Some APIs may not work correctly.');
-        }
-      }, 100);
-    }
+      if (!validation.isValid) {
+        console.error('⚠️ RTK Query store validation failed! Some APIs may not work correctly.');
+      }
+    }, 100);
   }
 
   return store;
@@ -127,8 +139,14 @@ export type ImageApiState = RootState['imageApi'];
 
 // Helper function to check if RTK Query is properly configured
 export const isRTKQueryConfigured = () => {
+  // RTK Query is always configured since middleware and reducers are always added
+  return true;
+};
+
+// Helper function to check if Supabase features are enabled
+export const isSupabaseFeaturesEnabled = () => {
   const featureFlags = FeatureFlagsManager.getInstance();
-  return featureFlags.isReduxEnabled() && featureFlags.isSupabaseEnabled();
+  return featureFlags.isSupabaseEnabled();
 };
 
 // Store validation function for debugging (defined after store creation)
@@ -137,6 +155,7 @@ export const validateStore = () => {
     const state = store.getState();
     const hasSupabaseApi = 'supabaseApi' in state;
     const hasImageApi = 'imageApi' in state;
+    const featureFlags = FeatureFlagsManager.getInstance();
     
     return {
       isValid: hasSupabaseApi && hasImageApi,
@@ -147,6 +166,12 @@ export const validateStore = () => {
         image: imageApi.reducerPath,
       },
       middlewareConfigured: isRTKQueryConfigured(),
+      supabaseFeaturesEnabled: isSupabaseFeaturesEnabled(),
+      featureFlags: {
+        isReduxEnabled: featureFlags.isReduxEnabled(),
+        isSupabaseEnabled: featureFlags.isSupabaseEnabled(),
+        isDebugMode: featureFlags.isDebugModeEnabled(),
+      },
       storeKeys: Object.keys(state),
     };
   } catch (error) {
@@ -157,3 +182,21 @@ export const validateStore = () => {
     };
   }
 };
+
+// Immediate validation on store creation to catch issues early
+export const performImmediateValidation = () => {
+  const validation = validateStore();
+  console.log('📊 Immediate store validation result:', validation);
+  
+  if (!validation.isValid) {
+    console.error('❗ CRITICAL: RTK Query store validation failed immediately!');
+    console.error('This may cause "Middleware for RTK-Query API has not been added" errors');
+  }
+  
+  return validation;
+};
+
+// Call immediate validation
+setTimeout(() => {
+  performImmediateValidation();
+}, 0);

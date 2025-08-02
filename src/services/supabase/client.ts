@@ -39,6 +39,16 @@ export class SupabaseClientManager {
       throw new Error('Supabase is disabled by feature flags');
     }
 
+    // 設定のバリデーション
+    if (!config.url || !config.anonKey) {
+      throw new Error('Invalid Supabase configuration: URL and anon key are required');
+    }
+
+    // URLのフォーマットを簡単に検証
+    if (!config.url.startsWith('https://') || !config.url.includes('.supabase.co')) {
+      throw new Error('Invalid Supabase URL format');
+    }
+
     this.config = config;
     
     try {
@@ -56,7 +66,7 @@ export class SupabaseClientManager {
       });
 
       if (config.debug) {
-        console.log('Supabase client initialized successfully');
+        console.log('✅ Supabase client initialized successfully');
         console.log('URL:', config.url);
         console.log('Anon Key:', config.anonKey.substring(0, 20) + '...');
       }
@@ -64,14 +74,20 @@ export class SupabaseClientManager {
       return this.client;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Failed to initialize Supabase client:', errorMessage);
+      console.error('❌ Failed to initialize Supabase client:', errorMessage);
       throw new Error(`Supabase initialization failed: ${errorMessage}`);
     }
   }
 
   public getClient(): SupabaseClient {
     if (!this.client) {
-      throw new Error('Supabase client not initialized. Call initialize() first.');
+      const featureFlags = FeatureFlagsManager.getInstance();
+      const errorMessage = featureFlags.isSupabaseEnabled() 
+        ? 'Supabase client not initialized. Call initialize() first.'
+        : 'Supabase is disabled by feature flags. Check your environment configuration.';
+      
+      console.error('❌', errorMessage);
+      throw new Error(errorMessage);
     }
     return this.client;
   }
