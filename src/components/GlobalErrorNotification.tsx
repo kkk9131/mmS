@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { RootState } from '../store';
 import { hideNotification, clearError } from '../store/slices/uiSlice';
 import { SupabaseErrorHandler } from '../utils/SupabaseErrorHandler';
+import { errorRetryService } from '../services/ErrorRetryService';
 
 export const GlobalErrorNotification: React.FC = () => {
   const dispatch = useDispatch();
@@ -69,12 +70,51 @@ export const GlobalErrorNotification: React.FC = () => {
     }
   };
 
-  const handleRetry = () => {
+  const handleRetry = async () => {
     if (globalError && SupabaseErrorHandler.isRecoverable(globalError)) {
-      // TODO: Implement retry logic based on the error context
-      console.log('Retry action for error:', globalError);
+      try {
+        // エラーコンテキストから操作を推測
+        const operation = inferOperationFromError(globalError);
+        const success = await errorRetryService.retryOperation(globalError, {
+          operation,
+          strategyName: 'default'
+        });
+        
+        if (success) {
+          console.log('Retry successful for error:', globalError);
+          // 成功時は通知を自動で閉じる
+          handleDismiss();
+          return;
+        } else {
+          console.log('Retry failed for error:', globalError);
+        }
+      } catch (retryError) {
+        console.error('Retry attempt failed:', retryError);
+      }
     }
+    
+    // 再試行に失敗した場合や再試行できない場合は手動で閉じる
     handleDismiss();
+  };
+  
+  // エラーから操作を推測するヘルパー関数
+  const inferOperationFromError = (error: any): string => {
+    const message = error.message || error.userMessage || '';
+    
+    if (message.includes('post') && message.includes('create')) {
+      return 'posts/create';
+    }
+    if (message.includes('post') && message.includes('fetch')) {
+      return 'posts/get';
+    }
+    if (message.includes('like')) {
+      return 'posts/like';
+    }
+    if (message.includes('notification')) {
+      return 'notifications/get';
+    }
+    
+    return 'unknown';
   };
 
   if (!notifications.visible && !globalError) {

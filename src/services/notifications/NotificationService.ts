@@ -2,6 +2,7 @@ import { supabase } from '../supabase/client';
 import { pushTokenManager } from './PushTokenManager';
 import { notificationHandler, NotificationType } from './NotificationHandler';
 import { notificationSettingsManager } from './NotificationSettingsManager';
+import { quietHoursManager } from './QuietHoursManager';
 import * as Notifications from 'expo-notifications';
 
 export interface CreateNotificationParams {
@@ -109,13 +110,13 @@ class NotificationService {
         return;
       }
 
-      // おやすみモード中でかつ緊急通知でない場合はスキップ
-      const isQuietHours = await notificationSettingsManager.isQuietHoursForUser(params.userId);
+      // おやすみモード中でかつ緊急通知でない場合はキューに保存
+      const isQuietHours = await quietHoursManager.isUserInQuietHours(params.userId);
       const isEmergency = notificationSettingsManager.isEmergencyNotification(params);
       
       if (isQuietHours && !isEmergency) {
-        console.log('おやすみモード中のため通知をスキップ');
-        // TODO: おやすみモード後に送信するためキューに保存
+        console.log('おやすみモード中のため通知をキューに保存');
+        await quietHoursManager.queueNotification(params);
         return;
       }
 

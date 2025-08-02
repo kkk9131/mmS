@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { FollowService } from '../services/FollowService';
 import { FollowUser as FollowUserFromService } from '../types/follow';
 import { useTheme } from '../contexts/ThemeContext';
+import { FeatureFlagsManager } from '../services/featureFlags';
 
 // 既存UIとの互換性のために、表示用の型を定義
 interface DisplayFollowUser {
@@ -108,6 +109,7 @@ const mockFollowers: DisplayFollowUser[] = [
 
 export default function FollowListScreen() {
   const { theme } = useTheme();
+  const featureFlags = FeatureFlagsManager.getInstance();
   const [activeTab, setActiveTab] = useState<'following' | 'followers'>('following');
   const [following, setFollowing] = useState<DisplayFollowUser[]>([]);
   const [followers, setFollowers] = useState<DisplayFollowUser[]>([]);
@@ -149,15 +151,21 @@ export default function FollowListScreen() {
   // フォロー中ユーザー一覧を取得
   const fetchFollowing = async () => {
     try {
-      console.log('📡 フォロー中ユーザー一覧を取得中...');
+      if (featureFlags.isDebugModeEnabled()) {
+        console.log('📡 フォロー中ユーザー一覧を取得中...');
+      }
       const response = await followService.getFollowing(undefined, 1, 100);
-      console.log('✅ フォロー中ユーザー取得成功:', response.users.length, '人');
+      if (featureFlags.isDebugModeEnabled()) {
+        console.log('✅ フォロー中ユーザー取得成功:', response.users.length, '人');
+      }
       const displayUsers = response.users.map(convertToDisplayFollowUser);
       setFollowing(displayUsers);
     } catch (error) {
       console.error('❌ フォロー中ユーザー取得失敗:', error);
       // エラー時はモックデータを使用
-      console.log('🔄 モックデータを使用');
+      if (featureFlags.isDebugModeEnabled()) {
+        console.log('🔄 モックデータを使用');
+      }
       setFollowing(mockFollowing);
     }
   };
@@ -165,15 +173,21 @@ export default function FollowListScreen() {
   // フォロワー一覧を取得
   const fetchFollowers = async () => {
     try {
-      console.log('📡 フォロワー一覧を取得中...');
+      if (featureFlags.isDebugModeEnabled()) {
+        console.log('📡 フォロワー一覧を取得中...');
+      }
       const response = await followService.getFollowers(undefined, 1, 100);
-      console.log('✅ フォロワー取得成功:', response.users.length, '人');
+      if (featureFlags.isDebugModeEnabled()) {
+        console.log('✅ フォロワー取得成功:', response.users.length, '人');
+      }
       const displayUsers = response.users.map(convertToDisplayFollowUser);
       setFollowers(displayUsers);
     } catch (error) {
       console.error('❌ フォロワー取得失敗:', error);
       // エラー時はモックデータを使用
-      console.log('🔄 モックデータを使用');
+      if (featureFlags.isDebugModeEnabled()) {
+        console.log('🔄 モックデータを使用');
+      }
       setFollowers(mockFollowers);
     }
   };
@@ -181,10 +195,14 @@ export default function FollowListScreen() {
   // 両方のリストを取得
   const fetchFollowData = async () => {
     try {
-      console.log('📊 フォローデータ取得開始');
+      if (featureFlags.isDebugModeEnabled()) {
+        console.log('📊 フォローデータ取得開始');
+      }
       setLoading(true);
       await Promise.all([fetchFollowing(), fetchFollowers()]);
-      console.log('✅ フォローデータ取得完了');
+      if (featureFlags.isDebugModeEnabled()) {
+        console.log('✅ フォローデータ取得完了');
+      }
     } catch (error) {
       console.error('❌ フォローデータ取得エラー:', error);
     } finally {
@@ -202,15 +220,19 @@ export default function FollowListScreen() {
   };
 
   const handleFollowToggle = async (userId: string) => {
-    console.log('🚀 フォローボタンクリック:', userId);
+    if (featureFlags.isDebugModeEnabled()) {
+      console.log('🚀 フォローボタンクリック:', userId);
+    }
     
     // フォロー状態を取得
     const followingUser = following.find(u => u.id === userId);
     const followerUser = followers.find(u => u.id === userId);
     const currentUser = followingUser || followerUser;
     
-    console.log('👤 対象ユーザー:', currentUser);
-    console.log('📊 現在のフォロー状態:', currentUser?.isFollowing);
+    if (featureFlags.isDebugModeEnabled()) {
+      console.log('👤 対象ユーザー:', currentUser);
+      console.log('📊 現在のフォロー状態:', currentUser?.isFollowing);
+    }
     
     if (!currentUser) {
       console.error('❌ 対象ユーザーが見つかりません:', userId);
@@ -218,7 +240,9 @@ export default function FollowListScreen() {
     }
 
     const willFollow = !currentUser.isFollowing;
-    console.log('🎯 実行予定の操作:', willFollow ? 'フォロー' : 'フォロー解除');
+    if (featureFlags.isDebugModeEnabled()) {
+      console.log('🎯 実行予定の操作:', willFollow ? 'フォロー' : 'フォロー解除');
+    }
 
     // 楽観的更新: UIを即座に更新
     const updateUser = (users: DisplayFollowUser[]) =>
@@ -228,20 +252,30 @@ export default function FollowListScreen() {
           : user
       );
 
-    console.log('🔄 UI楽観的更新実行');
+    if (featureFlags.isDebugModeEnabled()) {
+      console.log('🔄 UI楽観的更新実行');
+    }
     setFollowing(updateUser(following));
     setFollowers(updateUser(followers));
 
     try {
-      console.log('📡 FollowService API呼び出し開始');
+      if (featureFlags.isDebugModeEnabled()) {
+        console.log('📡 FollowService API呼び出し開始');
+      }
       
       if (willFollow) {
-        console.log('➡️ followUser API呼び出し:', userId);
+        if (featureFlags.isDebugModeEnabled()) {
+          console.log('➡️ followUser API呼び出し:', userId);
+        }
         const result = await followService.followUser(userId);
-        console.log('✅ followUser API成功:', result);
+        if (featureFlags.isDebugModeEnabled()) {
+          console.log('✅ followUser API成功:', result);
+        }
         followService.optimisticallyUpdateFollow(userId, true);
       } else {
-        console.log('➡️ unfollowUser API呼び出し:', userId);
+        if (featureFlags.isDebugModeEnabled()) {
+          console.log('➡️ unfollowUser API呼び出し:', userId);
+        }
         const result = await followService.unfollowUser(userId);
         console.log('✅ unfollowUser API成功:', result);
         followService.optimisticallyUpdateFollow(userId, false);
@@ -250,13 +284,17 @@ export default function FollowListScreen() {
       console.log('🎉 フォロー操作完了');
     } catch (error) {
       console.error('❌ フォロー操作エラー:', error);
-      console.error('❌ エラー詳細:', JSON.stringify(error, null, 2));
-      console.error('❌ エラータイプ:', typeof error);
-      console.error('❌ エラーメッセージ:', (error as any)?.message);
-      console.error('❌ エラースタック:', (error as any)?.stack);
+      if (featureFlags.isDebugModeEnabled()) {
+        console.error('❌ エラー詳細:', JSON.stringify(error, null, 2));
+        console.error('❌ エラータイプ:', typeof error);
+        console.error('❌ エラーメッセージ:', (error as any)?.message);
+        console.error('❌ エラースタック:', (error as any)?.stack);
+      }
       
       // エラー時はUIをロールバック
-      console.log('🔄 UIロールバック実行');
+      if (featureFlags.isDebugModeEnabled()) {
+        console.log('🔄 UIロールバック実行');
+      }
       const rollbackUser = (users: DisplayFollowUser[]) =>
         users.map(user => 
           user.id === userId 
@@ -303,7 +341,9 @@ export default function FollowListScreen() {
     try {
       await fetchFollowData();
     } catch (error) {
-      console.error('Failed to refresh follow data:', error);
+      if (featureFlags.isDebugModeEnabled()) {
+        console.error('Failed to refresh follow data:', error);
+      }
     } finally {
       setRefreshing(false);
     }

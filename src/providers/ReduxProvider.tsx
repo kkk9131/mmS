@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Provider } from 'react-redux';
-import { store } from '../store';
+import { store, validateStore } from '../store';
 import { FeatureFlagsManager } from '../services/featureFlags';
 import { supabaseClient } from '../services/supabase/client';
 import { createSupabaseConfig } from '../services/supabase/config';
@@ -32,6 +32,25 @@ const ReduxInitializer: React.FC<{ children: React.ReactNode }> = ({ children })
         // Initialize auth state if Redux is enabled
         if (featureFlags.isReduxEnabled()) {
           store.dispatch(initializeAuth());
+          
+          // Validate RTK Query setup in debug mode
+          if (featureFlags.isDebugModeEnabled()) {
+            setTimeout(() => {
+              const validation = validateStore();
+              console.log('🔍 RTK Query ストア検証結果:', validation);
+              
+              if (!validation.isValid) {
+                console.error('⚠️ RTK Query設定に問題があります:', {
+                  missingSupabaseApi: !validation.hasSupabaseApi,
+                  missingImageApi: !validation.hasImageApi,
+                  middlewareConfigured: validation.middlewareConfigured,
+                  storeKeys: validation.storeKeys
+                });
+              } else {
+                console.log('✅ RTK Query が正しく設定されています');
+              }
+            }, 500);
+          }
         }
 
       } catch (error) {

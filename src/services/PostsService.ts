@@ -379,6 +379,57 @@ export class PostsService {
     return comments.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }
 
+  // ユーザーが投稿にいいねしているかチェック
+  private async checkUserLikedPost(postId: string, userId: string): Promise<boolean> {
+    try {
+      const client = supabaseClient.getClient();
+      const { data, error } = await client
+        .from('likes')
+        .select('id')
+        .eq('post_id', postId)
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = No rows found
+        console.warn('Error checking like status:', error);
+        return false;
+      }
+
+      return !!data;
+    } catch (error) {
+      console.warn('Failed to check like status:', error);
+      return false;
+    }
+  }
+
+  // ユーザーが投稿にコメントしているかチェック
+  private async checkUserCommentedPost(postId: string, userId: string | null): Promise<boolean> {
+    if (!userId) {
+      return false;
+    }
+
+    try {
+      const client = supabaseClient.getClient();
+      const { data, error } = await client
+        .from('comments')
+        .select('id')
+        .eq('post_id', postId)
+        .eq('user_id', userId)
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = No rows found
+        console.warn('Error checking comment status:', error);
+        return false;
+      }
+
+      return !!data;
+    } catch (error) {
+      console.warn('Failed to check comment status:', error);
+      return false;
+    }
+  }
+
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
@@ -459,10 +510,21 @@ export class PostsService {
         (posts || []).map(async (post) => {
           const user = Array.isArray(post.users) ? post.users[0] : post.users;
           
-          // Get user's like status for this post - skip for custom auth
+          // Get user's like status for this post
           let isLiked = false;
-          // Note: Like status retrieval is handled by RTK Query with RPC function
-          // For direct PostsService calls, we skip like status to avoid auth complexity
+          let currentUserId: string | null = null;
+          
+          try {
+            const { store } = await import('../store');
+            const state = store.getState();
+            currentUserId = state.auth?.profile?.id || state.auth?.user?.id || null;
+            
+            if (currentUserId) {
+              isLiked = await this.checkUserLikedPost(post.id, currentUserId);
+            }
+          } catch (error) {
+            console.warn('Failed to get like status:', error);
+          }
 
           // 画像配列の処理（新しいimagesフィールドを優先、旧image_urlフィールドをフォールバック）
           let imageUrls: string[] | undefined = undefined;
@@ -485,7 +547,7 @@ export class PostsService {
             likesCount: post.likes_count || 0,
             commentsCount: post.comments_count || 0,
             isLiked,
-            isCommented: false, // TODO: PostsServiceでは直接的にコメント済み状態を取得できないため、RTK Queryの使用を推奨
+            isCommented: await this.checkUserCommentedPost(post.id, currentUserId), // コメント済み状態を直接取得
             images: imageUrls && imageUrls.length > 0 ? imageUrls : undefined,
           };
         })

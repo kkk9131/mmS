@@ -51,29 +51,37 @@ export default function LoginScreen() {
   
   // Navigate to home when authentication is successful
   useEffect(() => {
-    console.log('🔍 認証状態変更:', {
-      isAuthenticated: auth.isAuthenticated,
-      isLoading: auth.isLoading,
-      user: auth.user,
-      session: auth.session,
-      profile: auth.profile,
-      error: auth.error
-    });
+    if (featureFlags.isDebugModeEnabled()) {
+      console.log('🔍 認証状態変更:', {
+        isAuthenticated: auth.isAuthenticated,
+        isLoading: auth.isLoading,
+        user: auth.user,
+        session: auth.session,
+        profile: auth.profile,
+        error: auth.error
+      });
+    }
     
     if (auth.isAuthenticated && !auth.isLoading) {
-      console.log('✅ 認証完了 - ホーム画面に遷移します');
+      if (featureFlags.isDebugModeEnabled()) {
+        console.log('✅ 認証完了 - ホーム画面に遷移します');
+      }
       router.replace('/(tabs)');
     } else if (!auth.isAuthenticated && !auth.isLoading && auth.user) {
-      console.log('⚠️ ユーザーは存在するが認証されていない状態');
+      if (featureFlags.isDebugModeEnabled()) {
+        console.log('⚠️ ユーザーは存在するが認証されていない状態');
+      }
     }
   }, [auth.isAuthenticated, auth.isLoading, auth.user]);
 
   const handleLogin = async () => {
-    console.log('🚀 ログイン開始');
-    console.log('プラットフォーム:', Platform.OS);
-    console.log('Redux有効:', isReduxEnabled);
-    console.log('Supabase有効:', featureFlags.isSupabaseEnabled());
-    console.log('デバッグモード:', featureFlags.isDebugModeEnabled());
+    if (featureFlags.isDebugModeEnabled()) {
+      console.log('🚀 ログイン開始');
+      console.log('プラットフォーム:', Platform.OS);
+      console.log('Redux有効:', isReduxEnabled);
+      console.log('Supabase有効:', featureFlags.isSupabaseEnabled());
+      console.log('デバッグモード:', featureFlags.isDebugModeEnabled());
+    }
     
     // Input validation (簡素化版)
     if (!maternalBookNumber.trim()) {
@@ -86,12 +94,16 @@ export default function LoginScreen() {
 
     // Clear any previous errors
     setLocalError('');
-    console.log('✅ バリデーション完了');
+    if (featureFlags.isDebugModeEnabled()) {
+      console.log('✅ バリデーション完了');
+    }
     
     try {
       if (isReduxEnabled) {
-        console.log('🔄 Redux認証開始');
-        console.log('認証情報:', { maternalBookNumber: maternalBookNumber.trim(), nickname: nickname.trim() });
+        if (featureFlags.isDebugModeEnabled()) {
+          console.log('🔄 Redux認証開始');
+          console.log('認証情報:', { maternalBookNumber: maternalBookNumber.trim(), nickname: nickname.trim() });
+        }
         
         // Use Redux for login (ニックネーム自動生成対応)
         const result = await dispatch(signInWithMaternalBook({
@@ -99,15 +111,21 @@ export default function LoginScreen() {
           nickname: finalNickname || 'ママ',
         }));
         
-        console.log('📊 Redux結果:', result);
+        if (featureFlags.isDebugModeEnabled()) {
+          console.log('📊 Redux結果:', result);
+        }
         
         if (signInWithMaternalBook.fulfilled.match(result)) {
-          console.log('✅ Redux login successful', result.payload);
+          if (featureFlags.isDebugModeEnabled()) {
+            console.log('✅ Redux login successful', result.payload);
+          }
           // Navigation is handled by useEffect when auth.isAuthenticated changes
         } else {
-          console.error('❌ Redux login failed:', result.payload);
-          console.error('エラータイプ:', result.type);
-          console.error('完全な結果:', result);
+          if (featureFlags.isDebugModeEnabled()) {
+            console.error('❌ Redux login failed:', result.payload);
+            console.error('エラータイプ:', result.type);
+            console.error('完全な結果:', result);
+          }
           
           // Set local error if Redux error is not displayed
           if (!auth.error) {
@@ -115,20 +133,26 @@ export default function LoginScreen() {
           }
         }
       } else {
-        console.log('🔄 Context認証開始');
+        if (featureFlags.isDebugModeEnabled()) {
+          console.log('🔄 Context認証開始');
+        }
         
         // Fallback to AuthContext
         await contextLogin(maternalBookNumber.trim(), nickname.trim());
 
-        console.log('✅ Context login successful');
+        if (featureFlags.isDebugModeEnabled()) {
+          console.log('✅ Context login successful');
+        }
         router.replace('/(tabs)');
       }
     } catch (error: any) {
       console.error('💥 予期しないエラー:', error);
-      console.error('エラーの型:', typeof error);
-      console.error('エラーメッセージ:', error?.message);
-      console.error('エラースタック:', error?.stack);
-      console.error('エラーオブジェクト全体:', error);
+      if (featureFlags.isDebugModeEnabled()) {
+        console.error('エラーの型:', typeof error);
+        console.error('エラーメッセージ:', error?.message);
+        console.error('エラースタック:', error?.stack);
+        console.error('エラーオブジェクト全体:', error);
+      }
 
       // デバッグ用の詳細エラー情報
       const errorDetails = {
@@ -145,7 +169,9 @@ export default function LoginScreen() {
         version: Platform.Version,
       };
       
-      console.error('📊 詳細エラー情報:', errorDetails);
+      if (featureFlags.isDebugModeEnabled()) {
+        console.error('📊 詳細エラー情報:', errorDetails);
+      }
 
       // For non-Redux errors, set local error
       if (!isReduxEnabled) {
