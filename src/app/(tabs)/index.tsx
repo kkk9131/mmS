@@ -11,6 +11,7 @@ import { FeatureFlagsManager } from '../../services/featureFlags';
 import { PostsService } from '../../services/PostsService';
 import { useHandPreference } from '../../contexts/HandPreferenceContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { debugStoreConfiguration } from '../../debug/store-debug';
 
 interface PostWithLocalState {
   id: string;
@@ -34,6 +35,14 @@ export default function HomeScreen() {
   const { theme } = useTheme();
   const featureFlags = FeatureFlagsManager.getInstance();
   const postsService = PostsService.getInstance();
+
+  // Store Debug (開発環境のみ)
+  useEffect(() => {
+    if (featureFlags.isDebugModeEnabled()) {
+      console.log('🏠 HomeScreen: Store デバッグ実行中...');
+      debugStoreConfiguration();
+    }
+  }, []);
   
   // UI State
   const [sidebarVisible, setSidebarVisible] = useState(false);
